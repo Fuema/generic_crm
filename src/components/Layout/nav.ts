@@ -5,6 +5,7 @@ import {
 	FileText,
 	FolderKanban,
 	KanbanSquare,
+	Layers,
 	LayoutDashboard,
 	type LucideIcon,
 	Package,
@@ -67,6 +68,7 @@ export const NAV_GROUPS: {
 		items: [
 			{ title: m.nav_members, to: "/workspace/members", icon: Users },
 			{ title: m.nav_settings, to: "/workspace/settings", icon: Settings },
+			{ title: m.nav_fields, to: "/settings/fields", icon: Layers },
 		],
 	},
 ];

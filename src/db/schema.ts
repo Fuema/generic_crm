@@ -698,3 +698,75 @@ export const note = pgTable(
 		),
 	],
 );
+
+// Custom fields engine (spec §7.1–7.2). One engine for built-in records and,
+// later, custom objects. Labels are { en, es }; values live in the record's
+// `custom` jsonb, keyed by the field's immutable `key`.
+
+// Named, ordered sections on a record page ("Billing details")
+export const fieldGroup = pgTable(
+	"field_group",
+	{
+		id: text("id").primaryKey(),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
+		// "contact" | "company" (custom object keys later)
+		objectKey: text("object_key").notNull(),
+		label: jsonb("label").$type<{ en: string; es: string }>().notNull(),
+		position: integer("position").notNull().default(0),
+		archivedAt: timestamp("archived_at"),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+		updatedAt: timestamp("updated_at").notNull().defaultNow(),
+	},
+	(t) => [
+		index("field_group_object_idx").on(t.workspaceId, t.objectKey, t.position),
+	],
+);
+
+export const fieldDefinition = pgTable(
+	"field_definition",
+	{
+		id: text("id").primaryKey(),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
+		objectKey: text("object_key").notNull(),
+		// Immutable once created; the key of the value in `custom`
+		key: text("key").notNull(),
+		label: jsonb("label").$type<{ en: string; es: string }>().notNull(),
+		help: jsonb("help").$type<{ en: string; es: string }>(),
+		// text | long_text | number | money | percent | date | checkbox |
+		// single_choice | multiple_choice | email | phone | url (fixed once created)
+		type: text("type").notNull(),
+		// For choice fields: [{ value, label: { en, es } }]; value never changes
+		options: jsonb("options")
+			.$type<{ value: string; label: { en: string; es: string } }[]>()
+			.notNull()
+			.default([]),
+		required: boolean("required").notNull().default(false),
+		// Text and email only: no two records of this type share a value
+		unique: boolean("unique").notNull().default(false),
+		groupId: text("group_id").references(() => fieldGroup.id, {
+			onDelete: "set null",
+		}),
+		position: integer("position").notNull().default(0),
+		// hidden | read_only | editable (customer portal, phase 4)
+		portalVisibility: text("portal_visibility").notNull().default("hidden"),
+		archivedAt: timestamp("archived_at"),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+		updatedAt: timestamp("updated_at").notNull().defaultNow(),
+	},
+	(t) => [
+		uniqueIndex("field_definition_key_unique").on(
+			t.workspaceId,
+			t.objectKey,
+			t.key,
+		),
+		index("field_definition_object_idx").on(
+			t.workspaceId,
+			t.objectKey,
+			t.position,
+		),
+	],
+);

@@ -17,6 +17,13 @@ import {
 } from "#/components/ui/dialog";
 import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
+import {
+	CustomFieldInputs,
+	initialFormValues,
+	toCustomInput,
+} from "#/modules/fields/components/CustomFields";
+import type { RecordFields } from "#/modules/fields/fields";
+import type { FormValue } from "#/modules/fields/values";
 import { m } from "#/paraglide/messages.js";
 import {
 	CONSENT_LABELS,
@@ -87,6 +94,8 @@ export function ContactFormDialog({
 	initial,
 	editing,
 	options,
+	fields,
+	initialCustom,
 	onSave,
 }: {
 	open: boolean;
@@ -94,6 +103,8 @@ export function ContactFormDialog({
 	initial: ContactInput;
 	editing: boolean;
 	options: ContactFormOptions;
+	fields: RecordFields;
+	initialCustom: Record<string, unknown>;
 	onSave: (value: ContactInput) => Promise<void>;
 }) {
 	return (
@@ -111,6 +122,8 @@ export function ContactFormDialog({
 						initial={initial}
 						editing={editing}
 						options={options}
+						fields={fields}
+						initialCustom={initialCustom}
 						onCancel={() => onOpenChange(false)}
 						onSave={onSave}
 					/>
@@ -124,23 +137,38 @@ function ContactForm({
 	initial,
 	editing,
 	options,
+	fields,
+	initialCustom,
 	onCancel,
 	onSave,
 }: {
 	initial: ContactInput;
 	editing: boolean;
 	options: ContactFormOptions;
+	fields: RecordFields;
+	initialCustom: Record<string, unknown>;
 	onCancel: () => void;
 	onSave: (value: ContactInput) => Promise<void>;
 }) {
 	const [error, setError] = useState<string | null>(null);
+	const [customValues, setCustomValues] = useState<Record<string, FormValue>>(
+		() => initialFormValues(fields.fields, initialCustom),
+	);
+	const [customErrors, setCustomErrors] = useState<Record<string, string>>({});
 	const form = useForm({
 		defaultValues: initial,
 		validators: { onBlur: contactInputSchema, onSubmit: contactInputSchema },
 		onSubmit: async ({ value }) => {
 			setError(null);
+			// Same rules as the server, so mistakes show next to the field
+			const custom = toCustomInput(fields.fields, customValues);
+			setCustomErrors(custom.errors);
+			if (Object.keys(custom.errors).length) return;
 			try {
-				await onSave(contactInputSchema.parse(value));
+				await onSave({
+					...contactInputSchema.parse(value),
+					custom: custom.input,
+				});
 			} catch (e) {
 				setError(await serverErrorMessage(e));
 			}
@@ -259,6 +287,14 @@ function ContactForm({
 					)}
 				</form.Field>
 			</div>
+			<CustomFieldInputs
+				fields={fields}
+				values={customValues}
+				errors={customErrors}
+				onChange={(key, v) =>
+					setCustomValues((current) => ({ ...current, [key]: v }))
+				}
+			/>
 			<DialogFooter>
 				<Button type="button" variant="ghost" onClick={onCancel}>
 					{m.common_cancel()}

@@ -41,6 +41,7 @@ import {
 	LIFECYCLE_STAGES,
 	STAGE_LABELS,
 } from "#/modules/contacts/schema";
+import { getRecordFields } from "#/modules/fields/fields";
 import { TagPill } from "#/modules/records/components/TagEditor";
 import { listWorkspaceTags } from "#/modules/records/records";
 import { m } from "#/paraglide/messages.js";
@@ -51,12 +52,13 @@ export const Route = createFileRoute("/_authed/contacts/")({
 	validateSearch: contactSearchSchema,
 	loaderDeps: ({ search }) => search,
 	loader: async ({ deps }) => {
-		const [list, options, allTags] = await Promise.all([
+		const [list, options, allTags, fields] = await Promise.all([
 			listContacts({ data: deps }),
 			getContactFormOptions(),
 			listWorkspaceTags(),
+			getRecordFields({ data: { objectKey: "contact" } }),
 		]);
-		return { ...list, options, allTags };
+		return { ...list, options, allTags, fields };
 	},
 	component: ContactsPage,
 });
@@ -65,7 +67,8 @@ function ContactsPage() {
 	const router = useRouter();
 	const navigate = Route.useNavigate();
 	const search = Route.useSearch();
-	const { rows, total, pageCount, options, allTags } = Route.useLoaderData();
+	const { rows, total, pageCount, options, allTags, fields } =
+		Route.useLoaderData();
 	const { access } = Route.useRouteContext();
 	const can = {
 		create: roleCan(access?.role, { contact: ["create"] }),
@@ -326,6 +329,8 @@ function ContactsPage() {
 				onOpenChange={setOpen}
 				initial={EMPTY_CONTACT}
 				editing={false}
+				fields={fields}
+				initialCustom={{}}
 				options={options}
 				onSave={async (value) => {
 					const { id } = await createContact({ data: value });

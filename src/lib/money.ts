@@ -1,3 +1,5 @@
+import { getLocale } from "#/paraglide/runtime.js";
+
 // Money is handled as integer cents everywhere; only formatting and parsing
 // touch decimals. Tax rates are basis points: 825 = 8.25%.
 
@@ -17,11 +19,17 @@ export const CURRENCIES = [
 ] as const;
 export type Currency = (typeof CURRENCIES)[number];
 
-export function formatMoney(cents: number, currency: string) {
+// In the reader's language (spec §14), with the workspace's currency
+export function formatMoney(
+	cents: number,
+	currency: string,
+	locale: string = getLocale(),
+) {
 	try {
-		return new Intl.NumberFormat("en", { style: "currency", currency }).format(
-			cents / 100,
-		);
+		return new Intl.NumberFormat(locale, {
+			style: "currency",
+			currency,
+		}).format(cents / 100);
 	} catch {
 		return `${(cents / 100).toFixed(2)} ${currency}`;
 	}

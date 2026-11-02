@@ -35,6 +35,7 @@ import { Route as AuthedInvoicesInvoiceIdRouteImport } from './routes/_authed/in
 import { Route as AuthedOrdersIndexRouteImport } from './routes/_authed/orders/index'
 import { Route as AuthedOrdersOrderIdRouteImport } from './routes/_authed/orders/$orderId'
 import { Route as AuthedOrdersNewRouteImport } from './routes/_authed/orders/new'
+import { Route as AuthedSettingsFieldsRouteImport } from './routes/_authed/settings/fields'
 import { Route as AuthedWorkspaceMembersRouteImport } from './routes/_authed/workspace/members'
 import { Route as AuthedWorkspaceNewRouteImport } from './routes/_authed/workspace/new'
 import { Route as AuthedWorkspaceSettingsRouteImport } from './routes/_authed/workspace/settings'
@@ -170,6 +171,11 @@ const AuthedOrdersNewRoute = AuthedOrdersNewRouteImport.update({
   path: '/orders/new',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedSettingsFieldsRoute = AuthedSettingsFieldsRouteImport.update({
+  id: '/settings/fields',
+  path: '/settings/fields',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedWorkspaceMembersRoute = AuthedWorkspaceMembersRouteImport.update({
   id: '/workspace/members',
   path: '/workspace/members',
@@ -212,6 +218,7 @@ export interface FileRoutesByFullPath {
   '/invoices/$invoiceId': typeof AuthedInvoicesInvoiceIdRoute
   '/orders/$orderId': typeof AuthedOrdersOrderIdRoute
   '/orders/new': typeof AuthedOrdersNewRoute
+  '/settings/fields': typeof AuthedSettingsFieldsRoute
   '/workspace/members': typeof AuthedWorkspaceMembersRoute
   '/workspace/new': typeof AuthedWorkspaceNewRoute
   '/workspace/settings': typeof AuthedWorkspaceSettingsRoute
@@ -242,6 +249,7 @@ export interface FileRoutesByTo {
   '/invoices/$invoiceId': typeof AuthedInvoicesInvoiceIdRoute
   '/orders/$orderId': typeof AuthedOrdersOrderIdRoute
   '/orders/new': typeof AuthedOrdersNewRoute
+  '/settings/fields': typeof AuthedSettingsFieldsRoute
   '/workspace/members': typeof AuthedWorkspaceMembersRoute
   '/workspace/new': typeof AuthedWorkspaceNewRoute
   '/workspace/settings': typeof AuthedWorkspaceSettingsRoute
@@ -275,6 +283,7 @@ export interface FileRoutesById {
   '/_authed/invoices/$invoiceId': typeof AuthedInvoicesInvoiceIdRoute
   '/_authed/orders/$orderId': typeof AuthedOrdersOrderIdRoute
   '/_authed/orders/new': typeof AuthedOrdersNewRoute
+  '/_authed/settings/fields': typeof AuthedSettingsFieldsRoute
   '/_authed/workspace/members': typeof AuthedWorkspaceMembersRoute
   '/_authed/workspace/new': typeof AuthedWorkspaceNewRoute
   '/_authed/workspace/settings': typeof AuthedWorkspaceSettingsRoute
@@ -307,6 +316,7 @@ export interface FileRouteTypes {
     | '/invoices/$invoiceId'
     | '/orders/$orderId'
     | '/orders/new'
+    | '/settings/fields'
     | '/workspace/members'
     | '/workspace/new'
     | '/workspace/settings'
@@ -337,6 +347,7 @@ export interface FileRouteTypes {
     | '/invoices/$invoiceId'
     | '/orders/$orderId'
     | '/orders/new'
+    | '/settings/fields'
     | '/workspace/members'
     | '/workspace/new'
     | '/workspace/settings'
@@ -369,6 +380,7 @@ export interface FileRouteTypes {
     | '/_authed/invoices/$invoiceId'
     | '/_authed/orders/$orderId'
     | '/_authed/orders/new'
+    | '/_authed/settings/fields'
     | '/_authed/workspace/members'
     | '/_authed/workspace/new'
     | '/_authed/workspace/settings'
@@ -571,6 +583,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrdersNewRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/settings/fields': {
+      id: '/_authed/settings/fields'
+      path: '/settings/fields'
+      fullPath: '/settings/fields'
+      preLoaderRoute: typeof AuthedSettingsFieldsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/workspace/members': {
       id: '/_authed/workspace/members'
       path: '/workspace/members'
@@ -616,6 +635,7 @@ interface AuthedRouteChildren {
   AuthedInvoicesInvoiceIdRoute: typeof AuthedInvoicesInvoiceIdRoute
   AuthedOrdersOrderIdRoute: typeof AuthedOrdersOrderIdRoute
   AuthedOrdersNewRoute: typeof AuthedOrdersNewRoute
+  AuthedSettingsFieldsRoute: typeof AuthedSettingsFieldsRoute
   AuthedWorkspaceMembersRoute: typeof AuthedWorkspaceMembersRoute
   AuthedWorkspaceNewRoute: typeof AuthedWorkspaceNewRoute
   AuthedWorkspaceSettingsRoute: typeof AuthedWorkspaceSettingsRoute
@@ -640,6 +660,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedInvoicesInvoiceIdRoute: AuthedInvoicesInvoiceIdRoute,
   AuthedOrdersOrderIdRoute: AuthedOrdersOrderIdRoute,
   AuthedOrdersNewRoute: AuthedOrdersNewRoute,
+  AuthedSettingsFieldsRoute: AuthedSettingsFieldsRoute,
   AuthedWorkspaceMembersRoute: AuthedWorkspaceMembersRoute,
   AuthedWorkspaceNewRoute: AuthedWorkspaceNewRoute,
   AuthedWorkspaceSettingsRoute: AuthedWorkspaceSettingsRoute,

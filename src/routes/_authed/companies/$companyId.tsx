@@ -23,6 +23,11 @@ import {
 	updateCompany,
 } from "#/modules/contacts/contacts";
 import { type CompanyInput, contactName } from "#/modules/contacts/schema";
+import {
+	CustomFieldsView,
+	customFieldLabels,
+} from "#/modules/fields/components/CustomFields";
+import { getRecordFields } from "#/modules/fields/fields";
 import { RecordTimeline } from "#/modules/records/components/RecordTimeline";
 import { TagEditor } from "#/modules/records/components/TagEditor";
 import { getTimeline, listWorkspaceTags } from "#/modules/records/records";
@@ -35,13 +40,14 @@ export const Route = createFileRoute("/_authed/companies/$companyId")({
 				subjectType: "company" as const,
 				subjectId: params.companyId,
 			};
-			const [detail, options, timeline, allTags] = await Promise.all([
+			const [detail, options, timeline, allTags, fields] = await Promise.all([
 				getCompany({ data: { id: params.companyId } }),
 				getContactFormOptions(),
 				getTimeline({ data: subject }),
 				listWorkspaceTags(),
+				getRecordFields({ data: { objectKey: "company" } }),
 			]);
-			return { ...detail, members: options.members, timeline, allTags };
+			return { ...detail, members: options.members, timeline, allTags, fields };
 		} catch (e) {
 			// Unknown, malformed or another workspace's id: the same "not found"
 			if (e instanceof Response && (e.status === 404 || e.status === 400))
@@ -68,7 +74,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 
 function CompanyPage() {
 	const router = useRouter();
-	const { company, ownerName, contacts, timeline, allTags, members } =
+	const { company, ownerName, contacts, timeline, allTags, members, fields } =
 		Route.useLoaderData();
 	const { access, session } = Route.useRouteContext();
 	const can = {
@@ -179,6 +185,9 @@ function CompanyPage() {
 								value={formatDate(company.createdAt)}
 							/>
 						</dl>
+						<div className="mt-4">
+							<CustomFieldsView fields={fields} custom={company.custom} />
+						</div>
 					</CardContent>
 				</Card>
 				<div className="space-y-6 lg:col-span-2">
@@ -229,6 +238,7 @@ function CompanyPage() {
 								canWrite={can.update && !archived}
 								canDeleteAny={can.archive}
 								currentUserId={session.user.id}
+								fieldLabels={customFieldLabels(fields)}
 								onChanged={() => router.invalidate()}
 							/>
 						</CardContent>
@@ -241,6 +251,8 @@ function CompanyPage() {
 				onOpenChange={setOpen}
 				initial={initial}
 				editing
+				fields={fields}
+				initialCustom={company.custom}
 				members={members}
 				onSave={async (value) => {
 					await updateCompany({ data: { id: company.id, ...value } });
