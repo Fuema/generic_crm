@@ -8,6 +8,7 @@ import {
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
 import { THEME_INIT_SCRIPT } from "../lib/theme";
+import { getLocale } from "../paraglide/runtime.js";
 import appCss from "../styles.css?url";
 
 interface MyRouterContext {
@@ -42,7 +43,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 	return (
 		// The theme script sets the `dark` class before React hydrates, so the
 		// server-rendered <html> attributes can legitimately differ
-		<html lang="en" suppressHydrationWarning>
+		<html lang={getLocale()} suppressHydrationWarning>
 			<head>
 				{/* biome-ignore lint/security/noDangerouslySetInnerHtml: static, self-authored script with no user input */}
 				<script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />

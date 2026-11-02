@@ -20,13 +20,13 @@ conventions and pitfalls live there.
 - **Contact isolation (portal):** portal queries also filter by the contact's scope and return only portal-visible fields, objects and files.
 - **Every server function** has `requirePermission(...)` (or `requireObjectPermission(...)` for custom objects) and a Zod `.validator(...)`; custom-field values are validated on the server against their definitions.
 - **No plain exported `db` helpers in modules routes import** — put them in `*.server.ts` (`check:bundle` guards it).
-- **English and Spanish:** no hard-coded user-visible text once i18n exists (phase 0).
+- **English and Spanish:** user-visible text comes from `messages/en.json` and `messages/es.json` through `m.*()` (`#/paraglide/messages.js`), never hard-coded; add every key to both files (`check:i18n` fails otherwise). Pages not yet converted are listed in spec §5.
 - Money in integer cents, tax in basis points, dates in UTC (all-day at 12:00 UTC).
 - Never edit `.env*`; never print secret values. This project has **its own** Neon database; never point it at `my-tanstack-app`'s.
 
 ## Definition of done
-`bun run validate` passes (typecheck, Biome, unit tests, build, browser-bundle check;
-integration and i18n checks once phase 0 adds them), plus a browser check for UI changes.
+`bun run validate` passes (typecheck, Biome, translation keys, unit tests, build,
+browser-bundle check), plus a browser check for UI changes. Integration tests run separately.
 New business rules get a test in `tests/unit/`. Changes to server code, the schema or
 isolation rules also run `bun run test:integration` (Neon `test` branch, `TEST_DATABASE_URL`).
 
