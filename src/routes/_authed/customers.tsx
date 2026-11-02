@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { Lock, Plus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { FormAlert } from "#/components/Auth/FormParts";
@@ -18,6 +18,7 @@ import {
 	updateCustomer,
 } from "#/lib/customers";
 import { type CustomerSearch, customerSearchSchema } from "#/lib/schema";
+import { m } from "#/paraglide/messages.js";
 
 // Protected by the _authed layout guard; listCustomers itself requires customer:read.
 // The table state (page, size, search, filters, sort) lives in the URL, so every
@@ -81,9 +82,22 @@ function CustomersPage() {
 
 	return (
 		<div className="mx-auto max-w-7xl space-y-6 p-6">
+			{/* Legacy module: replaced by Contacts and Companies (spec §5, phase 2) */}
+			<p
+				role="note"
+				className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100"
+			>
+				{m.customers_legacy_notice()}{" "}
+				<Link
+					to="/contacts"
+					className="font-medium underline underline-offset-4"
+				>
+					{m.customers_legacy_link()}
+				</Link>
+			</p>
 			<div className="flex flex-wrap items-end justify-between gap-4">
 				<div>
-					<h1 className="text-2xl font-bold">Customers</h1>
+					<h1 className="text-2xl font-bold">{m.nav_customers()}</h1>
 					<p className="text-sm text-muted-foreground">
 						Customers in {access?.workspace?.name ?? "this workspace"}.
 					</p>

@@ -157,7 +157,7 @@
 	"nav_work": "Trabajo",
 	"nav_workspace": "Espacio de trabajo",
 	"nav_dashboard": "Panel",
-	"nav_customers": "Clientes",
+	"nav_customers": "Clientes (antiguo)",
 	"nav_products": "Productos",
 	"nav_orders": "Pedidos",
 	"nav_invoices": "Facturas",
@@ -507,5 +507,7 @@
 	"event_note_deleted": "Eliminó una nota",
 	"event_note_pinned": "Fijó una nota",
 	"event_note_unpinned": "Desfijó una nota",
-	"contacts_col_tags": "Etiquetas"
+	"contacts_col_tags": "Etiquetas",
+	"customers_legacy_notice": "Esta página es de la versión anterior de la aplicación. Añade personas y organizaciones nuevas en Contactos y Empresas. Clientes desaparecerá cuando los pedidos y las facturas pasen a usar contactos.",
+	"customers_legacy_link": "Ir a Contactos"
 }
