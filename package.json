@@ -25,6 +25,7 @@
     "db:seed:planning": "bun scripts/seed-planning.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test tests/unit",
+    "test:integration": "bun test --preload ./tests/integration/setup.ts tests/integration",
     "check:bundle": "bun run build && bun scripts/check-bundle.ts",
     "validate": "bun run typecheck && bun run check && bun run test && bun run check:bundle"
   },
