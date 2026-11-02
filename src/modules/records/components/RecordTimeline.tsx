@@ -38,7 +38,7 @@ const FIELD_LABELS: Record<string, () => string> = {
 	country: m.common_country,
 };
 
-function describe(e: TimelineEvent) {
+function describe(e: TimelineEvent, fieldLabels: Record<string, string>) {
 	const kind = e.type.split(".").pop();
 	const payload = e.payload as {
 		changes?: Record<string, unknown>;
@@ -64,7 +64,7 @@ function describe(e: TimelineEvent) {
 		case "updated":
 			return m.event_updated({
 				fields: Object.keys(payload.changes ?? {})
-					.map((key) => FIELD_LABELS[key]?.() ?? key)
+					.map((key) => FIELD_LABELS[key]?.() ?? fieldLabels[key] ?? key)
 					.join(", ")
 					.toLowerCase(),
 			});
@@ -90,6 +90,7 @@ export function RecordTimeline({
 	canWrite,
 	canDeleteAny,
 	currentUserId,
+	fieldLabels = {},
 	onChanged,
 }: {
 	subjectType: SubjectType;
@@ -98,6 +99,8 @@ export function RecordTimeline({
 	canWrite: boolean;
 	canDeleteAny: boolean;
 	currentUserId: string;
+	// Names of custom fields, keyed "custom.<key>"
+	fieldLabels?: Record<string, string>;
 	onChanged: () => Promise<void>;
 }) {
 	const [filter, setFilter] = useState<Filter>("all");
@@ -211,7 +214,7 @@ export function RecordTimeline({
 									aria-hidden="true"
 								/>
 								<div>
-									<p>{describe(item.event)}</p>
+									<p>{describe(item.event, fieldLabels)}</p>
 									<p className="text-xs text-muted-foreground">
 										{when(item.event.createdAt)} ·{" "}
 										{m.common_by({ name: actorName(item.event) })}

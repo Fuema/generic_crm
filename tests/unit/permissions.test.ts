@@ -63,6 +63,20 @@ describe("workspace roles", () => {
 		}
 	});
 
+	test("only owners and admins manage custom fields; everyone can read them", () => {
+		for (const role of ["owner", "admin"]) {
+			expect(roleCan(role, { field: ["create", "update", "delete"] })).toBe(
+				true,
+			);
+		}
+		for (const role of ["editor", "viewer"]) {
+			expect(roleCan(role, { field: ["read"] })).toBe(true);
+			for (const action of ["create", "update", "delete"] as const) {
+				expect(roleCan(role, { field: [action] })).toBe(false);
+			}
+		}
+	});
+
 	test("unknown or missing roles get nothing", () => {
 		expect(roleCan(undefined, { project: ["read"] })).toBe(false);
 		expect(roleCan("superuser", { project: ["read"] })).toBe(false);

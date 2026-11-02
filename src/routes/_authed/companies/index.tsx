@@ -38,6 +38,7 @@ import {
 	type CompanySearch,
 	companySearchSchema,
 } from "#/modules/contacts/schema";
+import { getRecordFields } from "#/modules/fields/fields";
 import { TagPill } from "#/modules/records/components/TagEditor";
 import { listWorkspaceTags } from "#/modules/records/records";
 import { m } from "#/paraglide/messages.js";
@@ -47,12 +48,13 @@ export const Route = createFileRoute("/_authed/companies/")({
 	validateSearch: companySearchSchema,
 	loaderDeps: ({ search }) => search,
 	loader: async ({ deps }) => {
-		const [list, options, allTags] = await Promise.all([
+		const [list, options, allTags, fields] = await Promise.all([
 			listCompanies({ data: deps }),
 			getContactFormOptions(),
 			listWorkspaceTags(),
+			getRecordFields({ data: { objectKey: "company" } }),
 		]);
-		return { ...list, members: options.members, allTags };
+		return { ...list, members: options.members, allTags, fields };
 	},
 	component: CompaniesPage,
 });
@@ -61,7 +63,8 @@ function CompaniesPage() {
 	const router = useRouter();
 	const navigate = Route.useNavigate();
 	const search = Route.useSearch();
-	const { rows, total, pageCount, members, allTags } = Route.useLoaderData();
+	const { rows, total, pageCount, members, allTags, fields } =
+		Route.useLoaderData();
 	const { access } = Route.useRouteContext();
 	const can = {
 		create: roleCan(access?.role, { company: ["create"] }),
@@ -273,6 +276,8 @@ function CompaniesPage() {
 				onOpenChange={setOpen}
 				initial={EMPTY_COMPANY}
 				editing={false}
+				fields={fields}
+				initialCustom={{}}
 				members={members}
 				onSave={async (value) => {
 					const { id } = await createCompany({ data: value });

@@ -15,6 +15,7 @@ import {
 import { db } from "#/db/index";
 import { company, contact, member, user } from "#/db/schema";
 import { assertWorkspaceRefs } from "#/lib/workspace-refs.server";
+import { customChanges, prepareCustom } from "#/modules/fields/fields.server";
 import { m } from "#/paraglide/messages.js";
 import {
 	type Actor,
@@ -240,6 +241,7 @@ export async function createContact(
 	data: ContactInput,
 ) {
 	await assertContactValid(workspaceId, data);
+	const custom = await prepareCustom(workspaceId, "contact", data.custom ?? {});
 	const id = uuidv7();
 	try {
 		await db.batch([
@@ -248,6 +250,7 @@ export async function createContact(
 				workspaceId,
 				createdById: actor.type === "member" ? actor.id : null,
 				...contactRow(data),
+				custom,
 			}),
 			eventInsert(workspaceId, actor, {
 				type: "contact.created",
@@ -272,14 +275,27 @@ export async function updateContact(
 	const before = await findContact(workspaceId, id);
 	if (before.archivedAt) throw clientError(409, m.error_record_archived());
 	await assertContactValid(workspaceId, data, before);
+	const custom =
+		data.custom === undefined
+			? before.custom
+			: await prepareCustom(
+					workspaceId,
+					"contact",
+					data.custom,
+					before.custom,
+					id,
+				);
 	const values = contactRow(data);
-	const changes = changedFields(before, values);
+	const changes = {
+		...changedFields(before, values),
+		...customChanges(before.custom, custom),
+	};
 	if (!Object.keys(changes).length) return { id };
 	try {
 		await db.batch([
 			db
 				.update(contact)
-				.set({ ...values, updatedAt: new Date() })
+				.set({ ...values, custom, updatedAt: new Date() })
 				.where(and(eq(contact.id, id), eq(contact.workspaceId, workspaceId))),
 			eventInsert(workspaceId, actor, {
 				type: "contact.updated",
@@ -480,6 +496,7 @@ export async function createCompany(
 	data: CompanyInput,
 ) {
 	await assertCompanyValid(workspaceId, data);
+	const custom = await prepareCustom(workspaceId, "company", data.custom ?? {});
 	const id = uuidv7();
 	try {
 		await db.batch([
@@ -488,6 +505,7 @@ export async function createCompany(
 				workspaceId,
 				createdById: actor.type === "member" ? actor.id : null,
 				...companyRow(data),
+				custom,
 			}),
 			eventInsert(workspaceId, actor, {
 				type: "company.created",
@@ -512,14 +530,27 @@ export async function updateCompany(
 	const before = await findCompany(workspaceId, id);
 	if (before.archivedAt) throw clientError(409, m.error_record_archived());
 	await assertCompanyValid(workspaceId, data, before);
+	const custom =
+		data.custom === undefined
+			? before.custom
+			: await prepareCustom(
+					workspaceId,
+					"company",
+					data.custom,
+					before.custom,
+					id,
+				);
 	const values = companyRow(data);
-	const changes = changedFields(before, values);
+	const changes = {
+		...changedFields(before, values),
+		...customChanges(before.custom, custom),
+	};
 	if (!Object.keys(changes).length) return { id };
 	try {
 		await db.batch([
 			db
 				.update(company)
-				.set({ ...values, updatedAt: new Date() })
+				.set({ ...values, custom, updatedAt: new Date() })
 				.where(and(eq(company.id, id), eq(company.workspaceId, workspaceId))),
 			eventInsert(workspaceId, actor, {
 				type: "company.updated",

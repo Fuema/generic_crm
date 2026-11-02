@@ -18,6 +18,13 @@ import {
 import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
 import { countryOptions } from "#/lib/countries";
+import {
+	CustomFieldInputs,
+	initialFormValues,
+	toCustomInput,
+} from "#/modules/fields/components/CustomFields";
+import type { RecordFields } from "#/modules/fields/fields";
+import type { FormValue } from "#/modules/fields/values";
 import { m } from "#/paraglide/messages.js";
 import { type CompanyInput, companyInputSchema } from "../schema";
 import { OptionSelect } from "./fields";
@@ -66,6 +73,8 @@ export function CompanyFormDialog({
 	initial,
 	editing,
 	members,
+	fields,
+	initialCustom,
 	onSave,
 }: {
 	open: boolean;
@@ -73,6 +82,8 @@ export function CompanyFormDialog({
 	initial: CompanyInput;
 	editing: boolean;
 	members: { id: string; name: string }[];
+	fields: RecordFields;
+	initialCustom: Record<string, unknown>;
 	onSave: (value: CompanyInput) => Promise<void>;
 }) {
 	return (
@@ -89,6 +100,8 @@ export function CompanyFormDialog({
 						initial={initial}
 						editing={editing}
 						members={members}
+						fields={fields}
+						initialCustom={initialCustom}
 						onCancel={() => onOpenChange(false)}
 						onSave={onSave}
 					/>
@@ -102,24 +115,39 @@ function CompanyForm({
 	initial,
 	editing,
 	members,
+	fields,
+	initialCustom,
 	onCancel,
 	onSave,
 }: {
 	initial: CompanyInput;
 	editing: boolean;
 	members: { id: string; name: string }[];
+	fields: RecordFields;
+	initialCustom: Record<string, unknown>;
 	onCancel: () => void;
 	onSave: (value: CompanyInput) => Promise<void>;
 }) {
 	const [error, setError] = useState<string | null>(null);
+	const [customValues, setCustomValues] = useState<Record<string, FormValue>>(
+		() => initialFormValues(fields.fields, initialCustom),
+	);
+	const [customErrors, setCustomErrors] = useState<Record<string, string>>({});
 	const countries = useMemo(() => countryOptions(), []);
 	const form = useForm({
 		defaultValues: initial,
 		validators: { onBlur: companyInputSchema, onSubmit: companyInputSchema },
 		onSubmit: async ({ value }) => {
 			setError(null);
+			// Same rules as the server, so mistakes show next to the field
+			const custom = toCustomInput(fields.fields, customValues);
+			setCustomErrors(custom.errors);
+			if (Object.keys(custom.errors).length) return;
 			try {
-				await onSave(companyInputSchema.parse(value));
+				await onSave({
+					...companyInputSchema.parse(value),
+					custom: custom.input,
+				});
 			} catch (e) {
 				setError(await serverErrorMessage(e));
 			}
@@ -194,6 +222,14 @@ function CompanyForm({
 					)}
 				</form.Field>
 			</div>
+			<CustomFieldInputs
+				fields={fields}
+				values={customValues}
+				errors={customErrors}
+				onChange={(key, v) =>
+					setCustomValues((current) => ({ ...current, [key]: v }))
+				}
+			/>
 			<DialogFooter>
 				<Button type="button" variant="ghost" onClick={onCancel}>
 					{m.common_cancel()}

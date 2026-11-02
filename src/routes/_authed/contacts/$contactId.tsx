@@ -27,6 +27,11 @@ import {
 	contactName,
 	type EmailConsent,
 } from "#/modules/contacts/schema";
+import {
+	CustomFieldsView,
+	customFieldLabels,
+} from "#/modules/fields/components/CustomFields";
+import { getRecordFields } from "#/modules/fields/fields";
 import { RecordTimeline } from "#/modules/records/components/RecordTimeline";
 import { TagEditor } from "#/modules/records/components/TagEditor";
 import { getTimeline, listWorkspaceTags } from "#/modules/records/records";
@@ -39,13 +44,14 @@ export const Route = createFileRoute("/_authed/contacts/$contactId")({
 				subjectType: "contact" as const,
 				subjectId: params.contactId,
 			};
-			const [detail, options, timeline, allTags] = await Promise.all([
+			const [detail, options, timeline, allTags, fields] = await Promise.all([
 				getContact({ data: { id: params.contactId } }),
 				getContactFormOptions(),
 				getTimeline({ data: subject }),
 				listWorkspaceTags(),
+				getRecordFields({ data: { objectKey: "contact" } }),
 			]);
-			return { ...detail, options, timeline, allTags };
+			return { ...detail, options, timeline, allTags, fields };
 		} catch (e) {
 			// Unknown, malformed or another workspace's id: the same "not found"
 			if (e instanceof Response && (e.status === 404 || e.status === 400))
@@ -72,7 +78,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 
 function ContactPage() {
 	const router = useRouter();
-	const { contact, company, ownerName, timeline, allTags, options } =
+	const { contact, company, ownerName, timeline, allTags, options, fields } =
 		Route.useLoaderData();
 	const { access, session } = Route.useRouteContext();
 	const can = {
@@ -218,6 +224,9 @@ function ContactPage() {
 								value={formatDate(contact.createdAt)}
 							/>
 						</dl>
+						<div className="mt-4">
+							<CustomFieldsView fields={fields} custom={contact.custom} />
+						</div>
 					</CardContent>
 				</Card>
 				<Card className="lg:col-span-2">
@@ -232,6 +241,7 @@ function ContactPage() {
 							canWrite={can.update && !archived}
 							canDeleteAny={can.archive}
 							currentUserId={session.user.id}
+							fieldLabels={customFieldLabels(fields)}
 							onChanged={() => router.invalidate()}
 						/>
 					</CardContent>
@@ -243,6 +253,8 @@ function ContactPage() {
 				onOpenChange={setOpen}
 				initial={initial}
 				editing
+				fields={fields}
+				initialCustom={contact.custom}
 				options={options}
 				onSave={async (value) => {
 					await updateContact({ data: { id: contact.id, ...value } });

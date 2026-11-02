@@ -74,6 +74,13 @@ const country = z
 		error: () => m.validation_choose_country(),
 	});
 
+// Custom values as sent by the form; the server checks them against the
+// field definitions (prepareCustom). Omitted on update = keep the stored values.
+const customInput = z
+	.record(z.string().max(40), z.unknown())
+	.refine((r) => Object.keys(r).length <= 100)
+	.optional();
+
 export const contactInputSchema = z.object({
 	firstName: z
 		.string()
@@ -89,6 +96,7 @@ export const contactInputSchema = z.object({
 	lifecycleStage: z.enum(LIFECYCLE_STAGES),
 	locale: z.enum(["", "en", "es"]),
 	emailConsent: z.enum(EMAIL_CONSENTS),
+	custom: customInput,
 });
 export type ContactInput = z.infer<typeof contactInputSchema>;
 
@@ -115,6 +123,7 @@ export const companyInputSchema = z.object({
 	city: text(100),
 	country,
 	ownerId: optionalUserId,
+	custom: customInput,
 });
 export type CompanyInput = z.infer<typeof companyInputSchema>;
 
