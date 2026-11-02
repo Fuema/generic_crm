@@ -13,7 +13,6 @@ import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { roleCan } from "#/lib/permissions";
 import { ContactFormDialog } from "#/modules/contacts/components/ContactFormDialog";
-import { RecordHistory } from "#/modules/contacts/components/RecordHistory";
 import { StageBadge } from "#/modules/contacts/components/StageBadge";
 import {
 	archiveContact,
@@ -28,16 +27,25 @@ import {
 	contactName,
 	type EmailConsent,
 } from "#/modules/contacts/schema";
+import { RecordTimeline } from "#/modules/records/components/RecordTimeline";
+import { TagEditor } from "#/modules/records/components/TagEditor";
+import { getTimeline, listWorkspaceTags } from "#/modules/records/records";
 import { m } from "#/paraglide/messages.js";
 
 export const Route = createFileRoute("/_authed/contacts/$contactId")({
 	loader: async ({ params }) => {
 		try {
-			const [detail, options] = await Promise.all([
+			const subject = {
+				subjectType: "contact" as const,
+				subjectId: params.contactId,
+			};
+			const [detail, options, timeline, allTags] = await Promise.all([
 				getContact({ data: { id: params.contactId } }),
 				getContactFormOptions(),
+				getTimeline({ data: subject }),
+				listWorkspaceTags(),
 			]);
-			return { ...detail, options };
+			return { ...detail, options, timeline, allTags };
 		} catch (e) {
 			// Unknown, malformed or another workspace's id: the same "not found"
 			if (e instanceof Response && (e.status === 404 || e.status === 400))
@@ -64,9 +72,9 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 
 function ContactPage() {
 	const router = useRouter();
-	const { contact, company, ownerName, events, options } =
+	const { contact, company, ownerName, timeline, allTags, options } =
 		Route.useLoaderData();
-	const { access } = Route.useRouteContext();
+	const { access, session } = Route.useRouteContext();
 	const can = {
 		update: roleCan(access?.role, { contact: ["update"] }),
 		archive: roleCan(access?.role, { contact: ["delete"] }),
@@ -164,6 +172,17 @@ function ContactPage() {
 						<CardTitle>{m.contact_details()}</CardTitle>
 					</CardHeader>
 					<CardContent>
+						<div className="mb-4 space-y-1.5">
+							<p className="text-xs text-muted-foreground">{m.tags_label()}</p>
+							<TagEditor
+								subjectType="contact"
+								subjectId={contact.id}
+								tags={timeline.tags}
+								allTags={allTags}
+								canEdit={can.update && !archived}
+								onChanged={() => router.invalidate()}
+							/>
+						</div>
 						<dl className="space-y-3">
 							<Field
 								label={m.contact_email()}
@@ -203,10 +222,18 @@ function ContactPage() {
 				</Card>
 				<Card className="lg:col-span-2">
 					<CardHeader>
-						<CardTitle>{m.common_history()}</CardTitle>
+						<CardTitle>{m.timeline_title()}</CardTitle>
 					</CardHeader>
 					<CardContent>
-						<RecordHistory events={events} />
+						<RecordTimeline
+							subjectType="contact"
+							subjectId={contact.id}
+							timeline={timeline}
+							canWrite={can.update && !archived}
+							canDeleteAny={can.archive}
+							currentUserId={session.user.id}
+							onChanged={() => router.invalidate()}
+						/>
 					</CardContent>
 				</Card>
 			</div>

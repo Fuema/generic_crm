@@ -149,4 +149,3 @@ export type CompanyListRow = Awaited<
 >["rows"][number];
 export type ContactDetail = Awaited<ReturnType<typeof getContact>>;
 export type CompanyDetail = Awaited<ReturnType<typeof getCompany>>;
-export type RecordEvent = ContactDetail["events"][number];

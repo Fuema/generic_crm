@@ -134,6 +134,7 @@ export const contactSearchSchema = listSearchSchema(
 ).extend({
 	show: archivedFilter,
 	company: z.uuid().optional().catch(undefined),
+	tag: z.uuid().optional().catch(undefined),
 });
 export type ContactSearch = z.infer<typeof contactSearchSchema>;
 
@@ -142,7 +143,10 @@ export const companySearchSchema = listSearchSchema(
 	["name", "domain", "createdAt"],
 	"name",
 	"asc",
-).extend({ show: archivedFilter });
+).extend({
+	show: archivedFilter,
+	tag: z.uuid().optional().catch(undefined),
+});
 export type CompanySearch = z.infer<typeof companySearchSchema>;
 
 export function contactName(c: { firstName: string; lastName: string | null }) {

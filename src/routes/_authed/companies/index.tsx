@@ -38,6 +38,8 @@ import {
 	type CompanySearch,
 	companySearchSchema,
 } from "#/modules/contacts/schema";
+import { TagPill } from "#/modules/records/components/TagEditor";
+import { listWorkspaceTags } from "#/modules/records/records";
 import { m } from "#/paraglide/messages.js";
 
 // Protected by the _authed guard; listCompanies requires company:read
@@ -45,11 +47,12 @@ export const Route = createFileRoute("/_authed/companies/")({
 	validateSearch: companySearchSchema,
 	loaderDeps: ({ search }) => search,
 	loader: async ({ deps }) => {
-		const [list, options] = await Promise.all([
+		const [list, options, allTags] = await Promise.all([
 			listCompanies({ data: deps }),
 			getContactFormOptions(),
+			listWorkspaceTags(),
 		]);
-		return { ...list, members: options.members };
+		return { ...list, members: options.members, allTags };
 	},
 	component: CompaniesPage,
 });
@@ -58,7 +61,7 @@ function CompaniesPage() {
 	const router = useRouter();
 	const navigate = Route.useNavigate();
 	const search = Route.useSearch();
-	const { rows, total, pageCount, members } = Route.useLoaderData();
+	const { rows, total, pageCount, members, allTags } = Route.useLoaderData();
 	const { access } = Route.useRouteContext();
 	const can = {
 		create: roleCan(access?.role, { company: ["create"] }),
@@ -150,6 +153,14 @@ function CompaniesPage() {
 					onSearch={(q) => patch({ q, page: 1 })}
 				/>
 				<FilterSelect
+					id="company-tag-filter"
+					label={m.tags_filter()}
+					value={search.tag}
+					allLabel={m.tags_all()}
+					options={allTags.map((t) => ({ value: t.id, label: t.name }))}
+					onChange={(v) => patch({ tag: v, page: 1 } as Partial<CompanySearch>)}
+				/>
+				<FilterSelect
 					id="company-show-filter"
 					label={m.common_show()}
 					value={search.show === "archived" ? "archived" : undefined}
@@ -170,6 +181,7 @@ function CompaniesPage() {
 							<TableHead className="text-right">
 								{m.companies_col_contacts()}
 							</TableHead>
+							<TableHead>{m.contacts_col_tags()}</TableHead>
 							<TableHead>{m.companies_col_location()}</TableHead>
 							<TableHead>{m.common_owner()}</TableHead>
 							{sortHeader("createdAt", m.contacts_col_added())}
@@ -194,6 +206,18 @@ function CompaniesPage() {
 									<TableCell>{row.domain ?? m.common_none()}</TableCell>
 									<TableCell className="text-right tabular-nums">
 										{row.contactCount}
+									</TableCell>
+									<TableCell>
+										<div className="flex max-w-48 flex-wrap gap-1">
+											{row.tags.slice(0, 3).map((t) => (
+												<TagPill key={t.id} tag={t} />
+											))}
+											{row.tags.length > 3 ? (
+												<span className="text-xs text-muted-foreground">
+													+{row.tags.length - 3}
+												</span>
+											) : null}
+										</div>
 									</TableCell>
 									<TableCell>
 										{[row.city, countryName(row.country)]
@@ -226,7 +250,7 @@ function CompaniesPage() {
 						) : (
 							<TableRow>
 								<TableCell
-									colSpan={7}
+									colSpan={8}
 									className="h-24 text-center text-muted-foreground"
 								>
 									{m.companies_empty()}

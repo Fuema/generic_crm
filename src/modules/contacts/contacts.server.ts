@@ -13,7 +13,7 @@ import {
 	sql,
 } from "drizzle-orm";
 import { db } from "#/db/index";
-import { company, contact, event, member, user } from "#/db/schema";
+import { company, contact, member, user } from "#/db/schema";
 import { assertWorkspaceRefs } from "#/lib/workspace-refs.server";
 import { m } from "#/paraglide/messages.js";
 import {
@@ -60,33 +60,15 @@ const ownerNameOf = (table: "contact" | "company") =>
 		string | null
 	>`(select u."name" from "user" u where u."id" = ${sql.raw(`"${table}"."owner_id"`)})`;
 
-// Events for one record, newest first, with the actor's name for display
-async function recordEvents(
-	workspaceId: string,
-	subjectType: string,
-	subjectId: string,
-) {
-	return db
-		.select({
-			id: event.id,
-			type: event.type,
-			payload: event.payload,
-			actorType: event.actorType,
-			actorName: user.name,
-			createdAt: event.createdAt,
-		})
-		.from(event)
-		.leftJoin(user, eq(user.id, event.actorId))
-		.where(
-			and(
-				eq(event.workspaceId, workspaceId),
-				eq(event.subjectType, subjectType),
-				eq(event.subjectId, subjectId),
-			),
-		)
-		.orderBy(desc(event.createdAt), desc(event.id))
-		.limit(50);
-}
+// The tags on each row, as [{ id, name, color }] ordered by name
+const tagsOf = (table: "contact" | "company") =>
+	sql<
+		{ id: string; name: string; color: string }[]
+	>`(select coalesce(json_agg(json_build_object('id', t."id", 'name', t."name", 'color', t."color") order by t."name"), '[]'::json) from "record_tag" rt join "tag" t on t."id" = rt."tag_id" and t."workspace_id" = rt."workspace_id" where rt."subject_type" = ${table} and rt."subject_id" = ${sql.raw(`"${table}"."id"`)} and rt."workspace_id" = ${sql.raw(`"${table}"."workspace_id"`)})`;
+
+// Rows that carry the given tag
+const hasTag = (table: "contact" | "company", tagId: string) =>
+	sql`exists (select 1 from "record_tag" rt where rt."tag_id" = ${tagId} and rt."subject_type" = ${table} and rt."subject_id" = ${sql.raw(`"${table}"."id"`)} and rt."workspace_id" = ${sql.raw(`"${table}"."workspace_id"`)})`;
 
 // ---------------------------------------------------------------- contacts
 
@@ -185,6 +167,7 @@ export async function listContacts(workspaceId: string, search: ContactSearch) {
 	}
 	if (search.status) filters.push(eq(contact.lifecycleStage, search.status));
 	if (search.company) filters.push(eq(contact.companyId, search.company));
+	if (search.tag) filters.push(hasTag("contact", search.tag));
 	const where = and(...filters);
 	const column = CONTACT_SORT[search.sort];
 	const order = search.dir === "asc" ? asc(column) : desc(column);
@@ -202,6 +185,7 @@ export async function listContacts(workspaceId: string, search: ContactSearch) {
 				companyId: contact.companyId,
 				companyName: company.name,
 				ownerName: ownerNameOf("contact"),
+				tags: tagsOf("contact"),
 				archivedAt: contact.archivedAt,
 				createdAt: contact.createdAt,
 			})
@@ -226,7 +210,7 @@ export async function listContacts(workspaceId: string, search: ContactSearch) {
 
 export async function getContactDetail(workspaceId: string, id: string) {
 	const row = await findContact(workspaceId, id);
-	const [companyRow, owner, events] = await Promise.all([
+	const [companyRow, owner] = await Promise.all([
 		row.companyId
 			? db
 					.select({ id: company.id, name: company.name })
@@ -246,9 +230,8 @@ export async function getContactDetail(workspaceId: string, id: string) {
 					.where(eq(user.id, row.ownerId))
 					.then((r) => r[0]?.name ?? null)
 			: null,
-		recordEvents(workspaceId, "contact", id),
 	]);
-	return { contact: row, company: companyRow, ownerName: owner, events };
+	return { contact: row, company: companyRow, ownerName: owner };
 }
 
 export async function createContact(
@@ -429,6 +412,7 @@ export async function listCompanies(
 		);
 		if (match) filters.push(match);
 	}
+	if (search.tag) filters.push(hasTag("company", search.tag));
 	const where = and(...filters);
 	const column = COMPANY_SORT[search.sort];
 	const order = search.dir === "asc" ? asc(column) : desc(column);
@@ -442,6 +426,7 @@ export async function listCompanies(
 				city: company.city,
 				country: company.country,
 				ownerName: ownerNameOf("company"),
+				tags: tagsOf("company"),
 				contactCount: sql<number>`(select count(*)::int from "contact" c where c."company_id" = "company"."id" and c."workspace_id" = "company"."workspace_id" and c."archived_at" is null)`,
 				archivedAt: company.archivedAt,
 				createdAt: company.createdAt,
@@ -458,7 +443,7 @@ export async function listCompanies(
 
 export async function getCompanyDetail(workspaceId: string, id: string) {
 	const row = await findCompany(workspaceId, id);
-	const [owner, contacts, events] = await Promise.all([
+	const [owner, contacts] = await Promise.all([
 		row.ownerId
 			? db
 					.select({ name: user.name })
@@ -485,9 +470,8 @@ export async function getCompanyDetail(workspaceId: string, id: string) {
 			)
 			.orderBy(asc(contact.firstName), asc(contact.id))
 			.limit(200),
-		recordEvents(workspaceId, "company", id),
 	]);
-	return { company: row, ownerName: owner, contacts, events };
+	return { company: row, ownerName: owner, contacts };
 }
 
 export async function createCompany(

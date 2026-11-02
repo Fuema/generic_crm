@@ -15,6 +15,13 @@
       "when": 1793646299138,
       "tag": "0001_contacts_companies_events",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793648264698,
+      "tag": "0002_tags_notes",
+      "breakpoints": true
     }
   ]
 }

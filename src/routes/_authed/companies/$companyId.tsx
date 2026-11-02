@@ -14,7 +14,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { countryName } from "#/lib/countries";
 import { roleCan } from "#/lib/permissions";
 import { CompanyFormDialog } from "#/modules/contacts/components/CompanyFormDialog";
-import { RecordHistory } from "#/modules/contacts/components/RecordHistory";
 import { StageBadge } from "#/modules/contacts/components/StageBadge";
 import {
 	archiveCompany,
@@ -24,16 +23,25 @@ import {
 	updateCompany,
 } from "#/modules/contacts/contacts";
 import { type CompanyInput, contactName } from "#/modules/contacts/schema";
+import { RecordTimeline } from "#/modules/records/components/RecordTimeline";
+import { TagEditor } from "#/modules/records/components/TagEditor";
+import { getTimeline, listWorkspaceTags } from "#/modules/records/records";
 import { m } from "#/paraglide/messages.js";
 
 export const Route = createFileRoute("/_authed/companies/$companyId")({
 	loader: async ({ params }) => {
 		try {
-			const [detail, options] = await Promise.all([
+			const subject = {
+				subjectType: "company" as const,
+				subjectId: params.companyId,
+			};
+			const [detail, options, timeline, allTags] = await Promise.all([
 				getCompany({ data: { id: params.companyId } }),
 				getContactFormOptions(),
+				getTimeline({ data: subject }),
+				listWorkspaceTags(),
 			]);
-			return { ...detail, members: options.members };
+			return { ...detail, members: options.members, timeline, allTags };
 		} catch (e) {
 			// Unknown, malformed or another workspace's id: the same "not found"
 			if (e instanceof Response && (e.status === 404 || e.status === 400))
@@ -60,9 +68,9 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 
 function CompanyPage() {
 	const router = useRouter();
-	const { company, ownerName, contacts, events, members } =
+	const { company, ownerName, contacts, timeline, allTags, members } =
 		Route.useLoaderData();
-	const { access } = Route.useRouteContext();
+	const { access, session } = Route.useRouteContext();
 	const can = {
 		update: roleCan(access?.role, { company: ["update"] }),
 		archive: roleCan(access?.role, { company: ["delete"] }),
@@ -146,6 +154,17 @@ function CompanyPage() {
 						<CardTitle>{m.contact_details()}</CardTitle>
 					</CardHeader>
 					<CardContent>
+						<div className="mb-4 space-y-1.5">
+							<p className="text-xs text-muted-foreground">{m.tags_label()}</p>
+							<TagEditor
+								subjectType="company"
+								subjectId={company.id}
+								tags={timeline.tags}
+								allTags={allTags}
+								canEdit={can.update && !archived}
+								onChanged={() => router.invalidate()}
+							/>
+						</div>
 						<dl className="space-y-3">
 							<Field label={m.common_phone()} value={company.phone} />
 							<Field
@@ -200,10 +219,18 @@ function CompanyPage() {
 					</Card>
 					<Card>
 						<CardHeader>
-							<CardTitle>{m.common_history()}</CardTitle>
+							<CardTitle>{m.timeline_title()}</CardTitle>
 						</CardHeader>
 						<CardContent>
-							<RecordHistory events={events} />
+							<RecordTimeline
+								subjectType="company"
+								subjectId={company.id}
+								timeline={timeline}
+								canWrite={can.update && !archived}
+								canDeleteAny={can.archive}
+								currentUserId={session.user.id}
+								onChanged={() => router.invalidate()}
+							/>
 						</CardContent>
 					</Card>
 				</div>

@@ -41,6 +41,8 @@ import {
 	LIFECYCLE_STAGES,
 	STAGE_LABELS,
 } from "#/modules/contacts/schema";
+import { TagPill } from "#/modules/records/components/TagEditor";
+import { listWorkspaceTags } from "#/modules/records/records";
 import { m } from "#/paraglide/messages.js";
 
 // Protected by the _authed guard; listContacts requires contact:read. The list
@@ -49,11 +51,12 @@ export const Route = createFileRoute("/_authed/contacts/")({
 	validateSearch: contactSearchSchema,
 	loaderDeps: ({ search }) => search,
 	loader: async ({ deps }) => {
-		const [list, options] = await Promise.all([
+		const [list, options, allTags] = await Promise.all([
 			listContacts({ data: deps }),
 			getContactFormOptions(),
+			listWorkspaceTags(),
 		]);
-		return { ...list, options };
+		return { ...list, options, allTags };
 	},
 	component: ContactsPage,
 });
@@ -62,7 +65,7 @@ function ContactsPage() {
 	const router = useRouter();
 	const navigate = Route.useNavigate();
 	const search = Route.useSearch();
-	const { rows, total, pageCount, options } = Route.useLoaderData();
+	const { rows, total, pageCount, options, allTags } = Route.useLoaderData();
 	const { access } = Route.useRouteContext();
 	const can = {
 		create: roleCan(access?.role, { contact: ["create"] }),
@@ -168,6 +171,14 @@ function ContactsPage() {
 					}
 				/>
 				<FilterSelect
+					id="contact-tag-filter"
+					label={m.tags_filter()}
+					value={search.tag}
+					allLabel={m.tags_all()}
+					options={allTags.map((t) => ({ value: t.id, label: t.name }))}
+					onChange={(v) => patch({ tag: v, page: 1 } as Partial<ContactSearch>)}
+				/>
+				<FilterSelect
 					id="contact-show-filter"
 					label={m.common_show()}
 					value={search.show === "archived" ? "archived" : undefined}
@@ -187,6 +198,7 @@ function ContactsPage() {
 							{sortHeader("email", m.contacts_col_email())}
 							<TableHead>{m.contacts_col_company()}</TableHead>
 							{sortHeader("lifecycleStage", m.contacts_col_stage())}
+							<TableHead>{m.contacts_col_tags()}</TableHead>
 							<TableHead>{m.common_owner()}</TableHead>
 							{sortHeader("createdAt", m.contacts_col_added())}
 							<TableHead>
@@ -242,6 +254,18 @@ function ContactsPage() {
 										<TableCell>
 											<StageBadge stage={row.lifecycleStage} />
 										</TableCell>
+										<TableCell>
+											<div className="flex max-w-48 flex-wrap gap-1">
+												{row.tags.slice(0, 3).map((t) => (
+													<TagPill key={t.id} tag={t} />
+												))}
+												{row.tags.length > 3 ? (
+													<span className="text-xs text-muted-foreground">
+														+{row.tags.length - 3}
+													</span>
+												) : null}
+											</div>
+										</TableCell>
 										<TableCell>{row.ownerName ?? m.common_none()}</TableCell>
 										<TableCell>{formatDate(row.createdAt)}</TableCell>
 										<TableCell>
@@ -279,7 +303,7 @@ function ContactsPage() {
 						) : (
 							<TableRow>
 								<TableCell
-									colSpan={7}
+									colSpan={8}
 									className="h-24 text-center text-muted-foreground"
 								>
 									{m.contacts_empty()}
