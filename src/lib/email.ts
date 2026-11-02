@@ -1,7 +1,14 @@
 // Sends transactional auth emails through Resend's HTTP API.
 // Uses fetch instead of the SDK so it runs unchanged on Cloudflare Workers.
+// Emails are written in the language of the request that triggers them: the
+// recipient's own for verification, reset and sign-in codes; the inviter's for
+// invitations (members' saved language preference arrives in phase 1, spec §14).
+import { ROLE_LABELS, type WorkspaceRole } from "#/lib/permissions";
+import { m } from "#/paraglide/messages.js";
+import { baseLocale, getLocale } from "#/paraglide/runtime.js";
 
-const APP_NAME = "My TanStack App";
+// The product name is the same in every language; one source for UI and emails
+export const APP_NAME = m.app_name({}, { locale: baseLocale });
 
 type Email = { to: string; subject: string; html: string; text: string };
 
@@ -60,53 +67,65 @@ async function sendEmail({ to, subject, html, text }: Email) {
 }
 
 function layout(title: string, body: string) {
-	return `<!doctype html><html><body style="margin:0;background:#f4f4f5;font-family:system-ui,sans-serif">
+	return `<!doctype html><html lang="${getLocale()}"><body style="margin:0;background:#f4f4f5;font-family:system-ui,sans-serif">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px">
 <table role="presentation" width="100%" style="max-width:480px;background:#fff;border-radius:12px;padding:32px">
 <tr><td><h1 style="margin:0 0 16px;font-size:20px;color:#18181b">${title}</h1>${body}
-<p style="margin:24px 0 0;font-size:12px;color:#71717a">If you didn't request this, you can ignore this email.</p>
+<p style="margin:24px 0 0;font-size:12px;color:#71717a">${escapeHtml(m.email_ignore())}</p>
 </td></tr></table></td></tr></table></body></html>`;
 }
 
+function paragraph(text: string) {
+	return `<p style="color:#3f3f46">${text}</p>`;
+}
+
 function button(url: string, label: string) {
-	return `<p style="margin:24px 0"><a href="${escapeHtml(url)}" style="background:#18181b;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">${label}</a></p>
-<p style="font-size:12px;color:#71717a;word-break:break-all">Or paste this link into your browser:<br>${escapeHtml(url)}</p>`;
+	return `<p style="margin:24px 0"><a href="${escapeHtml(url)}" style="background:#18181b;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">${escapeHtml(label)}</a></p>
+<p style="font-size:12px;color:#71717a;word-break:break-all">${escapeHtml(m.email_paste_link())}<br>${escapeHtml(url)}</p>`;
+}
+
+function roleLabel(role: string) {
+	return role in ROLE_LABELS
+		? ROLE_LABELS[role as WorkspaceRole].label().toLowerCase()
+		: role;
 }
 
 export function sendVerificationEmail(to: string, name: string, url: string) {
 	return sendEmail({
 		to,
-		subject: `Verify your email for ${APP_NAME}`,
+		subject: m.email_verify_subject({ app: APP_NAME }),
 		html: layout(
-			"Confirm your email",
-			`<p style="color:#3f3f46">Hi ${escapeHtml(name)}, confirm this address to finish creating your account. The link expires in 1 hour.</p>${button(url, "Verify email")}`,
+			escapeHtml(m.email_verify_title()),
+			paragraph(escapeHtml(m.email_verify_body({ name }))) +
+				button(url, m.email_verify_button()),
 		),
-		text: `Hi ${name}, confirm your email for ${APP_NAME}: ${url}\nThe link expires in 1 hour.`,
+		text: m.email_verify_text({ name, app: APP_NAME, url }),
 	});
 }
 
 export function sendResetPasswordEmail(to: string, name: string, url: string) {
 	return sendEmail({
 		to,
-		subject: `Reset your ${APP_NAME} password`,
+		subject: m.email_reset_subject({ app: APP_NAME }),
 		html: layout(
-			"Reset your password",
-			`<p style="color:#3f3f46">Hi ${escapeHtml(name)}, use the button below to choose a new password. The link expires in 1 hour, and every device will be signed out.</p>${button(url, "Reset password")}`,
+			escapeHtml(m.email_reset_title()),
+			paragraph(escapeHtml(m.email_reset_body({ name }))) +
+				button(url, m.email_reset_button()),
 		),
-		text: `Hi ${name}, reset your ${APP_NAME} password: ${url}\nThe link expires in 1 hour.`,
+		text: m.email_reset_text({ name, app: APP_NAME, url }),
 	});
 }
 
 export function sendTwoFactorCodeEmail(to: string, name: string, otp: string) {
 	return sendEmail({
 		to,
-		subject: `${otp} is your ${APP_NAME} sign-in code`,
+		subject: m.email_2fa_subject({ otp, app: APP_NAME }),
 		html: layout(
-			"Your sign-in code",
-			`<p style="color:#3f3f46">Hi ${escapeHtml(name)}, enter this code to finish signing in. It expires in 3 minutes.</p>
+			escapeHtml(m.email_2fa_title()),
+			`${paragraph(escapeHtml(m.email_2fa_body({ name })))}
 <p style="margin:24px 0;font-size:32px;font-weight:700;letter-spacing:8px;color:#18181b">${escapeHtml(otp)}</p>`,
 		),
-		text: `Hi ${name}, your ${APP_NAME} sign-in code is ${otp}. It expires in 3 minutes.`,
+		text: m.email_2fa_text({ name, app: APP_NAME, otp }),
 	});
 }
 
@@ -117,14 +136,33 @@ export function sendInvitationEmail(
 	role: string,
 	url: string,
 ) {
+	const roleName = roleLabel(role);
 	return sendEmail({
 		to,
-		subject: `${inviterName} invited you to ${workspaceName} on ${APP_NAME}`,
+		subject: m.email_invite_subject({
+			inviter: inviterName,
+			workspace: workspaceName,
+			app: APP_NAME,
+		}),
 		html: layout(
-			`Join ${escapeHtml(workspaceName)}`,
-			`<p style="color:#3f3f46">${escapeHtml(inviterName)} invited you to join <strong>${escapeHtml(workspaceName)}</strong> as <strong>${escapeHtml(role)}</strong>. The invitation expires in 48 hours.</p>${button(url, "Accept invitation")}`,
+			escapeHtml(m.email_invite_title({ workspace: workspaceName })),
+			// Each value is escaped before it is wrapped in markup. This message is the
+			// only one inserted as HTML: keep email_invite_body plain text (no &, < or tags)
+			paragraph(
+				m.email_invite_body({
+					inviter: escapeHtml(inviterName),
+					workspace: `<strong>${escapeHtml(workspaceName)}</strong>`,
+					role: `<strong>${escapeHtml(roleName)}</strong>`,
+				}),
+			) + button(url, m.email_invite_button()),
 		),
-		text: `${inviterName} invited you to join ${workspaceName} on ${APP_NAME} as ${role}: ${url}\nThe invitation expires in 48 hours.`,
+		text: m.email_invite_text({
+			inviter: inviterName,
+			workspace: workspaceName,
+			app: APP_NAME,
+			role: roleName,
+			url,
+		}),
 	});
 }
 
@@ -132,11 +170,11 @@ export function sendInvitationEmail(
 export function sendTestEmail(to: string) {
 	return sendEmail({
 		to,
-		subject: `Test email from ${APP_NAME}`,
+		subject: m.email_test_subject({ app: APP_NAME }),
 		html: layout(
-			"Email is working",
-			`<p style="color:#3f3f46">If you can read this, ${APP_NAME} can send verification, password-reset, sign-in code and invitation emails.</p>`,
+			escapeHtml(m.email_test_title()),
+			paragraph(escapeHtml(m.email_test_body({ app: APP_NAME }))),
 		),
-		text: `Email is working: ${APP_NAME} can send verification, password-reset, sign-in code and invitation emails.`,
+		text: m.email_test_text({ app: APP_NAME }),
 	});
 }
