@@ -27,7 +27,8 @@ conventions and pitfalls live there.
 ## Definition of done
 `bun run validate` passes (typecheck, Biome, unit tests, build, browser-bundle check;
 integration and i18n checks once phase 0 adds them), plus a browser check for UI changes.
-New business rules get a test in `tests/unit/`.
+New business rules get a test in `tests/unit/`. Changes to server code, the schema or
+isolation rules also run `bun run test:integration` (Neon `test` branch, `TEST_DATABASE_URL`).
 
 ## Git workflow (owner's standing preference)
 - Branch per change from `main`; never commit to `main` (the initial import was the only exception).
