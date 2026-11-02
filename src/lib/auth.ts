@@ -8,6 +8,7 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "../db/index"; // Points to your Neon-HTTP database file (not the legacy src/db.ts)
 import * as schema from "../db/schema";
 import {
+	APP_NAME,
 	sendInvitationEmail,
 	sendResetPasswordEmail,
 	sendTwoFactorCodeEmail,
@@ -20,7 +21,6 @@ import {
 	passwordSchema,
 } from "./schema";
 
-const APP_NAME = "My TanStack App";
 const baseURL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
 
 function slugify(value: string) {
