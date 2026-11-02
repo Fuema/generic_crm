@@ -27,6 +27,7 @@ import {
 import { updateBillingSettings } from "#/lib/billing";
 import { CURRENCIES, type Currency } from "#/lib/money";
 import { billingSettingsSchema } from "#/lib/schema";
+import { m } from "#/paraglide/messages.js";
 
 type Settings = {
 	currency: string;
@@ -59,13 +60,13 @@ export function BillingSettings({
 			if (!parsed.success) {
 				setStatus({
 					ok: false,
-					message: parsed.error.issues[0]?.message ?? "Check the values",
+					message: parsed.error.issues[0]?.message ?? m.billing_check_values(),
 				});
 				return;
 			}
 			try {
 				await updateBillingSettings({ data: parsed.data });
-				setStatus({ ok: true, message: "Billing defaults saved." });
+				setStatus({ ok: true, message: m.billing_saved() });
 				await router.invalidate();
 			} catch (e) {
 				setStatus({ ok: false, message: await serverErrorMessage(e) });
@@ -76,11 +77,8 @@ export function BillingSettings({
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle>Billing defaults</CardTitle>
-				<CardDescription>
-					Used for new orders and invoices. Existing ones keep their own
-					currency and tax rate.
-				</CardDescription>
+				<CardTitle>{m.billing_title()}</CardTitle>
+				<CardDescription>{m.billing_description()}</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<form
@@ -100,7 +98,9 @@ export function BillingSettings({
 						<form.Field name="currency">
 							{(field) => (
 								<div className="space-y-2">
-									<Label htmlFor="billing-currency">Currency</Label>
+									<Label htmlFor="billing-currency">
+										{m.billing_currency()}
+									</Label>
 									<Select
 										value={field.state.value}
 										onValueChange={(v) => field.handleChange(v as Currency)}
@@ -130,7 +130,7 @@ export function BillingSettings({
 						>
 							{(field) => (
 								<div className="space-y-2">
-									<Label htmlFor="billing-tax">Default tax rate (%)</Label>
+									<Label htmlFor="billing-tax">{m.billing_tax_rate()}</Label>
 									<Input
 										id="billing-tax"
 										value={field.state.value}
@@ -155,7 +155,7 @@ export function BillingSettings({
 						>
 							{(field) => (
 								<div className="space-y-2">
-									<Label htmlFor="billing-terms">Payment terms (days)</Label>
+									<Label htmlFor="billing-terms">{m.billing_terms()}</Label>
 									<Input
 										id="billing-terms"
 										type="number"
@@ -179,13 +179,13 @@ export function BillingSettings({
 						<form.Subscribe selector={(s) => [s.canSubmit, s.isSubmitting]}>
 							{([canSubmit, isSubmitting]) => (
 								<Button type="submit" disabled={!canSubmit || isSubmitting}>
-									{isSubmitting ? "Saving..." : "Save defaults"}
+									{isSubmitting ? m.common_saving() : m.billing_save()}
 								</Button>
 							)}
 						</form.Subscribe>
 					) : (
 						<p className="text-sm text-muted-foreground">
-							Only owners and admins can change these.
+							{m.billing_owner_only()}
 						</p>
 					)}
 				</form>

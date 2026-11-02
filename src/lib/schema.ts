@@ -180,12 +180,14 @@ export const backupCodeSchema = z
 export const workspaceNameSchema = z
 	.string()
 	.trim()
-	.min(2, "Workspace name must be at least 2 characters")
-	.max(50, "Workspace name must not exceed 50 characters");
+	.min(2, { error: () => m.validation_workspace_name_min() })
+	.max(50, { error: () => m.validation_workspace_name_max() });
 
 export const inviteSchema = z.object({
 	email: emailSchema,
-	role: z.enum(["admin", "editor", "viewer"], "Choose a role"),
+	role: z.enum(["admin", "editor", "viewer"], {
+		error: () => m.validation_choose_role(),
+	}),
 });
 
 export const projectInputSchema = z.object({
@@ -319,8 +321,12 @@ export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
 const percentString = z
 	.string()
 	.trim()
-	.regex(/^\d{1,3}(\.\d{1,2})?$/, "Enter a tax rate like 8.25")
-	.refine((v) => Number(v) <= 100, "Tax rate can't exceed 100%");
+	.regex(/^\d{1,3}(\.\d{1,2})?$/, {
+		error: () => m.validation_tax_rate_format(),
+	})
+	.refine((v) => Number(v) <= 100, {
+		error: () => m.validation_tax_rate_max(),
+	});
 
 export const orderInputSchema = z.object({
 	customerId: z.uuid("Choose a customer"),
@@ -362,14 +368,14 @@ export const billingSettingsSchema = z.object({
 			"CHF",
 			"SEK",
 		],
-		"Choose a currency",
+		{ error: () => m.validation_choose_currency() },
 	),
 	defaultTaxRate: percentString,
 	paymentTermsDays: z.coerce
-		.number("Enter a number of days")
-		.int("Use whole days")
-		.min(0, "Can't be negative")
-		.max(365, "Use at most 365 days"),
+		.number({ error: () => m.validation_days_number() })
+		.int({ error: () => m.validation_days_whole() })
+		.min(0, { error: () => m.validation_days_negative() })
+		.max(365, { error: () => m.validation_days_max() }),
 });
 
 // Shared URL state for the product, order and invoice lists

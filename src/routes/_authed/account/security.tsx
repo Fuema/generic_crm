@@ -13,6 +13,7 @@ import {
 	CardTitle,
 } from "#/components/ui/card";
 import { getLinkedAccounts } from "#/lib/account";
+import { m } from "#/paraglide/messages.js";
 
 // Protected by the _authed layout guard
 export const Route = createFileRoute("/_authed/account/security")({
@@ -50,13 +51,13 @@ function SecurityPage() {
 				to="/dashboard"
 				className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:underline"
 			>
-				<ArrowLeft className="size-4" /> Dashboard
+				<ArrowLeft className="size-4" /> {m.common_dashboard()}
 			</Link>
-			<h1 className="text-2xl font-bold">Security</h1>
+			<h1 className="text-2xl font-bold">{m.security_title()}</h1>
 
 			<Section
-				title="Two-factor authentication"
-				description="Add a second step when signing in with a password"
+				title={m.security_2fa_title()}
+				description={m.security_2fa_description()}
 			>
 				<TwoFactorSettings
 					enabled={Boolean(session.user.twoFactorEnabled)}
@@ -64,22 +65,22 @@ function SecurityPage() {
 				/>
 			</Section>
 			<Section
-				title="Passkeys"
-				description="Passwordless sign-in with your device"
+				title={m.security_passkeys_title()}
+				description={m.security_passkeys_description()}
 			>
 				<PasskeySettings />
 			</Section>
 			{hasPassword ? (
 				<Section
-					title="Password"
-					description="Use a long password you don't use anywhere else"
+					title={m.security_password_title()}
+					description={m.security_password_description()}
 				>
 					<ChangePasswordForm />
 				</Section>
 			) : null}
 			<Section
-				title="Signed-in devices"
-				description="Review and revoke active sessions"
+				title={m.security_devices_title()}
+				description={m.security_devices_description()}
 			>
 				<SessionList currentSessionId={session.session.id} />
 			</Section>

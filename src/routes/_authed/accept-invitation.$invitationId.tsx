@@ -13,6 +13,7 @@ import {
 } from "#/components/ui/card";
 import { RoleBadge } from "#/components/Workspace/RoleBadge";
 import { authClient, authErrorMessage } from "#/lib/auth-client";
+import { m } from "#/paraglide/messages.js";
 
 // Under _authed: a signed-out visitor is sent to /login and brought back here after
 // signing in. Better Auth only lets the invited (verified) email address accept.
@@ -76,10 +77,12 @@ function AcceptInvitationPage() {
 						className="mx-auto size-10 text-primary"
 						aria-hidden="true"
 					/>
-					<CardTitle>Workspace invitation</CardTitle>
+					<CardTitle>{m.invitation_title()}</CardTitle>
 					{invitation.data ? (
 						<CardDescription>
-							{invitation.data.inviterEmail} invited you to join{" "}
+							{m.invitation_invited_you({
+								inviter: invitation.data.inviterEmail,
+							})}{" "}
 							<strong>{invitation.data.organizationName}</strong>.
 						</CardDescription>
 					) : null}
@@ -87,7 +90,7 @@ function AcceptInvitationPage() {
 				<CardContent className="space-y-4">
 					{invitation.isPending ? (
 						<p className="text-center text-sm text-muted-foreground">
-							Loading invitation...
+							{m.invitation_loading()}
 						</p>
 					) : invitation.isError ? (
 						<>
@@ -99,13 +102,13 @@ function AcceptInvitationPage() {
 									className: "w-full",
 								})}
 							>
-								Go to dashboard
+								{m.common_go_to_dashboard()}
 							</Link>
 						</>
 					) : (
 						<>
 							<p className="flex items-center justify-center gap-2 text-sm">
-								Your role will be{" "}
+								{m.invitation_your_role()}{" "}
 								<RoleBadge role={invitation.data.role ?? "viewer"} />
 							</p>
 							<FormAlert message={error} />
@@ -116,7 +119,7 @@ function AcceptInvitationPage() {
 									onClick={accept}
 									disabled={pending}
 								>
-									{pending ? "Joining..." : "Accept and join"}
+									{pending ? m.common_joining() : m.invitation_accept_join()}
 								</Button>
 								<Button
 									type="button"
@@ -124,7 +127,7 @@ function AcceptInvitationPage() {
 									onClick={decline}
 									disabled={pending}
 								>
-									Decline
+									{m.common_decline()}
 								</Button>
 							</div>
 						</>

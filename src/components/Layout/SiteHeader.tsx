@@ -1,6 +1,7 @@
 import { useRouterState } from "@tanstack/react-router";
 import { Separator } from "#/components/ui/separator";
 import { SidebarTrigger } from "#/components/ui/sidebar";
+import { m } from "#/paraglide/messages.js";
 import { titleForPath } from "./nav";
 import { ThemeToggle } from "./ThemeToggle";
 import { UserMenu } from "./UserMenu";
@@ -18,7 +19,7 @@ export function SiteHeader({
 
 	return (
 		<header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 print:hidden">
-			<SidebarTrigger aria-label="Toggle sidebar" />
+			<SidebarTrigger aria-label={m.shell_toggle_sidebar()} />
 			<Separator
 				orientation="vertical"
 				className="mx-1 data-[orientation=vertical]:h-5"

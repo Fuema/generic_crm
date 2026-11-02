@@ -29,6 +29,8 @@ import { RoleBadge } from "#/components/Workspace/RoleBadge";
 import { authClient, authErrorMessage } from "#/lib/auth-client";
 import { ASSIGNABLE_ROLES, ROLE_LABELS } from "#/lib/permissions";
 import { inviteSchema } from "#/lib/schema";
+import { m } from "#/paraglide/messages.js";
+import { getLocale } from "#/paraglide/runtime.js";
 
 // Protected by the _authed layout guard. Every action below is also checked by
 // Better Auth on the server against the caller's role in this workspace.
@@ -51,13 +53,13 @@ function RoleSelect({
 }) {
 	return (
 		<Select value={value} onValueChange={onChange} disabled={disabled}>
-			<SelectTrigger id={id} className="w-32" aria-label="Role">
+			<SelectTrigger id={id} className="w-32" aria-label={m.common_role()}>
 				<SelectValue />
 			</SelectTrigger>
 			<SelectContent>
 				{ASSIGNABLE_ROLES.map((r) => (
 					<SelectItem key={r} value={r}>
-						{ROLE_LABELS[r].label}
+						{ROLE_LABELS[r].label()}
 					</SelectItem>
 				))}
 			</SelectContent>
@@ -104,14 +106,14 @@ function InviteForm({ onInvited }: { onInvited: (email: string) => void }) {
 				<form.Field name="email">
 					{(field) => (
 						<div className="flex-1 space-y-2">
-							<Label htmlFor="invite-email">Email</Label>
+							<Label htmlFor="invite-email">{m.common_email()}</Label>
 							<Input
 								id="invite-email"
 								type="email"
 								value={field.state.value}
 								onBlur={field.handleBlur}
 								onChange={(e) => field.handleChange(e.target.value)}
-								placeholder="colleague@example.com"
+								placeholder={m.members_invite_placeholder()}
 								autoComplete="off"
 								maxLength={254}
 								aria-invalid={fieldErrors(field.state.meta).length > 0}
@@ -124,7 +126,7 @@ function InviteForm({ onInvited }: { onInvited: (email: string) => void }) {
 				<form.Field name="role">
 					{(field) => (
 						<div className="space-y-2">
-							<Label htmlFor="invite-role">Role</Label>
+							<Label htmlFor="invite-role">{m.common_role()}</Label>
 							<RoleSelect
 								id="invite-role"
 								value={field.state.value}
@@ -142,7 +144,8 @@ function InviteForm({ onInvited }: { onInvited: (email: string) => void }) {
 							className="sm:mt-[22px]"
 							disabled={!canSubmit || isSubmitting}
 						>
-							<MailPlus /> {isSubmitting ? "Sending..." : "Invite"}
+							<MailPlus />{" "}
+							{isSubmitting ? m.common_sending() : m.members_invite()}
 						</Button>
 					)}
 				</form.Subscribe>
@@ -151,9 +154,9 @@ function InviteForm({ onInvited }: { onInvited: (email: string) => void }) {
 				{ASSIGNABLE_ROLES.map((r) => (
 					<li key={r}>
 						<span className="font-medium text-foreground">
-							{ROLE_LABELS[r].label}:
+							{ROLE_LABELS[r].label()}:
 						</span>{" "}
-						{ROLE_LABELS[r].description}
+						{ROLE_LABELS[r].description()}
 					</li>
 				))}
 			</ul>
@@ -202,7 +205,7 @@ function MembersPage() {
 	if (!access) {
 		return (
 			<p className="p-6 text-sm text-muted-foreground">
-				You're not in a workspace.
+				{m.common_not_in_workspace()}
 			</p>
 		);
 	}
@@ -213,9 +216,11 @@ function MembersPage() {
 	return (
 		<div className="mx-auto max-w-5xl space-y-6 p-6">
 			<div>
-				<h1 className="text-2xl font-bold">Members</h1>
+				<h1 className="text-2xl font-bold">{m.members_title()}</h1>
 				<p className="text-sm text-muted-foreground">
-					People in {access.workspace?.name ?? "this workspace"}.
+					{m.members_people_in({
+						workspace: access.workspace?.name ?? m.members_this_workspace(),
+					})}
 				</p>
 			</div>
 
@@ -227,17 +232,15 @@ function MembersPage() {
 			{access.can.invite ? (
 				<Card>
 					<CardHeader>
-						<CardTitle>Invite someone</CardTitle>
-						<CardDescription>
-							They'll get an email with a link that's valid for 48 hours.
-						</CardDescription>
+						<CardTitle>{m.members_invite_title()}</CardTitle>
+						<CardDescription>{m.members_invite_description()}</CardDescription>
 					</CardHeader>
 					<CardContent>
 						<InviteForm
 							onInvited={async (email) => {
 								setStatus({
 									ok: true,
-									message: `Invitation sent to ${email}.`,
+									message: m.members_invitation_sent({ email }),
 								});
 								await refresh();
 							}}
@@ -247,25 +250,25 @@ function MembersPage() {
 			) : null}
 
 			{workspace.isPending ? (
-				<p className="text-sm text-muted-foreground">Loading members...</p>
+				<p className="text-sm text-muted-foreground">{m.members_loading()}</p>
 			) : workspace.isError ? (
 				<FormAlert message={workspace.error.message} />
 			) : (
 				<>
 					<ul
 						className="divide-y rounded-lg border bg-background"
-						aria-label="Members"
+						aria-label={m.members_list()}
 					>
-						{workspace.data?.members.map((m) => {
-							const isSelf = m.userId === access.userId;
+						{workspace.data?.members.map((member) => {
+							const isSelf = member.userId === access.userId;
 							// Only an owner may change or remove another owner; nobody edits themselves here
 							const editable =
 								access.can.manageMembers &&
 								!isSelf &&
-								(m.role !== "owner" || access.role === "owner");
+								(member.role !== "owner" || access.role === "owner");
 							return (
 								<li
-									key={m.id}
+									key={member.id}
 									className="flex flex-wrap items-center gap-3 p-4"
 								>
 									<UserRound
@@ -274,51 +277,63 @@ function MembersPage() {
 									/>
 									<div className="min-w-0 flex-1">
 										<p className="truncate font-medium">
-											{m.user.name}
+											{member.user.name}
 											{isSelf ? (
-												<span className="text-muted-foreground"> (you)</span>
+												<span className="text-muted-foreground">
+													{" "}
+													{m.members_you()}
+												</span>
 											) : null}
 										</p>
 										<p className="truncate text-sm text-muted-foreground">
-											{m.user.email}
+											{member.user.email}
 										</p>
 									</div>
-									{editable && m.role !== "owner" ? (
+									{editable && member.role !== "owner" ? (
 										<RoleSelect
-											value={m.role}
+											value={member.role}
 											onChange={(role) =>
 												run(
 													() =>
 														authClient.organization.updateMemberRole({
-															memberId: m.id,
+															memberId: member.id,
 															role: role as (typeof ASSIGNABLE_ROLES)[number],
 														}),
-													`${m.user.name} is now ${ROLE_LABELS[role as (typeof ASSIGNABLE_ROLES)[number]].label.toLowerCase()}.`,
+													m.members_role_changed({
+														name: member.user.name,
+														role: ROLE_LABELS[
+															role as (typeof ASSIGNABLE_ROLES)[number]
+														]
+															.label()
+															.toLowerCase(),
+													}),
 												)
 											}
 										/>
 									) : (
-										<RoleBadge role={m.role} />
+										<RoleBadge role={member.role} />
 									)}
 									{editable ? (
 										<Button
 											type="button"
 											variant="ghost"
 											size="icon"
-											aria-label={`Remove ${m.user.name}`}
+											aria-label={m.members_remove({ name: member.user.name })}
 											onClick={() => {
 												if (
 													!window.confirm(
-														`Remove ${m.user.name} from the workspace?`,
+														m.members_remove_confirm({
+															name: member.user.name,
+														}),
 													)
 												)
 													return;
 												void run(
 													() =>
 														authClient.organization.removeMember({
-															memberIdOrEmail: m.id,
+															memberIdOrEmail: member.id,
 														}),
-													`${m.user.name} was removed.`,
+													m.members_removed({ name: member.user.name }),
 												);
 											}}
 										>
@@ -332,10 +347,10 @@ function MembersPage() {
 
 					{pending.length ? (
 						<div className="space-y-2">
-							<h2 className="font-semibold">Pending invitations</h2>
+							<h2 className="font-semibold">{m.members_pending()}</h2>
 							<ul
 								className="divide-y rounded-lg border bg-background"
-								aria-label="Pending invitations"
+								aria-label={m.members_pending()}
 							>
 								{pending.map((i) => (
 									<li
@@ -349,7 +364,11 @@ function MembersPage() {
 										<div className="min-w-0 flex-1">
 											<p className="truncate font-medium">{i.email}</p>
 											<p className="text-xs text-muted-foreground">
-												Expires {new Date(i.expiresAt).toLocaleString()}
+												{m.members_expires({
+													date: new Date(i.expiresAt).toLocaleString(
+														getLocale(),
+													),
+												})}
 											</p>
 										</div>
 										<RoleBadge role={i.role ?? "viewer"} />
@@ -358,14 +377,16 @@ function MembersPage() {
 												type="button"
 												variant="ghost"
 												size="icon"
-												aria-label={`Cancel invitation for ${i.email}`}
+												aria-label={m.members_cancel_invitation({
+													email: i.email,
+												})}
 												onClick={() =>
 													run(
 														() =>
 															authClient.organization.cancelInvitation({
 																invitationId: i.id,
 															}),
-														`Invitation for ${i.email} cancelled.`,
+														m.members_invitation_cancelled({ email: i.email }),
 													)
 												}
 											>

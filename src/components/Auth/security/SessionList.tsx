@@ -4,11 +4,13 @@ import { useState } from "react";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import { authClient, authErrorMessage } from "#/lib/auth-client";
+import { m } from "#/paraglide/messages.js";
+import { getLocale } from "#/paraglide/runtime.js";
 import { FormAlert } from "../FormParts";
 
 // Very small user-agent summary, enough to recognise a device
 function describeDevice(userAgent?: string | null) {
-	if (!userAgent) return { label: "Unknown device", mobile: false };
+	if (!userAgent) return { label: m.session_unknown_device(), mobile: false };
 	const browser = /Edg\//.test(userAgent)
 		? "Edge"
 		: /Firefox\//.test(userAgent)
@@ -17,7 +19,7 @@ function describeDevice(userAgent?: string | null) {
 				? "Chrome"
 				: /Safari\//.test(userAgent)
 					? "Safari"
-					: "Browser";
+					: m.session_browser();
 	const os = /Windows/.test(userAgent)
 		? "Windows"
 		: /Android/.test(userAgent)
@@ -28,9 +30,9 @@ function describeDevice(userAgent?: string | null) {
 					? "macOS"
 					: /Linux/.test(userAgent)
 						? "Linux"
-						: "Unknown OS";
+						: m.session_unknown_os();
 	return {
-		label: `${browser} on ${os}`,
+		label: m.session_device({ browser, os }),
 		mobile: /Mobi|Android|iPhone/.test(userAgent),
 	};
 }
@@ -61,7 +63,7 @@ export function SessionList({
 		setStatus(
 			error
 				? { ok: false, message: authErrorMessage(error) }
-				: { ok: true, message: "Device signed out." },
+				: { ok: true, message: m.session_signed_out() },
 		);
 		await refresh();
 	};
@@ -71,7 +73,7 @@ export function SessionList({
 		setStatus(
 			error
 				? { ok: false, message: authErrorMessage(error) }
-				: { ok: true, message: "All other devices signed out." },
+				: { ok: true, message: m.session_others_signed_out() },
 		);
 		await refresh();
 	};
@@ -80,16 +82,13 @@ export function SessionList({
 
 	return (
 		<div className="space-y-4">
-			<p className="text-sm text-muted-foreground">
-				These devices are signed in to your account. Sign out any you don't
-				recognise, then change your password.
-			</p>
+			<p className="text-sm text-muted-foreground">{m.session_intro()}</p>
 			<FormAlert
 				message={status?.message ?? null}
 				variant={status?.ok ? "success" : "destructive"}
 			/>
 			{sessions.isPending ? (
-				<p className="text-sm text-muted-foreground">Loading devices...</p>
+				<p className="text-sm text-muted-foreground">{m.session_loading()}</p>
 			) : sessions.isError ? (
 				<FormAlert message={sessions.error.message} />
 			) : (
@@ -105,12 +104,16 @@ export function SessionList({
 									<p className="flex items-center gap-2 text-sm font-medium">
 										{device.label}
 										{current ? (
-											<Badge variant="secondary">This device</Badge>
+											<Badge variant="secondary">
+												{m.session_this_device()}
+											</Badge>
 										) : null}
 									</p>
 									<p className="text-xs text-muted-foreground">
-										{s.ipAddress ? `${s.ipAddress} · ` : ""}Last active{" "}
-										{new Date(s.updatedAt).toLocaleString()}
+										{s.ipAddress ? `${s.ipAddress} · ` : ""}
+										{m.session_last_active({
+											date: new Date(s.updatedAt).toLocaleString(getLocale()),
+										})}
 									</p>
 								</div>
 								{current ? null : (
@@ -120,7 +123,7 @@ export function SessionList({
 										size="sm"
 										onClick={() => revoke(s.token)}
 									>
-										Sign out
+										{m.shell_sign_out()}
 									</Button>
 								)}
 							</li>
@@ -130,7 +133,7 @@ export function SessionList({
 			)}
 			{others.length ? (
 				<Button type="button" variant="destructive" onClick={revokeOthers}>
-					Sign out of all other devices
+					{m.security_sign_out_others()}
 				</Button>
 			) : null}
 		</div>

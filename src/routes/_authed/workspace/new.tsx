@@ -18,6 +18,7 @@ import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
 import { authClient, authErrorMessage } from "#/lib/auth-client";
 import { workspaceNameSchema } from "#/lib/schema";
+import { m } from "#/paraglide/messages.js";
 
 export const Route = createFileRoute("/_authed/workspace/new")({
 	component: NewWorkspacePage,
@@ -62,11 +63,8 @@ function NewWorkspacePage() {
 		<div className="mx-auto max-w-xl p-6">
 			<Card>
 				<CardHeader>
-					<CardTitle>Create a workspace</CardTitle>
-					<CardDescription>
-						A separate space with its own projects and members. You'll be its
-						owner.
-					</CardDescription>
+					<CardTitle>{m.workspace_new_title()}</CardTitle>
+					<CardDescription>{m.workspace_new_description()}</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<form
@@ -92,13 +90,13 @@ function NewWorkspacePage() {
 						>
 							{(field) => (
 								<div className="space-y-2">
-									<Label htmlFor="new-workspace-name">Name</Label>
+									<Label htmlFor="new-workspace-name">{m.common_name()}</Label>
 									<Input
 										id="new-workspace-name"
 										value={field.state.value}
 										onBlur={field.handleBlur}
 										onChange={(e) => field.handleChange(e.target.value)}
-										placeholder="Acme Inc."
+										placeholder={m.workspace_new_placeholder()}
 										maxLength={50}
 										aria-invalid={fieldErrors(field.state.meta).length > 0}
 										aria-describedby="new-workspace-name-error"
@@ -113,7 +111,7 @@ function NewWorkspacePage() {
 						<form.Subscribe selector={(s) => [s.canSubmit, s.isSubmitting]}>
 							{([canSubmit, isSubmitting]) => (
 								<Button type="submit" disabled={!canSubmit || isSubmitting}>
-									{isSubmitting ? "Creating..." : "Create workspace"}
+									{isSubmitting ? m.workspace_creating() : m.workspace_create()}
 								</Button>
 							)}
 						</form.Subscribe>
