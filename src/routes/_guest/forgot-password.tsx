@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AuthCard } from "#/components/Auth/AuthCard";
 import { ForgotPasswordForm } from "#/components/Auth/ForgotPasswordForm";
+import { m } from "#/paraglide/messages.js";
 
 export const Route = createFileRoute("/_guest/forgot-password")({
 	component: ForgotPasswordPage,
@@ -9,11 +10,11 @@ export const Route = createFileRoute("/_guest/forgot-password")({
 function ForgotPasswordPage() {
 	return (
 		<AuthCard
-			title="Forgot your password?"
-			description="Enter your email and we'll send you a reset link"
+			title={m.auth_forgot_title()}
+			description={m.auth_forgot_description()}
 			footer={
 				<Link to="/login" className="underline-offset-4 hover:underline">
-					Back to sign in
+					{m.common_back_to_sign_in()}
 				</Link>
 			}
 		>

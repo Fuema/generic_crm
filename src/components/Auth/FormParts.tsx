@@ -3,6 +3,7 @@ import { type ComponentProps, useState } from "react";
 import { Alert, AlertDescription } from "#/components/ui/alert";
 import { Button } from "#/components/ui/button";
 import { Input } from "#/components/ui/input";
+import { m } from "#/paraglide/messages.js";
 
 type FieldMeta = {
 	isTouched: boolean;
@@ -48,7 +49,9 @@ export function PasswordInput(
 				size="icon"
 				className="absolute top-0 right-0 h-full px-3 hover:bg-transparent"
 				onClick={() => setVisible((v) => !v)}
-				aria-label={visible ? "Hide password" : "Show password"}
+				aria-label={
+					visible ? m.common_hide_password() : m.common_show_password()
+				}
 				aria-pressed={visible}
 			>
 				{visible ? <EyeOff /> : <Eye />}

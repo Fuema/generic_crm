@@ -9,6 +9,7 @@ import { Label } from "#/components/ui/label";
 import { authClient, authErrorMessage } from "#/lib/auth-client";
 import type { SocialProvider } from "#/lib/auth-providers";
 import { signInSchema } from "#/lib/schema";
+import { m } from "#/paraglide/messages.js";
 import {
 	Divider,
 	FieldError,
@@ -111,10 +112,12 @@ export function SignInForm({
 				disabled={passkeyPending}
 			>
 				<KeyRound />
-				{passkeyPending ? "Waiting for passkey..." : "Sign in with a passkey"}
+				{passkeyPending
+					? m.auth_signin_passkey_waiting()
+					: m.auth_signin_passkey()}
 			</Button>
 
-			<Divider label="Or continue with email" />
+			<Divider label={m.auth_signin_divider()} />
 
 			<form
 				noValidate
@@ -128,7 +131,7 @@ export function SignInForm({
 				<form.Field name="email">
 					{(field) => (
 						<div className="space-y-2">
-							<Label htmlFor={field.name}>Email</Label>
+							<Label htmlFor={field.name}>{m.common_email()}</Label>
 							<Input
 								id={field.name}
 								type="email"
@@ -136,7 +139,7 @@ export function SignInForm({
 								value={field.state.value}
 								onBlur={field.handleBlur}
 								onChange={(e) => field.handleChange(e.target.value)}
-								placeholder="you@example.com"
+								placeholder={m.common_email_placeholder()}
 								autoComplete="username webauthn"
 								inputMode="email"
 								maxLength={254}
@@ -152,12 +155,12 @@ export function SignInForm({
 					{(field) => (
 						<div className="space-y-2">
 							<div className="flex items-center justify-between">
-								<Label htmlFor={field.name}>Password</Label>
+								<Label htmlFor={field.name}>{m.common_password()}</Label>
 								<Link
 									to="/forgot-password"
 									className="text-sm text-muted-foreground underline-offset-4 hover:underline"
 								>
-									Forgot password?
+									{m.auth_signin_forgot()}
 								</Link>
 							</div>
 							<PasswordInput
@@ -187,7 +190,7 @@ export function SignInForm({
 								}
 							/>
 							<Label htmlFor={field.name} className="font-normal">
-								Keep me signed in for 7 days
+								{m.auth_signin_remember()}
 							</Label>
 						</div>
 					)}
@@ -202,7 +205,9 @@ export function SignInForm({
 							className="w-full"
 							disabled={!canSubmit || isSubmitting}
 						>
-							{isSubmitting ? "Signing in..." : "Sign in"}
+							{isSubmitting
+								? m.auth_signin_submitting()
+								: m.auth_signin_submit()}
 						</Button>
 					)}
 				</form.Subscribe>

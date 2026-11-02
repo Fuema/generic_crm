@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { AuthCard } from "#/components/Auth/AuthCard";
 import { SignUpForm } from "#/components/Auth/SignUpForm";
 import { getSocialProviders } from "#/lib/auth-providers";
+import { m } from "#/paraglide/messages.js";
 
 export const Route = createFileRoute("/_guest/signup")({
 	loader: () => getSocialProviders(),
@@ -13,16 +14,16 @@ function SignUpPage() {
 
 	return (
 		<AuthCard
-			title="Create an account"
-			description="Start in less than a minute"
+			title={m.auth_signup_title()}
+			description={m.auth_signup_description()}
 			footer={
 				<p>
-					Already have an account?{" "}
+					{m.auth_signup_have_account()}{" "}
 					<Link
 						to="/login"
 						className="font-medium text-foreground underline-offset-4 hover:underline"
 					>
-						Sign in
+						{m.auth_signup_sign_in()}
 					</Link>
 				</p>
 			}

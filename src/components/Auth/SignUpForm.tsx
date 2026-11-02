@@ -8,6 +8,7 @@ import { Label } from "#/components/ui/label";
 import { authClient, authErrorMessage } from "#/lib/auth-client";
 import type { SocialProvider } from "#/lib/auth-providers";
 import { PASSWORD_MAX, signUpSchema } from "#/lib/schema";
+import { m } from "#/paraglide/messages.js";
 import {
 	Divider,
 	FieldError,
@@ -66,7 +67,7 @@ export function SignUpForm({ providers }: { providers: SocialProvider[] }) {
 				callbackURL="/dashboard"
 				onError={setError}
 			/>
-			{providers.length ? <Divider label="Or sign up with email" /> : null}
+			{providers.length ? <Divider label={m.auth_signup_divider()} /> : null}
 
 			<form
 				noValidate
@@ -80,14 +81,14 @@ export function SignUpForm({ providers }: { providers: SocialProvider[] }) {
 				<form.Field name="name">
 					{(field) => (
 						<div className="space-y-2">
-							<Label htmlFor={field.name}>Full name</Label>
+							<Label htmlFor={field.name}>{m.auth_signup_name()}</Label>
 							<Input
 								id={field.name}
 								name={field.name}
 								value={field.state.value}
 								onBlur={field.handleBlur}
 								onChange={(e) => field.handleChange(e.target.value)}
-								placeholder="Jane Doe"
+								placeholder={m.auth_signup_name_placeholder()}
 								autoComplete="name"
 								maxLength={50}
 								aria-invalid={fieldErrors(field.state.meta).length > 0}
@@ -101,7 +102,7 @@ export function SignUpForm({ providers }: { providers: SocialProvider[] }) {
 				<form.Field name="email">
 					{(field) => (
 						<div className="space-y-2">
-							<Label htmlFor={field.name}>Email</Label>
+							<Label htmlFor={field.name}>{m.common_email()}</Label>
 							<Input
 								id={field.name}
 								type="email"
@@ -109,7 +110,7 @@ export function SignUpForm({ providers }: { providers: SocialProvider[] }) {
 								value={field.state.value}
 								onBlur={field.handleBlur}
 								onChange={(e) => field.handleChange(e.target.value)}
-								placeholder="you@example.com"
+								placeholder={m.common_email_placeholder()}
 								autoComplete="email"
 								inputMode="email"
 								maxLength={254}
@@ -124,7 +125,7 @@ export function SignUpForm({ providers }: { providers: SocialProvider[] }) {
 				<form.Field name="password">
 					{(field) => (
 						<div className="space-y-2">
-							<Label htmlFor={field.name}>Password</Label>
+							<Label htmlFor={field.name}>{m.common_password()}</Label>
 							<PasswordInput
 								id={field.name}
 								name={field.name}
@@ -147,7 +148,9 @@ export function SignUpForm({ providers }: { providers: SocialProvider[] }) {
 				<form.Field name="confirmPassword">
 					{(field) => (
 						<div className="space-y-2">
-							<Label htmlFor={field.name}>Confirm password</Label>
+							<Label htmlFor={field.name}>
+								{m.auth_signup_confirm_password()}
+							</Label>
 							<PasswordInput
 								id={field.name}
 								name={field.name}
@@ -182,7 +185,7 @@ export function SignUpForm({ providers }: { providers: SocialProvider[] }) {
 									htmlFor={field.name}
 									className="leading-snug font-normal"
 								>
-									I agree to the Terms of Service and Privacy Policy
+									{m.auth_signup_terms()}
 								</Label>
 							</div>
 							<FieldError id={`${field.name}-error`} meta={field.state.meta} />
@@ -199,7 +202,9 @@ export function SignUpForm({ providers }: { providers: SocialProvider[] }) {
 							className="w-full"
 							disabled={!canSubmit || isSubmitting}
 						>
-							{isSubmitting ? "Creating account..." : "Create account"}
+							{isSubmitting
+								? m.auth_signup_submitting()
+								: m.auth_signup_submit()}
 						</Button>
 					)}
 				</form.Subscribe>
@@ -224,7 +229,7 @@ function CheckInbox({ email }: { email: string }) {
 		setStatus(
 			error
 				? { ok: false, message: authErrorMessage(error) }
-				: { ok: true, message: "We sent you a new link." },
+				: { ok: true, message: m.auth_inbox_resent() },
 		);
 	};
 
@@ -232,9 +237,8 @@ function CheckInbox({ email }: { email: string }) {
 		<div className="space-y-4 text-center">
 			<MailCheck className="mx-auto size-12 text-primary" aria-hidden="true" />
 			<p>
-				We sent a verification link to{" "}
-				<strong className="break-all">{email}</strong>. Open it to activate your
-				account. The link expires in 1 hour.
+				{m.auth_inbox_sent_to()} <strong className="break-all">{email}</strong>.{" "}
+				{m.auth_inbox_open_it()}
 			</p>
 			<FormAlert
 				message={status?.message ?? null}
@@ -247,7 +251,7 @@ function CheckInbox({ email }: { email: string }) {
 				onClick={resend}
 				disabled={pending}
 			>
-				{pending ? "Sending..." : "Resend the email"}
+				{pending ? m.common_sending() : m.auth_inbox_resend()}
 			</Button>
 		</div>
 	);
