@@ -1,0 +1,13 @@
+{
+	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"login_title": "Welcome back",
+	"login_description": "Sign in to your account",
+	"login_no_account": "No account yet?",
+	"login_sign_up": "Sign up",
+	"login_social_failed": "Social sign-in didn't complete. Please try again.",
+	"login_notice_password_reset": "Your password was changed. Sign in with your new password.",
+	"login_notice_signed_out": "You've been signed out.",
+	"language_label": "Language",
+	"language_en": "English",
+	"language_es": "Español"
+}

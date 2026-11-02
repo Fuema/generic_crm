@@ -1,0 +1,13 @@
+{
+	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"login_title": "Bienvenido de nuevo",
+	"login_description": "Inicia sesión en tu cuenta",
+	"login_no_account": "¿Aún no tienes cuenta?",
+	"login_sign_up": "Regístrate",
+	"login_social_failed": "No se completó el inicio de sesión social. Inténtalo de nuevo.",
+	"login_notice_password_reset": "Tu contraseña se cambió. Inicia sesión con tu nueva contraseña.",
+	"login_notice_signed_out": "Has cerrado sesión.",
+	"language_label": "Idioma",
+	"language_en": "English",
+	"language_es": "Español"
+}

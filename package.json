@@ -23,11 +23,13 @@
     "email:test": "bun scripts/send-test-email.ts",
     "db:seed:sales": "bun scripts/seed-sales.ts",
     "db:seed:planning": "bun scripts/seed-planning.ts",
-    "typecheck": "tsc --noEmit",
+    "i18n:compile": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --strategy cookie preferredLanguage baseLocale --output-structure message-modules --emit-ts-declarations",
+    "check:i18n": "bun scripts/check-i18n.ts",
+    "typecheck": "bun run i18n:compile && tsc --noEmit",
     "test": "bun test tests/unit",
     "test:integration": "bun test --preload ./tests/integration/setup.ts tests/integration",
     "check:bundle": "bun run build && bun scripts/check-bundle.ts",
-    "validate": "bun run typecheck && bun run check && bun run test && bun run check:bundle"
+    "validate": "bun run typecheck && bun run check && bun run check:i18n && bun run test && bun run check:bundle"
   },
   "dependencies": {
     "@better-auth/passkey": "1.7.14",
@@ -71,6 +73,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.4.5",
     "@cloudflare/vite-plugin": "^1.26.0",
+    "@inlang/paraglide-js": "2.29.3",
     "@tailwindcss/typography": "^0.5.16",
     "@tanstack/devtools-vite": "0.8.6",
     "@tanstack/router-cli": "^1.132.0",
