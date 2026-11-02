@@ -6,11 +6,10 @@ first**: vision, decisions, data model, customization engine, portal, phases,
 conventions and pitfalls live there.
 
 ## Where things stand
-- **Design only.** The code is an unmodified copy of the reference project
+- **Phase 0 in progress** (spec §5). The code is still mostly the reference project
   `my-tanstack-app` (frozen; GitHub `Fuema/bun_tanstack_neon_cloudflare`).
-  Phase 0 (spec §5) turns it into this design.
-- **No code changes until the owner says to start a phase.** Documentation work is fine.
-- Until phase 0 removes two starter leftovers, `bun run dev` and `build` fail (spec §5).
+- **Start a new phase only when the owner says so.** Documentation work is fine.
+- `bun run dev` needs this project's own `.env.local` (see `.env.example`).
 
 ## Starting a session
 - Use the `project-navigator` agent (or spec §16 phases and §20 changelog) to see where things stand.
