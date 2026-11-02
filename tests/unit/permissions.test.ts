@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { roleCan } from "#/lib/permissions";
 
 const RESOURCES = [
+	"contact",
+	"company",
 	"project",
 	"customer",
 	"product",

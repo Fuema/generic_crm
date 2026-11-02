@@ -6,8 +6,10 @@ first**: vision, decisions, data model, customization engine, portal, phases,
 conventions and pitfalls live there.
 
 ## Where things stand
-- **Phase 0 in progress** (spec §5). The code is still mostly the reference project
-  `my-tanstack-app` (frozen; GitHub `Fuema/bun_tanstack_neon_cloudflare`).
+- **Phase 1 in progress** (spec §16; phase 0 done). New modules live in `src/modules/` and
+  `src/platform/` (spec §4); older code is still the reference project `my-tanstack-app`
+  (frozen; GitHub `Fuema/bun_tanstack_neon_cloudflare`) until its module is rebuilt.
+- **Production deploy waits until the end of the project** (owner decision, spec §3).
 - **Start a new phase only when the owner says so.** Documentation work is fine.
 - `bun run dev` needs this project's own `.env.local` (see `.env.example`).
 

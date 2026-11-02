@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "#/db/index";
-import { customer, member, salesOrder } from "#/db/schema";
+import { company, customer, member, salesOrder } from "#/db/schema";
+import { m } from "#/paraglide/messages.js";
 
 // Server-only: import from server-function handlers, never from routes or
 // components (plain exports aren't stripped from the browser bundle).
@@ -9,12 +10,14 @@ function badRequest(message: string) {
 	return new Response(message, { status: 400 });
 }
 
-// Confirms every referenced user, customer and order belongs to this workspace, so
-// a task can't be assigned to an outsider or linked to another workspace's data
+// Confirms every referenced user, company, customer and order belongs to this
+// workspace, so a record can't be assigned to an outsider or linked to another
+// workspace's data
 export async function assertWorkspaceRefs(
 	workspaceId: string,
 	refs: {
 		userId?: string | null;
+		companyId?: string | null;
 		customerId?: string | null;
 		orderId?: string | null;
 	},
@@ -33,7 +36,24 @@ export async function assertWorkspaceRefs(
 				)
 				.limit(1)
 				.then(([row]) => {
-					if (!row) throw badRequest("Choose a member of this workspace");
+					if (!row) throw badRequest(m.error_choose_member());
+				}),
+		);
+	}
+	if (refs.companyId) {
+		checks.push(
+			db
+				.select({ id: company.id })
+				.from(company)
+				.where(
+					and(
+						eq(company.workspaceId, workspaceId),
+						eq(company.id, refs.companyId),
+					),
+				)
+				.limit(1)
+				.then(([row]) => {
+					if (!row) throw badRequest(m.error_choose_company());
 				}),
 		);
 	}
@@ -50,7 +70,7 @@ export async function assertWorkspaceRefs(
 				)
 				.limit(1)
 				.then(([row]) => {
-					if (!row) throw badRequest("Choose a customer from this workspace");
+					if (!row) throw badRequest(m.error_choose_customer());
 				}),
 		);
 	}
@@ -67,7 +87,7 @@ export async function assertWorkspaceRefs(
 				)
 				.limit(1)
 				.then(([row]) => {
-					if (!row) throw badRequest("Choose an order from this workspace");
+					if (!row) throw badRequest(m.error_choose_order());
 				}),
 		);
 	}

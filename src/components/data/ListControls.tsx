@@ -21,6 +21,8 @@ import {
 	SelectValue,
 } from "#/components/ui/select";
 import { CUSTOMER_PAGE_SIZES } from "#/lib/schema";
+import { m } from "#/paraglide/messages.js";
+import { getLocale } from "#/paraglide/runtime.js";
 
 // Shared building blocks for the server-paginated lists (products, orders,
 // invoices). The URL holds the state; these components only emit patches.
@@ -55,7 +57,7 @@ export function SearchBox({
 
 	return (
 		<div className="flex-1 space-y-1.5">
-			<Label htmlFor={id}>Search</Label>
+			<Label htmlFor={id}>{m.list_search()}</Label>
 			<div className="relative">
 				<Search
 					className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
@@ -186,7 +188,7 @@ export function ListPagination({
 			className="flex flex-col items-center justify-between gap-3 text-sm sm:flex-row"
 		>
 			<p className="text-muted-foreground" aria-live="polite">
-				{total === 0 ? "Nothing to show" : `Showing ${from}–${to} of ${total}`}
+				{total === 0 ? m.list_nothing() : m.list_showing({ from, to, total })}
 			</p>
 			<div className="flex flex-wrap items-center gap-4">
 				<div className="flex items-center gap-2">
@@ -194,7 +196,7 @@ export function ListPagination({
 						htmlFor={`${label}-size`}
 						className="font-normal whitespace-nowrap"
 					>
-						Rows per page
+						{m.list_rows_per_page()}
 					</Label>
 					<Select
 						value={String(state.pageSize)}
@@ -213,7 +215,7 @@ export function ListPagination({
 					</Select>
 				</div>
 				<span className="whitespace-nowrap">
-					Page {page} of {pageCount}
+					{m.list_page_of({ page, pageCount })}
 				</span>
 				<div className="flex gap-1">
 					<Button
@@ -222,7 +224,7 @@ export function ListPagination({
 						size="icon"
 						onClick={() => go(1)}
 						disabled={page <= 1}
-						aria-label="First page"
+						aria-label={m.list_first_page()}
 					>
 						<ChevronsLeft />
 					</Button>
@@ -232,7 +234,7 @@ export function ListPagination({
 						size="icon"
 						onClick={() => go(page - 1)}
 						disabled={page <= 1}
-						aria-label="Previous page"
+						aria-label={m.list_previous_page()}
 					>
 						<ChevronLeft />
 					</Button>
@@ -242,7 +244,7 @@ export function ListPagination({
 						size="icon"
 						onClick={() => go(page + 1)}
 						disabled={page >= pageCount}
-						aria-label="Next page"
+						aria-label={m.list_next_page()}
 					>
 						<ChevronRight />
 					</Button>
@@ -252,7 +254,7 @@ export function ListPagination({
 						size="icon"
 						onClick={() => go(pageCount)}
 						disabled={page >= pageCount}
-						aria-label="Last page"
+						aria-label={m.list_last_page()}
 					>
 						<ChevronsRight />
 					</Button>
@@ -300,5 +302,5 @@ export function invoiceDisplayStatus(
 }
 
 export function formatDate(value: Date | string | null | undefined) {
-	return value ? new Date(value).toLocaleDateString() : "—";
+	return value ? new Date(value).toLocaleDateString(getLocale()) : "—";
 }
