@@ -145,6 +145,17 @@ function Chip({
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
+// Static class names so Tailwind generates them; more than 7 days wrap
+const COLUMNS = [
+	"md:grid-cols-1",
+	"md:grid-cols-2",
+	"md:grid-cols-3",
+	"md:grid-cols-4",
+	"md:grid-cols-5",
+	"md:grid-cols-6",
+	"md:grid-cols-7",
+];
+
 export function CalendarBoard({
 	view,
 	days,
@@ -220,9 +231,9 @@ export function CalendarBoard({
 		);
 	}
 
-	if (view === "week") {
+	if (view === "week" || view === "days") {
 		return (
-			<div className="grid gap-2 md:grid-cols-7">
+			<div className={`grid gap-2 ${COLUMNS[Math.min(days.length, 7) - 1]}`}>
 				{days.map((d) => {
 					const key = dayKeyLocal(d);
 					const list = byDay.get(key) ?? [];

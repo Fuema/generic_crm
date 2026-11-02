@@ -27,17 +27,24 @@ import {
 	type TaskCard,
 	updateTask,
 } from "#/lib/tasks";
+import {
+	getPreferences,
+	setPreferences,
+} from "#/modules/preferences/preferences";
+import { TASK_DUE_CHOICES } from "#/modules/preferences/schema";
+import { m } from "#/paraglide/messages.js";
 
 // Protected by the _authed guard; listTasks requires task:read
 export const Route = createFileRoute("/_authed/tasks")({
 	validateSearch: taskBoardSearchSchema,
 	loaderDeps: ({ search }) => search,
 	loader: async ({ deps }) => {
+		const prefs = await getPreferences();
 		const [tasks, refs] = await Promise.all([
-			listTasks({ data: deps }),
+			listTasks({ data: { ...deps, dueWithin: prefs.taskDueDays } }),
 			getWorkspaceRefOptions(),
 		]);
-		return { tasks, refs };
+		return { tasks, refs, prefs };
 	},
 	component: TasksPage,
 });
@@ -46,7 +53,7 @@ function TasksPage() {
 	const router = useRouter();
 	const navigate = Route.useNavigate();
 	const search = Route.useSearch();
-	const { tasks, refs } = Route.useLoaderData();
+	const { tasks, refs, prefs } = Route.useLoaderData();
 	const { access } = Route.useRouteContext();
 	const can = {
 		create: roleCan(access?.role, { task: ["create"] }),
@@ -137,6 +144,23 @@ function TasksPage() {
 					onChange={(v) =>
 						patch({ priority: v as TaskBoardSearch["priority"] })
 					}
+				/>
+				<FilterSelect
+					id="task-due-filter"
+					label={m.tasks_due_within()}
+					value={prefs.taskDueDays ? String(prefs.taskDueDays) : undefined}
+					allLabel={m.tasks_due_all()}
+					options={TASK_DUE_CHOICES.map((n) => ({
+						value: String(n),
+						label: m.common_days_count({ count: n }),
+					}))}
+					// The person's own choice, saved for every device
+					onChange={async (v) => {
+						await setPreferences({
+							data: { taskDueDays: v ? Number(v) : null },
+						});
+						await router.invalidate();
+					}}
 				/>
 			</div>
 

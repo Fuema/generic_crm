@@ -511,7 +511,8 @@ export const taskBoardSearchSchema = z.object({
 });
 export type TaskBoardSearch = z.infer<typeof taskBoardSearchSchema>;
 
-export const CALENDAR_VIEWS = ["day", "week", "month"] as const;
+// "days" shows the person's chosen number of days from the anchor date
+export const CALENDAR_VIEWS = ["day", "days", "week", "month"] as const;
 export type CalendarView = (typeof CALENDAR_VIEWS)[number];
 export const calendarSearchSchema = z.object({
 	view: z.enum(CALENDAR_VIEWS).catch("week").default("week"),

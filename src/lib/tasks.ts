@@ -1,5 +1,17 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, asc, desc, eq, ilike, max, min, ne, type SQL } from "drizzle-orm";
+import {
+	and,
+	asc,
+	desc,
+	eq,
+	ilike,
+	isNotNull,
+	lte,
+	max,
+	min,
+	ne,
+	type SQL,
+} from "drizzle-orm";
 import { z } from "zod";
 import { db } from "#/db/index";
 import { customer, member, salesOrder, task, user } from "#/db/schema";
@@ -82,9 +94,18 @@ function toRow(data: TaskInput) {
 
 export const listTasks = createServerFn({ method: "GET" })
 	.middleware([requirePermission({ task: ["read"] })])
-	.validator(taskBoardSearchSchema)
+	.validator(
+		taskBoardSearchSchema.extend({
+			// Only tasks due within this many days, overdue ones included
+			dueWithin: z.number().int().min(1).max(365).nullish(),
+		}),
+	)
 	.handler(async ({ data, context }) => {
 		const filters: SQL[] = [eq(task.workspaceId, context.workspaceId)];
+		if (data.dueWithin) {
+			const until = new Date(Date.now() + data.dueWithin * 86_400_000);
+			filters.push(isNotNull(task.dueAt), lte(task.dueAt, until));
+		}
 		if (data.q) filters.push(ilike(task.title, likePattern(data.q)));
 		if (data.assignee) {
 			filters.push(

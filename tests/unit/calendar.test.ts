@@ -6,6 +6,7 @@ import {
 	fromStoredISO,
 	itemDayKey,
 	startOfWeek,
+	step,
 	toStoredISO,
 	visibleDays,
 } from "#/lib/calendar";
@@ -77,5 +78,25 @@ describe("calendar views", () => {
 		for (let i = 1; i < month.length; i++) {
 			expect(dayKeyLocal(month[i])).toBe(dayKeyLocal(addDays(month[i - 1], 1)));
 		}
+	});
+});
+
+describe("the days view", () => {
+	test("shows the chosen number of days from the anchor, not from Monday", () => {
+		// Wednesday 2026-11-04
+		const days = visibleDays("days", new Date(2026, 10, 4), 3);
+		expect(days.map(dayKeyLocal)).toEqual([
+			"2026-11-04",
+			"2026-11-05",
+			"2026-11-06",
+		]);
+	});
+
+	test("moves by the number of days shown", () => {
+		const anchor = new Date(2026, 10, 4);
+		expect(dayKeyLocal(step("days", anchor, 1, 5))).toBe("2026-11-09");
+		expect(dayKeyLocal(step("days", anchor, -1, 5))).toBe("2026-10-30");
+		// Other views ignore the count
+		expect(dayKeyLocal(step("week", anchor, 1, 5))).toBe("2026-11-11");
 	});
 });

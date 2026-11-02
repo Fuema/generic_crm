@@ -46,6 +46,12 @@ import {
 	type TaskCard,
 	updateTask,
 } from "#/lib/tasks";
+import {
+	getPreferences,
+	setPreferences,
+} from "#/modules/preferences/preferences";
+import { CALENDAR_DAY_CHOICES } from "#/modules/preferences/schema";
+import { m } from "#/paraglide/messages.js";
 
 // Protected by the _authed guard; listCalendar requires task:read and activity:read.
 // The range is padded a day each side, so the server's time zone never hides
@@ -55,18 +61,26 @@ export const Route = createFileRoute("/_authed/calendar")({
 	loaderDeps: ({ search }) => ({ view: search.view, date: search.date }),
 	loader: async ({ deps }) => {
 		const anchor = deps.date ? parseDayKey(deps.date) : new Date();
-		const range = queryRange(visibleDays(deps.view, anchor));
+		const prefs = await getPreferences();
+		const range = queryRange(
+			visibleDays(deps.view, anchor, prefs.calendarDays),
+		);
 		const [calendar, tasks, refs] = await Promise.all([
 			listCalendar({ data: range }),
 			listTasks({ data: {} }),
 			getWorkspaceRefOptions(),
 		]);
-		return { calendar, tasks, refs };
+		return { calendar, tasks, refs, prefs };
 	},
 	component: CalendarPage,
 });
 
-const VIEW_LABELS = { day: "Day", week: "Week", month: "Month" } as const;
+const VIEW_LABELS = {
+	day: () => "Day",
+	days: (count: number) => m.common_days_count({ count }),
+	week: () => "Week",
+	month: () => "Month",
+} as const;
 
 function rangeTitle(view: CalendarSearch["view"], days: Date[]) {
 	if (view === "day") {
@@ -77,9 +91,9 @@ function rangeTitle(view: CalendarSearch["view"], days: Date[]) {
 			year: "numeric",
 		});
 	}
-	if (view === "week") {
+	if (view === "week" || view === "days") {
 		const first = days[0];
-		const last = days[6];
+		const last = days[days.length - 1];
 		const sameMonth = first.getMonth() === last.getMonth();
 		return `${first.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${last.toLocaleDateString(
 			undefined,
@@ -101,7 +115,8 @@ function CalendarPage() {
 	const router = useRouter();
 	const navigate = Route.useNavigate();
 	const search = Route.useSearch();
-	const { calendar, tasks, refs } = Route.useLoaderData();
+	const { calendar, tasks, refs, prefs } = Route.useLoaderData();
+	const dayCount = prefs.calendarDays;
 	const { access } = Route.useRouteContext();
 	const role = access?.role;
 	const can = {
@@ -119,8 +134,8 @@ function CalendarPage() {
 	const anchorKey = search.date ?? today ?? dayKeyLocal(new Date());
 	const anchor = parseDayKey(anchorKey);
 	const days = useMemo(
-		() => visibleDays(search.view, parseDayKey(anchorKey)),
-		[search.view, anchorKey],
+		() => visibleDays(search.view, parseDayKey(anchorKey), dayCount),
+		[search.view, anchorKey, dayCount],
 	);
 
 	const items = useMemo(() => {
@@ -234,7 +249,7 @@ function CalendarPage() {
 						size="icon"
 						aria-label={`Previous ${search.view}`}
 						onClick={() =>
-							go({ date: dayKeyLocal(step(search.view, anchor, -1)) })
+							go({ date: dayKeyLocal(step(search.view, anchor, -1, dayCount)) })
 						}
 					>
 						<ChevronLeft />
@@ -245,7 +260,7 @@ function CalendarPage() {
 						size="icon"
 						aria-label={`Next ${search.view}`}
 						onClick={() =>
-							go({ date: dayKeyLocal(step(search.view, anchor, 1)) })
+							go({ date: dayKeyLocal(step(search.view, anchor, 1, dayCount)) })
 						}
 					>
 						<ChevronRight />
@@ -255,6 +270,28 @@ function CalendarPage() {
 					{rangeTitle(search.view, days)}
 				</h2>
 				<div className="ml-auto flex flex-wrap items-center gap-2">
+					{search.view === "days" ? (
+						// The person's own choice, saved for every device
+						<label className="flex items-center gap-2 text-sm">
+							{m.calendar_days_label()}
+							<select
+								className="h-8 rounded-md border bg-background px-2"
+								value={dayCount}
+								onChange={async (e) => {
+									await setPreferences({
+										data: { calendarDays: Number(e.target.value) },
+									});
+									await router.invalidate();
+								}}
+							>
+								{CALENDAR_DAY_CHOICES.map((n) => (
+									<option key={n} value={n}>
+										{n}
+									</option>
+								))}
+							</select>
+						</label>
+					) : null}
 					<div
 						className="flex rounded-lg bg-muted p-1"
 						role="tablist"
@@ -273,7 +310,7 @@ function CalendarPage() {
 										: "text-muted-foreground hover:text-foreground"
 								}`}
 							>
-								{VIEW_LABELS[v]}
+								{VIEW_LABELS[v](dayCount)}
 							</button>
 						))}
 					</div>

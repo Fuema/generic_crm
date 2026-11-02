@@ -770,3 +770,15 @@ export const fieldDefinition = pgTable(
 		),
 	],
 );
+
+// Personal display preferences, per user across workspaces and devices
+export const userPreference = pgTable("user_preference", {
+	userId: text("user_id")
+		.primaryKey()
+		.references(() => user.id, { onDelete: "cascade" }),
+	// Days side by side in the calendar's "days" view (1–14)
+	calendarDays: integer("calendar_days").notNull().default(3),
+	// Task board shows tasks due within this many days (plus overdue); null = all
+	taskDueDays: integer("task_due_days"),
+	updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
