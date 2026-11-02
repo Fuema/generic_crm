@@ -5,11 +5,13 @@ import {
 	doublePrecision,
 	index,
 	integer,
+	jsonb,
 	pgTable,
 	text,
 	timestamp,
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
+import type { Json } from "#/platform/json";
 
 // Core Better Auth Schema Tables mapped to PostgreSQL
 export const user = pgTable("user", {
@@ -494,5 +496,127 @@ export const activity = pgTable(
 	(t) => [
 		index("activity_workspace_starts_idx").on(t.workspaceId, t.startsAt),
 		index("activity_workspace_customer_idx").on(t.workspaceId, t.customerId),
+	],
+);
+
+// ---------------------------------------------------------------------------
+// Generic CRM (spec §6, §11). Ids are UUID v7 (time-ordered). Every table has
+// workspace_id with ON DELETE CASCADE; records are archived, not deleted.
+// ---------------------------------------------------------------------------
+
+// Append-only log of every change that matters, written in the same db.batch as
+// the change itself so it never disagrees with the data (spec §11.1)
+export const event = pgTable(
+	"event",
+	{
+		id: text("id").primaryKey(),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
+		// e.g. "contact.created", "contact.updated", "contact.archived"
+		type: text("type").notNull(),
+		// "contact" | "company" | … — what the event is about
+		subjectType: text("subject_type").notNull(),
+		subjectId: text("subject_id").notNull(),
+		// "member" | "contact" | "system" | "workflow"
+		actorType: text("actor_type").notNull(),
+		actorId: text("actor_id"),
+		// For updates: { changes: { field: { from, to } } }
+		payload: jsonb("payload")
+			.$type<Record<string, Json>>()
+			.notNull()
+			.default({}),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+	},
+	(t) => [
+		index("event_workspace_subject_idx").on(
+			t.workspaceId,
+			t.subjectType,
+			t.subjectId,
+			t.createdAt,
+		),
+		index("event_workspace_created_idx").on(t.workspaceId, t.createdAt),
+	],
+);
+
+// An organization a contact may belong to (optional, spec §6.2)
+export const company = pgTable(
+	"company",
+	{
+		id: text("id").primaryKey(),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
+		name: text("name").notNull(),
+		// e.g. "acme.com"; unique per workspace when set
+		domain: text("domain"),
+		phone: text("phone"),
+		city: text("city"),
+		// ISO 3166-1 alpha-2 code, e.g. "US"
+		country: text("country"),
+		ownerId: text("owner_id").references(() => user.id, {
+			onDelete: "set null",
+		}),
+		custom: jsonb("custom").$type<Record<string, Json>>().notNull().default({}),
+		archivedAt: timestamp("archived_at"),
+		createdById: text("created_by_id").references(() => user.id, {
+			onDelete: "set null",
+		}),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+		updatedAt: timestamp("updated_at").notNull().defaultNow(),
+	},
+	(t) => [
+		uniqueIndex("company_workspace_domain_unique")
+			.on(t.workspaceId, sql`lower(${t.domain})`)
+			.where(sql`${t.domain} is not null`),
+		index("company_workspace_name_idx").on(t.workspaceId, t.name),
+	],
+);
+
+// A person: the central record of the CRM (spec §1, §6.2)
+export const contact = pgTable(
+	"contact",
+	{
+		id: text("id").primaryKey(),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
+		firstName: text("first_name").notNull(),
+		lastName: text("last_name"),
+		// Unique per workspace (case-insensitive) when set
+		email: text("email"),
+		phone: text("phone"),
+		jobTitle: text("job_title"),
+		// One primary company in v1
+		companyId: text("company_id").references(() => company.id, {
+			onDelete: "set null",
+		}),
+		// subscriber | lead | qualified | customer | inactive
+		lifecycleStage: text("lifecycle_stage").notNull().default("lead"),
+		ownerId: text("owner_id").references(() => user.id, {
+			onDelete: "set null",
+		}),
+		// "en" | "es"; null = the workspace default
+		locale: text("locale"),
+		// unknown | granted | revoked
+		emailConsent: text("email_consent").notNull().default("unknown"),
+		emailConsentSource: text("email_consent_source"),
+		emailConsentAt: timestamp("email_consent_at"),
+		custom: jsonb("custom").$type<Record<string, Json>>().notNull().default({}),
+		archivedAt: timestamp("archived_at"),
+		createdById: text("created_by_id").references(() => user.id, {
+			onDelete: "set null",
+		}),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+		updatedAt: timestamp("updated_at").notNull().defaultNow(),
+	},
+	(t) => [
+		uniqueIndex("contact_workspace_email_unique")
+			.on(t.workspaceId, sql`lower(${t.email})`)
+			.where(sql`${t.email} is not null`),
+		index("contact_workspace_created_idx").on(t.workspaceId, t.createdAt),
+		index("contact_workspace_stage_idx").on(t.workspaceId, t.lifecycleStage),
+		index("contact_workspace_company_idx").on(t.workspaceId, t.companyId),
+		index("contact_custom_gin_idx").using("gin", t.custom),
 	],
 );

@@ -1,5 +1,7 @@
 import {
+	Building2,
 	CalendarDays,
+	Contact,
 	FileText,
 	FolderKanban,
 	KanbanSquare,
@@ -26,6 +28,14 @@ export const NAV_GROUPS: {
 		label: m.nav_overview,
 		items: [
 			{ title: m.nav_dashboard, to: "/dashboard", icon: LayoutDashboard },
+		],
+	},
+	{
+		id: "contacts",
+		label: m.nav_contacts_group,
+		items: [
+			{ title: m.nav_contacts, to: "/contacts", icon: Contact },
+			{ title: m.nav_companies, to: "/companies", icon: Building2 },
 		],
 	},
 	{

@@ -1,3 +1,5 @@
+import { getLocale } from "#/paraglide/runtime.js";
+
 // ISO 3166-1 alpha-2 country codes. Stored on customers as the code; the name
 // is produced by Intl.DisplayNames, so no translation table is needed.
 export const COUNTRY_CODES = (
@@ -10,19 +12,37 @@ export const COUNTRY_CODES = (
 	"UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW"
 ).split(" ") as [string, ...string[]];
 
-const displayNames = new Intl.DisplayNames(["en"], { type: "region" });
+// One Intl.DisplayNames per language, created on first use
+const displayNames = new Map<string, Intl.DisplayNames>();
 
-export function countryName(code: string | null | undefined) {
+// The country's name in the page language (English unless given)
+export function countryName(
+	code: string | null | undefined,
+	locale: string = getLocale(),
+) {
 	if (!code) return "";
 	try {
-		return displayNames.of(code) ?? code;
+		let names = displayNames.get(locale);
+		if (!names) {
+			names = new Intl.DisplayNames([locale], { type: "region" });
+			displayNames.set(locale, names);
+		}
+		return names.of(code) ?? code;
 	} catch {
 		return code;
 	}
 }
 
+// Sorted by name in the given language, for selects
+export function countryOptions(locale: string = getLocale()) {
+	return COUNTRY_CODES.map((code) => ({
+		code,
+		name: countryName(code, locale),
+	})).sort((x, y) => x.name.localeCompare(y.name, locale));
+}
+
 // Sorted by display name, for selects
 export const COUNTRY_OPTIONS = COUNTRY_CODES.map((code) => ({
 	code,
-	name: countryName(code),
+	name: countryName(code, "en"),
 })).sort((a, b) => a.name.localeCompare(b.name));

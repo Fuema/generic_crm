@@ -26,6 +26,10 @@ import { Route as GuestSignupRouteImport } from './routes/_guest/signup'
 import { Route as GuestTwoFactorRouteImport } from './routes/_guest/two-factor'
 import { Route as AuthedAcceptInvitationInvitationIdRouteImport } from './routes/_authed/accept-invitation.$invitationId'
 import { Route as AuthedAccountSecurityRouteImport } from './routes/_authed/account/security'
+import { Route as AuthedCompaniesIndexRouteImport } from './routes/_authed/companies/index'
+import { Route as AuthedCompaniesCompanyIdRouteImport } from './routes/_authed/companies/$companyId'
+import { Route as AuthedContactsIndexRouteImport } from './routes/_authed/contacts/index'
+import { Route as AuthedContactsContactIdRouteImport } from './routes/_authed/contacts/$contactId'
 import { Route as AuthedInvoicesIndexRouteImport } from './routes/_authed/invoices/index'
 import { Route as AuthedInvoicesInvoiceIdRouteImport } from './routes/_authed/invoices/$invoiceId'
 import { Route as AuthedOrdersIndexRouteImport } from './routes/_authed/orders/index'
@@ -120,6 +124,27 @@ const AuthedAccountSecurityRoute = AuthedAccountSecurityRouteImport.update({
   path: '/account/security',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedCompaniesIndexRoute = AuthedCompaniesIndexRouteImport.update({
+  id: '/companies/',
+  path: '/companies/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedCompaniesCompanyIdRoute =
+  AuthedCompaniesCompanyIdRouteImport.update({
+    id: '/companies/$companyId',
+    path: '/companies/$companyId',
+    getParentRoute: () => AuthedRoute,
+  } as any)
+const AuthedContactsIndexRoute = AuthedContactsIndexRouteImport.update({
+  id: '/contacts/',
+  path: '/contacts/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedContactsContactIdRoute = AuthedContactsContactIdRouteImport.update({
+  id: '/contacts/$contactId',
+  path: '/contacts/$contactId',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedInvoicesIndexRoute = AuthedInvoicesIndexRouteImport.update({
   id: '/invoices/',
   path: '/invoices/',
@@ -182,6 +207,8 @@ export interface FileRoutesByFullPath {
   '/two-factor': typeof GuestTwoFactorRoute
   '/accept-invitation/$invitationId': typeof AuthedAcceptInvitationInvitationIdRoute
   '/account/security': typeof AuthedAccountSecurityRoute
+  '/companies/$companyId': typeof AuthedCompaniesCompanyIdRoute
+  '/contacts/$contactId': typeof AuthedContactsContactIdRoute
   '/invoices/$invoiceId': typeof AuthedInvoicesInvoiceIdRoute
   '/orders/$orderId': typeof AuthedOrdersOrderIdRoute
   '/orders/new': typeof AuthedOrdersNewRoute
@@ -189,6 +216,8 @@ export interface FileRoutesByFullPath {
   '/workspace/new': typeof AuthedWorkspaceNewRoute
   '/workspace/settings': typeof AuthedWorkspaceSettingsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/companies/': typeof AuthedCompaniesIndexRoute
+  '/contacts/': typeof AuthedContactsIndexRoute
   '/invoices/': typeof AuthedInvoicesIndexRoute
   '/orders/': typeof AuthedOrdersIndexRoute
 }
@@ -208,6 +237,8 @@ export interface FileRoutesByTo {
   '/two-factor': typeof GuestTwoFactorRoute
   '/accept-invitation/$invitationId': typeof AuthedAcceptInvitationInvitationIdRoute
   '/account/security': typeof AuthedAccountSecurityRoute
+  '/companies/$companyId': typeof AuthedCompaniesCompanyIdRoute
+  '/contacts/$contactId': typeof AuthedContactsContactIdRoute
   '/invoices/$invoiceId': typeof AuthedInvoicesInvoiceIdRoute
   '/orders/$orderId': typeof AuthedOrdersOrderIdRoute
   '/orders/new': typeof AuthedOrdersNewRoute
@@ -215,6 +246,8 @@ export interface FileRoutesByTo {
   '/workspace/new': typeof AuthedWorkspaceNewRoute
   '/workspace/settings': typeof AuthedWorkspaceSettingsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/companies': typeof AuthedCompaniesIndexRoute
+  '/contacts': typeof AuthedContactsIndexRoute
   '/invoices': typeof AuthedInvoicesIndexRoute
   '/orders': typeof AuthedOrdersIndexRoute
 }
@@ -237,6 +270,8 @@ export interface FileRoutesById {
   '/_guest/two-factor': typeof GuestTwoFactorRoute
   '/_authed/accept-invitation/$invitationId': typeof AuthedAcceptInvitationInvitationIdRoute
   '/_authed/account/security': typeof AuthedAccountSecurityRoute
+  '/_authed/companies/$companyId': typeof AuthedCompaniesCompanyIdRoute
+  '/_authed/contacts/$contactId': typeof AuthedContactsContactIdRoute
   '/_authed/invoices/$invoiceId': typeof AuthedInvoicesInvoiceIdRoute
   '/_authed/orders/$orderId': typeof AuthedOrdersOrderIdRoute
   '/_authed/orders/new': typeof AuthedOrdersNewRoute
@@ -244,6 +279,8 @@ export interface FileRoutesById {
   '/_authed/workspace/new': typeof AuthedWorkspaceNewRoute
   '/_authed/workspace/settings': typeof AuthedWorkspaceSettingsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/_authed/companies/': typeof AuthedCompaniesIndexRoute
+  '/_authed/contacts/': typeof AuthedContactsIndexRoute
   '/_authed/invoices/': typeof AuthedInvoicesIndexRoute
   '/_authed/orders/': typeof AuthedOrdersIndexRoute
 }
@@ -265,6 +302,8 @@ export interface FileRouteTypes {
     | '/two-factor'
     | '/accept-invitation/$invitationId'
     | '/account/security'
+    | '/companies/$companyId'
+    | '/contacts/$contactId'
     | '/invoices/$invoiceId'
     | '/orders/$orderId'
     | '/orders/new'
@@ -272,6 +311,8 @@ export interface FileRouteTypes {
     | '/workspace/new'
     | '/workspace/settings'
     | '/api/auth/$'
+    | '/companies/'
+    | '/contacts/'
     | '/invoices/'
     | '/orders/'
   fileRoutesByTo: FileRoutesByTo
@@ -291,6 +332,8 @@ export interface FileRouteTypes {
     | '/two-factor'
     | '/accept-invitation/$invitationId'
     | '/account/security'
+    | '/companies/$companyId'
+    | '/contacts/$contactId'
     | '/invoices/$invoiceId'
     | '/orders/$orderId'
     | '/orders/new'
@@ -298,6 +341,8 @@ export interface FileRouteTypes {
     | '/workspace/new'
     | '/workspace/settings'
     | '/api/auth/$'
+    | '/companies'
+    | '/contacts'
     | '/invoices'
     | '/orders'
   id:
@@ -319,6 +364,8 @@ export interface FileRouteTypes {
     | '/_guest/two-factor'
     | '/_authed/accept-invitation/$invitationId'
     | '/_authed/account/security'
+    | '/_authed/companies/$companyId'
+    | '/_authed/contacts/$contactId'
     | '/_authed/invoices/$invoiceId'
     | '/_authed/orders/$orderId'
     | '/_authed/orders/new'
@@ -326,6 +373,8 @@ export interface FileRouteTypes {
     | '/_authed/workspace/new'
     | '/_authed/workspace/settings'
     | '/api/auth/$'
+    | '/_authed/companies/'
+    | '/_authed/contacts/'
     | '/_authed/invoices/'
     | '/_authed/orders/'
   fileRoutesById: FileRoutesById
@@ -459,6 +508,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAccountSecurityRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/companies/': {
+      id: '/_authed/companies/'
+      path: '/companies'
+      fullPath: '/companies/'
+      preLoaderRoute: typeof AuthedCompaniesIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/companies/$companyId': {
+      id: '/_authed/companies/$companyId'
+      path: '/companies/$companyId'
+      fullPath: '/companies/$companyId'
+      preLoaderRoute: typeof AuthedCompaniesCompanyIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/contacts/': {
+      id: '/_authed/contacts/'
+      path: '/contacts'
+      fullPath: '/contacts/'
+      preLoaderRoute: typeof AuthedContactsIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/contacts/$contactId': {
+      id: '/_authed/contacts/$contactId'
+      path: '/contacts/$contactId'
+      fullPath: '/contacts/$contactId'
+      preLoaderRoute: typeof AuthedContactsContactIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/invoices/': {
       id: '/_authed/invoices/'
       path: '/invoices'
@@ -534,12 +611,16 @@ interface AuthedRouteChildren {
   AuthedTasksRoute: typeof AuthedTasksRoute
   AuthedAcceptInvitationInvitationIdRoute: typeof AuthedAcceptInvitationInvitationIdRoute
   AuthedAccountSecurityRoute: typeof AuthedAccountSecurityRoute
+  AuthedCompaniesCompanyIdRoute: typeof AuthedCompaniesCompanyIdRoute
+  AuthedContactsContactIdRoute: typeof AuthedContactsContactIdRoute
   AuthedInvoicesInvoiceIdRoute: typeof AuthedInvoicesInvoiceIdRoute
   AuthedOrdersOrderIdRoute: typeof AuthedOrdersOrderIdRoute
   AuthedOrdersNewRoute: typeof AuthedOrdersNewRoute
   AuthedWorkspaceMembersRoute: typeof AuthedWorkspaceMembersRoute
   AuthedWorkspaceNewRoute: typeof AuthedWorkspaceNewRoute
   AuthedWorkspaceSettingsRoute: typeof AuthedWorkspaceSettingsRoute
+  AuthedCompaniesIndexRoute: typeof AuthedCompaniesIndexRoute
+  AuthedContactsIndexRoute: typeof AuthedContactsIndexRoute
   AuthedInvoicesIndexRoute: typeof AuthedInvoicesIndexRoute
   AuthedOrdersIndexRoute: typeof AuthedOrdersIndexRoute
 }
@@ -554,12 +635,16 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAcceptInvitationInvitationIdRoute:
     AuthedAcceptInvitationInvitationIdRoute,
   AuthedAccountSecurityRoute: AuthedAccountSecurityRoute,
+  AuthedCompaniesCompanyIdRoute: AuthedCompaniesCompanyIdRoute,
+  AuthedContactsContactIdRoute: AuthedContactsContactIdRoute,
   AuthedInvoicesInvoiceIdRoute: AuthedInvoicesInvoiceIdRoute,
   AuthedOrdersOrderIdRoute: AuthedOrdersOrderIdRoute,
   AuthedOrdersNewRoute: AuthedOrdersNewRoute,
   AuthedWorkspaceMembersRoute: AuthedWorkspaceMembersRoute,
   AuthedWorkspaceNewRoute: AuthedWorkspaceNewRoute,
   AuthedWorkspaceSettingsRoute: AuthedWorkspaceSettingsRoute,
+  AuthedCompaniesIndexRoute: AuthedCompaniesIndexRoute,
+  AuthedContactsIndexRoute: AuthedContactsIndexRoute,
   AuthedInvoicesIndexRoute: AuthedInvoicesIndexRoute,
   AuthedOrdersIndexRoute: AuthedOrdersIndexRoute,
 }

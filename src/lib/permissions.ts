@@ -11,6 +11,8 @@ import { m } from "#/paraglide/messages.js";
 // sides agree. Add new resources here, e.g. invoice: ["create", "read", ...].
 export const statements = {
 	...defaultStatements,
+	contact: ["create", "read", "update", "delete"],
+	company: ["create", "read", "update", "delete"],
 	project: ["create", "read", "update", "delete"],
 	customer: ["create", "read", "update", "delete"],
 	product: ["create", "read", "update", "delete"],
@@ -25,6 +27,8 @@ export const ac = createAccessControl(statements);
 
 export const owner = ac.newRole({
 	...ownerAc.statements,
+	contact: ["create", "read", "update", "delete"],
+	company: ["create", "read", "update", "delete"],
 	project: ["create", "read", "update", "delete"],
 	customer: ["create", "read", "update", "delete"],
 	product: ["create", "read", "update", "delete"],
@@ -37,6 +41,8 @@ export const owner = ac.newRole({
 // Like owner, but can't delete the workspace
 export const admin = ac.newRole({
 	...adminAc.statements,
+	contact: ["create", "read", "update", "delete"],
+	company: ["create", "read", "update", "delete"],
 	project: ["create", "read", "update", "delete"],
 	customer: ["create", "read", "update", "delete"],
 	product: ["create", "read", "update", "delete"],
@@ -47,6 +53,8 @@ export const admin = ac.newRole({
 });
 
 export const editor = ac.newRole({
+	contact: ["create", "read", "update"],
+	company: ["create", "read", "update"],
 	project: ["create", "read", "update"],
 	customer: ["create", "read", "update"],
 	product: ["create", "read", "update"],
@@ -58,6 +66,8 @@ export const editor = ac.newRole({
 });
 
 export const viewer = ac.newRole({
+	contact: ["read"],
+	company: ["read"],
 	project: ["read"],
 	customer: ["read"],
 	product: ["read"],
