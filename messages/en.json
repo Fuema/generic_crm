@@ -157,7 +157,7 @@
 	"nav_work": "Work",
 	"nav_workspace": "Workspace",
 	"nav_dashboard": "Dashboard",
-	"nav_customers": "Customers",
+	"nav_customers": "Customers (old)",
 	"nav_products": "Products",
 	"nav_orders": "Orders",
 	"nav_invoices": "Invoices",
@@ -507,5 +507,7 @@
 	"event_note_deleted": "Deleted a note",
 	"event_note_pinned": "Pinned a note",
 	"event_note_unpinned": "Unpinned a note",
-	"contacts_col_tags": "Tags"
+	"contacts_col_tags": "Tags",
+	"customers_legacy_notice": "This page is from the previous version of the app. Add new people and organizations under Contacts and Companies. Customers will go away when orders and invoices move to contacts.",
+	"customers_legacy_link": "Go to Contacts"
 }
