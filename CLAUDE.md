@@ -25,8 +25,9 @@ conventions and pitfalls live there.
 - Never edit `.env*`; never print secret values. This project has **its own** Neon database; never point it at `my-tanstack-app`'s.
 
 ## Definition of done
-`bun run validate` passes (typecheck, Biome, build, browser-bundle check; tests and
-i18n checks once phase 0 adds them), plus a browser check for UI changes.
+`bun run validate` passes (typecheck, Biome, unit tests, build, browser-bundle check;
+integration and i18n checks once phase 0 adds them), plus a browser check for UI changes.
+New business rules get a test in `tests/unit/`.
 
 ## Git workflow (owner's standing preference)
 - Branch per change from `main`; never commit to `main` (the initial import was the only exception).

@@ -24,8 +24,9 @@
     "db:seed:sales": "bun scripts/seed-sales.ts",
     "db:seed:planning": "bun scripts/seed-planning.ts",
     "typecheck": "tsc --noEmit",
+    "test": "bun test tests/unit",
     "check:bundle": "bun run build && bun scripts/check-bundle.ts",
-    "validate": "bun run typecheck && bun run check && bun run check:bundle"
+    "validate": "bun run typecheck && bun run check && bun run test && bun run check:bundle"
   },
   "dependencies": {
     "@better-auth/passkey": "1.7.14",
@@ -72,6 +73,7 @@
     "@tailwindcss/typography": "^0.5.16",
     "@tanstack/devtools-vite": "0.8.6",
     "@tanstack/router-cli": "^1.132.0",
+    "@types/bun": "1.3.1",
     "@types/node": "^22.10.2",
     "@types/pg": "^8.15.6",
     "@types/react": "^19.2.0",
