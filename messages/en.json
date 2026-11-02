@@ -585,5 +585,9 @@
 	"group_create": "Create group",
 	"custom_other": "Other details",
 	"custom_choose": "Choose…",
-	"error_try_again": "Someone saved at the same moment. Please try again."
+	"error_try_again": "Someone saved at the same moment. Please try again.",
+	"common_days_count": "{count} days",
+	"calendar_days_label": "Days",
+	"tasks_due_within": "Due within",
+	"tasks_due_all": "All tasks"
 }

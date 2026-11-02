@@ -45,12 +45,21 @@ export function startOfWeek(d: Date) {
 	return addDays(r, -((r.getDay() + 6) % 7));
 }
 
-// The days a view shows: 1, 7, or a full 6-week month grid (42 days)
-export function visibleDays(view: CalendarView, anchor: Date): Date[] {
-	if (view === "day")
-		return [
-			new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate()),
-		];
+// The days a view shows: 1, the chosen number (from the anchor), 7 (a Monday
+// week), or a full 6-week month grid (42 days)
+export function visibleDays(
+	view: CalendarView,
+	anchor: Date,
+	dayCount = 7,
+): Date[] {
+	const start = new Date(
+		anchor.getFullYear(),
+		anchor.getMonth(),
+		anchor.getDate(),
+	);
+	if (view === "day") return [start];
+	if (view === "days")
+		return Array.from({ length: dayCount }, (_, i) => addDays(start, i));
 	if (view === "week")
 		return Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(anchor), i));
 	const first = startOfWeek(
@@ -59,8 +68,14 @@ export function visibleDays(view: CalendarView, anchor: Date): Date[] {
 	return Array.from({ length: 42 }, (_, i) => addDays(first, i));
 }
 
-export function step(view: CalendarView, anchor: Date, dir: 1 | -1) {
+export function step(
+	view: CalendarView,
+	anchor: Date,
+	dir: 1 | -1,
+	dayCount = 7,
+) {
 	if (view === "day") return addDays(anchor, dir);
+	if (view === "days") return addDays(anchor, dayCount * dir);
 	if (view === "week") return addDays(anchor, 7 * dir);
 	return addMonths(anchor, dir);
 }

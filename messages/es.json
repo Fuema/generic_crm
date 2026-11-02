@@ -585,5 +585,9 @@
 	"group_create": "Crear grupo",
 	"custom_other": "Otros datos",
 	"custom_choose": "Elige…",
-	"error_try_again": "Alguien guardó a la vez. Inténtalo de nuevo."
+	"error_try_again": "Alguien guardó a la vez. Inténtalo de nuevo.",
+	"common_days_count": "{count} días",
+	"calendar_days_label": "Días",
+	"tasks_due_within": "Vencen en",
+	"tasks_due_all": "Todas las tareas"
 }

@@ -29,6 +29,13 @@
       "when": 1793653756308,
       "tag": "0003_custom_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793659438270,
+      "tag": "0004_user_preference",
+      "breakpoints": true
     }
   ]
 }
