@@ -22,10 +22,10 @@ import {
 	salesOrder,
 } from "#/db/schema";
 import { requirePermission } from "#/lib/authz";
-import { getTenantSettings, nextDocumentNumber } from "#/lib/billing.server";
+import { getWorkspaceSettings, nextDocumentNumber } from "#/lib/billing.server";
 import { invoiceSearchSchema } from "#/lib/schema";
 
-// Every query is scoped to the caller's active workspace (context.organizationId).
+// Every query is scoped to the caller's active workspace (context.workspaceId).
 // Lifecycle: draft -> issued -> paid, and draft/issued -> void. Issued and paid
 // invoices are never edited or deleted, only voided, so the record stays intact.
 
@@ -49,11 +49,11 @@ function likePattern(term: string) {
 	return `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 }
 
-async function findInvoice(id: string, tenantId: string) {
+async function findInvoice(id: string, workspaceId: string) {
 	const [row] = await db
 		.select()
 		.from(invoice)
-		.where(and(eq(invoice.id, id), eq(invoice.tenantId, tenantId)))
+		.where(and(eq(invoice.id, id), eq(invoice.workspaceId, workspaceId)))
 		.limit(1);
 	if (!row) throw clientError(404, "Invoice not found");
 	return row;
@@ -84,7 +84,7 @@ export const listInvoices = createServerFn({ method: "GET" })
 	.middleware([requirePermission({ invoice: ["read"] })])
 	.validator(invoiceSearchSchema)
 	.handler(async ({ data, context }) => {
-		const filters: SQL[] = [eq(invoice.tenantId, context.organizationId)];
+		const filters: SQL[] = [eq(invoice.workspaceId, context.workspaceId)];
 		if (data.q) {
 			// "INV-2026-0003", "3" or part of a customer's name
 			const numberMatch = /^(?:inv-?)?(?:(\d{4})-)?0*(\d{1,9})$/i.exec(data.q);
@@ -156,7 +156,7 @@ export const getInvoice = createServerFn({ method: "GET" })
 	.middleware([requirePermission({ invoice: ["read"] })])
 	.validator(idSchema)
 	.handler(async ({ data, context }) => {
-		const inv = await findInvoice(data.id, context.organizationId);
+		const inv = await findInvoice(data.id, context.workspaceId);
 		const [[buyer], lines, [order], [seller]] = await Promise.all([
 			db.select().from(customer).where(eq(customer.id, inv.customerId)),
 			db
@@ -171,7 +171,7 @@ export const getInvoice = createServerFn({ method: "GET" })
 			db
 				.select({ name: organization.name })
 				.from(organization)
-				.where(eq(organization.id, inv.tenantId)),
+				.where(eq(organization.id, inv.workspaceId)),
 		]);
 		return { invoice: inv, customer: buyer, lines, order, seller };
 	});
@@ -186,7 +186,7 @@ export const createInvoiceFromOrder = createServerFn({ method: "POST" })
 			.where(
 				and(
 					eq(salesOrder.id, data.orderId),
-					eq(salesOrder.tenantId, context.organizationId),
+					eq(salesOrder.workspaceId, context.workspaceId),
 				),
 			)
 			.limit(1);
@@ -210,7 +210,7 @@ export const createInvoiceFromOrder = createServerFn({ method: "POST" })
 		await db.batch([
 			db.insert(invoice).values({
 				id,
-				tenantId: context.organizationId,
+				workspaceId: context.workspaceId,
 				orderId: order.id,
 				customerId: order.customerId,
 				currency: order.currency,
@@ -248,7 +248,7 @@ export const updateInvoiceNotes = createServerFn({ method: "POST" })
 		}),
 	)
 	.handler(async ({ data, context }) => {
-		const inv = await findInvoice(data.id, context.organizationId);
+		const inv = await findInvoice(data.id, context.workspaceId);
 		if (inv.status !== "draft")
 			throw clientError(409, "Only draft invoices can be edited");
 		return transition(inv.id, ["draft"], { notes: data.notes || null });
@@ -259,14 +259,14 @@ export const issueInvoice = createServerFn({ method: "POST" })
 	.middleware([requirePermission({ invoice: ["issue"] })])
 	.validator(idSchema)
 	.handler(async ({ data, context }) => {
-		const inv = await findInvoice(data.id, context.organizationId);
+		const inv = await findInvoice(data.id, context.workspaceId);
 		if (inv.status !== "draft")
 			throw clientError(409, "Only draft invoices can be issued");
 		const now = new Date();
 		const year = now.getUTCFullYear();
-		const settings = await getTenantSettings(context.organizationId);
+		const settings = await getWorkspaceSettings(context.workspaceId);
 		const number = await nextDocumentNumber(
-			context.organizationId,
+			context.workspaceId,
 			"invoice",
 			year,
 		);
@@ -283,7 +283,7 @@ export const markInvoicePaid = createServerFn({ method: "POST" })
 	.middleware([requirePermission({ invoice: ["pay"] })])
 	.validator(idSchema)
 	.handler(async ({ data, context }) => {
-		const inv = await findInvoice(data.id, context.organizationId);
+		const inv = await findInvoice(data.id, context.workspaceId);
 		if (inv.status !== "issued")
 			throw clientError(409, "Only issued invoices can be marked as paid");
 		return transition(inv.id, ["issued"], {
@@ -296,7 +296,7 @@ export const voidInvoice = createServerFn({ method: "POST" })
 	.middleware([requirePermission({ invoice: ["void"] })])
 	.validator(idSchema)
 	.handler(async ({ data, context }) => {
-		const inv = await findInvoice(data.id, context.organizationId);
+		const inv = await findInvoice(data.id, context.workspaceId);
 		if (inv.status !== "draft" && inv.status !== "issued") {
 			throw clientError(409, "Only draft or issued invoices can be voided");
 		}
@@ -310,7 +310,7 @@ export const deleteInvoice = createServerFn({ method: "POST" })
 	.middleware([requirePermission({ invoice: ["delete"] })])
 	.validator(idSchema)
 	.handler(async ({ data, context }) => {
-		const inv = await findInvoice(data.id, context.organizationId);
+		const inv = await findInvoice(data.id, context.workspaceId);
 		if (inv.status !== "draft") {
 			throw clientError(
 				409,

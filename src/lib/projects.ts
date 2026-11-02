@@ -6,7 +6,7 @@ import { project } from "#/db/schema";
 import { requirePermission } from "#/lib/authz";
 import { projectInputSchema } from "#/lib/schema";
 
-// Every query filters by context.organizationId (the caller's active workspace),
+// Every query filters by context.workspaceId (the caller's active workspace),
 // so a project ID from another workspace can never be read or changed.
 
 const projectIdSchema = z.object({ id: z.uuid("Invalid project id") });
@@ -17,7 +17,7 @@ export const listProjects = createServerFn({ method: "GET" })
 		return db
 			.select()
 			.from(project)
-			.where(eq(project.organizationId, context.organizationId))
+			.where(eq(project.workspaceId, context.workspaceId))
 			.orderBy(desc(project.createdAt));
 	});
 
@@ -29,7 +29,7 @@ export const createProject = createServerFn({ method: "POST" })
 			.insert(project)
 			.values({
 				id: crypto.randomUUID(),
-				organizationId: context.organizationId,
+				workspaceId: context.workspaceId,
 				name: data.name,
 				description: data.description || null,
 				createdById: context.session.user.id,
@@ -52,7 +52,7 @@ export const updateProject = createServerFn({ method: "POST" })
 			.where(
 				and(
 					eq(project.id, data.id),
-					eq(project.organizationId, context.organizationId),
+					eq(project.workspaceId, context.workspaceId),
 				),
 			)
 			.returning();
@@ -69,7 +69,7 @@ export const deleteProject = createServerFn({ method: "POST" })
 			.where(
 				and(
 					eq(project.id, data.id),
-					eq(project.organizationId, context.organizationId),
+					eq(project.workspaceId, context.workspaceId),
 				),
 			)
 			.returning({ id: project.id });

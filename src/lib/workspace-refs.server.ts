@@ -9,10 +9,10 @@ function badRequest(message: string) {
 	return new Response(message, { status: 400 });
 }
 
-// Confirms every referenced user, customer and order belongs to this tenant, so
+// Confirms every referenced user, customer and order belongs to this workspace, so
 // a task can't be assigned to an outsider or linked to another workspace's data
 export async function assertWorkspaceRefs(
-	tenantId: string,
+	workspaceId: string,
 	refs: {
 		userId?: string | null;
 		customerId?: string | null;
@@ -27,7 +27,7 @@ export async function assertWorkspaceRefs(
 				.from(member)
 				.where(
 					and(
-						eq(member.organizationId, tenantId),
+						eq(member.organizationId, workspaceId),
 						eq(member.userId, refs.userId),
 					),
 				)
@@ -44,7 +44,7 @@ export async function assertWorkspaceRefs(
 				.from(customer)
 				.where(
 					and(
-						eq(customer.tenantId, tenantId),
+						eq(customer.workspaceId, workspaceId),
 						eq(customer.id, refs.customerId),
 					),
 				)
@@ -61,7 +61,7 @@ export async function assertWorkspaceRefs(
 				.from(salesOrder)
 				.where(
 					and(
-						eq(salesOrder.tenantId, tenantId),
+						eq(salesOrder.workspaceId, workspaceId),
 						eq(salesOrder.id, refs.orderId),
 					),
 				)

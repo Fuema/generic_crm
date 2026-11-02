@@ -22,8 +22,8 @@ import {
 	customerSearchSchema,
 } from "#/lib/schema";
 
-// Every query is filtered by tenantId = context.organizationId (the caller's
-// active workspace, from the session). The tenant is never taken from input.
+// Every query is filtered by workspaceId = context.workspaceId (the caller's
+// active workspace, from the session). The workspace is never taken from input.
 
 const SORT_COLUMNS = {
 	name: customer.name,
@@ -46,14 +46,14 @@ function clientError(status: number, message: string) {
 // Server-side checks beyond the shared schema
 async function assertValid(
 	data: CustomerInput,
-	tenantId: string,
+	workspaceId: string,
 	exceptId?: string,
 ) {
 	if (data.country && !COUNTRY_CODES.includes(data.country)) {
 		throw clientError(400, "Choose a country from the list");
 	}
 	const conditions = [
-		eq(customer.tenantId, tenantId),
+		eq(customer.workspaceId, workspaceId),
 		sql`lower(${customer.email}) = ${data.email.toLowerCase()}`,
 	];
 	if (exceptId) conditions.push(ne(customer.id, exceptId));
@@ -84,7 +84,7 @@ export const listCustomers = createServerFn({ method: "GET" })
 	.middleware([requirePermission({ customer: ["read"] })])
 	.validator(customerSearchSchema)
 	.handler(async ({ data, context }) => {
-		const filters: SQL[] = [eq(customer.tenantId, context.organizationId)];
+		const filters: SQL[] = [eq(customer.workspaceId, context.workspaceId)];
 		if (data.q) {
 			const pattern = likePattern(data.q);
 			const search = or(
@@ -126,12 +126,12 @@ export const createCustomer = createServerFn({ method: "POST" })
 	.middleware([requirePermission({ customer: ["create"] })])
 	.validator(customerInputSchema)
 	.handler(async ({ data, context }) => {
-		await assertValid(data, context.organizationId);
+		await assertValid(data, context.workspaceId);
 		const [created] = await db
 			.insert(customer)
 			.values({
 				id: crypto.randomUUID(),
-				tenantId: context.organizationId,
+				workspaceId: context.workspaceId,
 				createdById: context.session.user.id,
 				...toRow(data),
 			})
@@ -143,14 +143,14 @@ export const updateCustomer = createServerFn({ method: "POST" })
 	.middleware([requirePermission({ customer: ["update"] })])
 	.validator(customerInputSchema.extend({ id: z.uuid("Invalid customer id") }))
 	.handler(async ({ data, context }) => {
-		await assertValid(data, context.organizationId, data.id);
+		await assertValid(data, context.workspaceId, data.id);
 		const [updated] = await db
 			.update(customer)
 			.set({ ...toRow(data), updatedAt: new Date() })
 			.where(
 				and(
 					eq(customer.id, data.id),
-					eq(customer.tenantId, context.organizationId),
+					eq(customer.workspaceId, context.workspaceId),
 				),
 			)
 			.returning();
@@ -169,7 +169,7 @@ export const deleteCustomer = createServerFn({ method: "POST" })
 			.where(
 				and(
 					eq(salesOrder.customerId, data.id),
-					eq(salesOrder.tenantId, context.organizationId),
+					eq(salesOrder.workspaceId, context.workspaceId),
 				),
 			)
 			.limit(1);
@@ -184,7 +184,7 @@ export const deleteCustomer = createServerFn({ method: "POST" })
 			.where(
 				and(
 					eq(customer.id, data.id),
-					eq(customer.tenantId, context.organizationId),
+					eq(customer.workspaceId, context.workspaceId),
 				),
 			)
 			.returning({ id: customer.id });

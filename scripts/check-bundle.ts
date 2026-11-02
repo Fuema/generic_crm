@@ -15,7 +15,7 @@ const CLIENT_DIR = "dist/client";
 const SERVER_MARKERS = [
 	"DATABASE_URL is missing", // src/db/index.ts guard
 	"drizzle-orm/neon-http", // database driver
-	"tenant_counter", // billing.server.ts
+	"workspace_counter", // billing.server.ts
 	"api.resend.com", // email sending
 	"Choose a member of this workspace", // workspace-refs.server.ts
 ];

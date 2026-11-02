@@ -12,7 +12,7 @@ import {
 } from "#/lib/schema";
 import { assertWorkspaceRefs } from "#/lib/workspace-refs.server";
 
-// Every query is scoped to the caller's active workspace (context.organizationId).
+// Every query is scoped to the caller's active workspace (context.workspaceId).
 
 const idSchema = z.object({ id: z.uuid("Invalid activity id") });
 const owner = alias(user, "owner");
@@ -41,7 +41,7 @@ export const listCalendar = createServerFn({ method: "GET" })
 	.middleware([requirePermission({ task: ["read"], activity: ["read"] })])
 	.validator(calendarRangeSchema)
 	.handler(async ({ data, context }) => {
-		const tenantId = context.organizationId;
+		const workspaceId = context.workspaceId;
 		const from = new Date(data.from);
 		const to = new Date(data.to);
 		const [tasks, activities] = await Promise.all([
@@ -61,7 +61,7 @@ export const listCalendar = createServerFn({ method: "GET" })
 				.leftJoin(customer, eq(customer.id, task.customerId))
 				.where(
 					and(
-						eq(task.tenantId, tenantId),
+						eq(task.workspaceId, workspaceId),
 						isNotNull(task.dueAt),
 						gte(task.dueAt, from),
 						lt(task.dueAt, to),
@@ -92,7 +92,7 @@ export const listCalendar = createServerFn({ method: "GET" })
 				.leftJoin(salesOrder, eq(salesOrder.id, activity.orderId))
 				.where(
 					and(
-						eq(activity.tenantId, tenantId),
+						eq(activity.workspaceId, workspaceId),
 						gte(activity.startsAt, from),
 						lt(activity.startsAt, to),
 					),
@@ -107,7 +107,7 @@ export const createActivity = createServerFn({ method: "POST" })
 	.middleware([requirePermission({ activity: ["create"] })])
 	.validator(activityInputSchema)
 	.handler(async ({ data, context }) => {
-		await assertWorkspaceRefs(context.organizationId, {
+		await assertWorkspaceRefs(context.workspaceId, {
 			userId: data.ownerId,
 			customerId: data.customerId,
 			orderId: data.orderId,
@@ -116,7 +116,7 @@ export const createActivity = createServerFn({ method: "POST" })
 			.insert(activity)
 			.values({
 				id: crypto.randomUUID(),
-				tenantId: context.organizationId,
+				workspaceId: context.workspaceId,
 				createdById: context.session.user.id,
 				...toRow(data),
 			})
@@ -128,7 +128,7 @@ export const updateActivity = createServerFn({ method: "POST" })
 	.middleware([requirePermission({ activity: ["update"] })])
 	.validator(activityInputSchema.and(idSchema))
 	.handler(async ({ data, context }) => {
-		await assertWorkspaceRefs(context.organizationId, {
+		await assertWorkspaceRefs(context.workspaceId, {
 			userId: data.ownerId,
 			customerId: data.customerId,
 			orderId: data.orderId,
@@ -139,7 +139,7 @@ export const updateActivity = createServerFn({ method: "POST" })
 			.where(
 				and(
 					eq(activity.id, data.id),
-					eq(activity.tenantId, context.organizationId),
+					eq(activity.workspaceId, context.workspaceId),
 				),
 			)
 			.returning({ id: activity.id });
@@ -156,7 +156,7 @@ export const deleteActivity = createServerFn({ method: "POST" })
 			.where(
 				and(
 					eq(activity.id, data.id),
-					eq(activity.tenantId, context.organizationId),
+					eq(activity.workspaceId, context.workspaceId),
 				),
 			)
 			.returning({ id: activity.id });
