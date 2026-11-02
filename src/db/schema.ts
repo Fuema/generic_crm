@@ -7,6 +7,7 @@ import {
 	integer,
 	jsonb,
 	pgTable,
+	primaryKey,
 	text,
 	timestamp,
 	uniqueIndex,
@@ -618,5 +619,82 @@ export const contact = pgTable(
 		index("contact_workspace_stage_idx").on(t.workspaceId, t.lifecycleStage),
 		index("contact_workspace_company_idx").on(t.workspaceId, t.companyId),
 		index("contact_custom_gin_idx").using("gin", t.custom),
+	],
+);
+
+// Workspace labels that can be put on any record (spec §6.2)
+export const tag = pgTable(
+	"tag",
+	{
+		id: text("id").primaryKey(),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
+		name: text("name").notNull(),
+		// One of the fixed palette keys in src/modules/records/schema.ts
+		color: text("color").notNull().default("gray"),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+	},
+	(t) => [
+		uniqueIndex("tag_workspace_name_unique").on(
+			t.workspaceId,
+			sql`lower(${t.name})`,
+		),
+	],
+);
+
+// A tag on one record. subject_type + subject_id point to any taggable record.
+export const recordTag = pgTable(
+	"record_tag",
+	{
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
+		tagId: text("tag_id")
+			.notNull()
+			.references(() => tag.id, { onDelete: "cascade" }),
+		subjectType: text("subject_type").notNull(),
+		subjectId: text("subject_id").notNull(),
+		createdById: text("created_by_id").references(() => user.id, {
+			onDelete: "set null",
+		}),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+	},
+	(t) => [
+		primaryKey({ columns: [t.tagId, t.subjectType, t.subjectId] }),
+		index("record_tag_subject_idx").on(
+			t.workspaceId,
+			t.subjectType,
+			t.subjectId,
+		),
+	],
+);
+
+// Free text on any record; shown on its timeline (spec §6.2, §11.2). Deleting a
+// note removes it (it may hold personal data); the event log keeps only the fact.
+export const note = pgTable(
+	"note",
+	{
+		id: text("id").primaryKey(),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
+		subjectType: text("subject_type").notNull(),
+		subjectId: text("subject_id").notNull(),
+		body: text("body").notNull(),
+		pinned: boolean("pinned").notNull().default(false),
+		authorId: text("author_id").references(() => user.id, {
+			onDelete: "set null",
+		}),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+		updatedAt: timestamp("updated_at").notNull().defaultNow(),
+	},
+	(t) => [
+		index("note_subject_idx").on(
+			t.workspaceId,
+			t.subjectType,
+			t.subjectId,
+			t.createdAt,
+		),
 	],
 );

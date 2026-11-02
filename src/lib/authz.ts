@@ -33,6 +33,18 @@ export function requirePermission(permissions: Permissions) {
 		});
 }
 
+// Session plus an active workspace, without a fixed permission. For server
+// functions whose permission depends on their input (e.g. a note on a contact
+// or on a company): the handler must call assertPermission() from
+// #/platform/permissions.server, which also confirms the membership.
+export const requireWorkspace = createMiddleware({ type: "function" })
+	.middleware([requireSession])
+	.server(async ({ next, context }) => {
+		const workspaceId = context.session.session.activeOrganizationId;
+		if (!workspaceId) throw forbidden("No active workspace");
+		return next({ context: { workspaceId } });
+	});
+
 // What the current user may do in the active workspace. Used only to show or
 // hide UI; every action is still checked again on the server.
 export const getWorkspaceAccess = createServerFn({ method: "GET" })
