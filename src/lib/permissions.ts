@@ -4,6 +4,7 @@ import {
 	defaultStatements,
 	ownerAc,
 } from "better-auth/plugins/organization/access";
+import { m } from "#/paraglide/messages.js";
 
 // Single source of truth for what each workspace role may do.
 // Imported by the server (auth.ts) and the browser (auth-client.ts), so both
@@ -74,25 +75,15 @@ export type WorkspaceRole = keyof typeof roles;
 // "owner" is only assigned to the workspace creator.
 export const ASSIGNABLE_ROLES = ["admin", "editor", "viewer"] as const;
 
+// Functions, so they resolve in the language of the page that shows them
 export const ROLE_LABELS: Record<
 	WorkspaceRole,
-	{ label: string; description: string }
+	{ label: () => string; description: () => string }
 > = {
-	owner: {
-		label: "Owner",
-		description: "Full control, including deleting the workspace",
-	},
-	admin: {
-		label: "Admin",
-		description:
-			"Manage members and settings; full control of all data, including issuing invoices",
-	},
-	editor: {
-		label: "Editor",
-		description:
-			"Create and edit projects, customers, products, orders and draft invoices",
-	},
-	viewer: { label: "Viewer", description: "View everything, change nothing" },
+	owner: { label: m.role_owner, description: m.role_owner_description },
+	admin: { label: m.role_admin, description: m.role_admin_description },
+	editor: { label: m.role_editor, description: m.role_editor_description },
+	viewer: { label: m.role_viewer, description: m.role_viewer_description },
 };
 
 export type Permissions = {

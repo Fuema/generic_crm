@@ -13,9 +13,9 @@ export function RoleBadge({ role }: { role: string }) {
 	return (
 		<Badge
 			variant={known ? VARIANTS[known] : "outline"}
-			title={known ? ROLE_LABELS[known].description : undefined}
+			title={known ? ROLE_LABELS[known].description() : undefined}
 		>
-			{known ? ROLE_LABELS[known].label : role}
+			{known ? ROLE_LABELS[known].label() : role}
 		</Badge>
 	);
 }

@@ -5,6 +5,7 @@ import { Checkbox } from "#/components/ui/checkbox";
 import { Label } from "#/components/ui/label";
 import { authClient, authErrorMessage } from "#/lib/auth-client";
 import { changePasswordSchema, PASSWORD_MAX } from "#/lib/schema";
+import { m } from "#/paraglide/messages.js";
 import {
 	FieldError,
 	FormAlert,
@@ -16,13 +17,17 @@ import { PasswordStrength } from "../PasswordStrength";
 const FIELDS = [
 	{
 		name: "currentPassword",
-		label: "Current password",
+		label: m.security_current_password,
 		autoComplete: "current-password",
 	},
-	{ name: "newPassword", label: "New password", autoComplete: "new-password" },
+	{
+		name: "newPassword",
+		label: m.security_new_password,
+		autoComplete: "new-password",
+	},
 	{
 		name: "confirmPassword",
-		label: "Confirm new password",
+		label: m.security_confirm_new_password,
 		autoComplete: "new-password",
 	},
 ] as const;
@@ -58,8 +63,8 @@ export function ChangePasswordForm() {
 			setStatus({
 				ok: true,
 				message: value.revokeOtherSessions
-					? "Password changed. Your other devices have been signed out."
-					: "Password changed.",
+					? m.security_password_changed_revoked()
+					: m.security_password_changed(),
 			});
 		},
 	});
@@ -82,7 +87,7 @@ export function ChangePasswordForm() {
 				<form.Field key={name} name={name}>
 					{(field) => (
 						<div className="space-y-2">
-							<Label htmlFor={field.name}>{label}</Label>
+							<Label htmlFor={field.name}>{label()}</Label>
 							<PasswordInput
 								id={field.name}
 								name={field.name}
@@ -113,7 +118,7 @@ export function ChangePasswordForm() {
 							}
 						/>
 						<Label htmlFor={field.name} className="font-normal">
-							Sign out of all other devices
+							{m.security_sign_out_others()}
 						</Label>
 					</div>
 				)}
@@ -123,7 +128,7 @@ export function ChangePasswordForm() {
 			>
 				{([canSubmit, isSubmitting]) => (
 					<Button type="submit" disabled={!canSubmit || isSubmitting}>
-						{isSubmitting ? "Saving..." : "Change password"}
+						{isSubmitting ? m.common_saving() : m.security_change_password()}
 					</Button>
 				)}
 			</form.Subscribe>

@@ -22,6 +22,7 @@ import { authClient, authErrorMessage } from "#/lib/auth-client";
 import type { WorkspaceAccess } from "#/lib/authz";
 import { getBillingSettings } from "#/lib/billing";
 import { workspaceNameSchema } from "#/lib/schema";
+import { m } from "#/paraglide/messages.js";
 
 // Protected by the _authed layout guard; Better Auth re-checks every action server-side
 export const Route = createFileRoute("/_authed/workspace/settings")({
@@ -69,7 +70,7 @@ function RenameForm({
 			onDone(
 				error
 					? { ok: false, message: authErrorMessage(error) }
-					: { ok: true, message: "Workspace renamed." },
+					: { ok: true, message: m.workspace_renamed() },
 			);
 			if (!error) await router.invalidate();
 		},
@@ -95,7 +96,7 @@ function RenameForm({
 				{(field) => (
 					<div className="flex-1 space-y-2">
 						<Label htmlFor="workspace-name" className="sr-only">
-							Workspace name
+							{m.workspace_name_label()}
 						</Label>
 						<Input
 							id="workspace-name"
@@ -113,7 +114,7 @@ function RenameForm({
 			<form.Subscribe selector={(s) => [s.canSubmit, s.isSubmitting]}>
 				{([canSubmit, isSubmitting]) => (
 					<Button type="submit" disabled={!canSubmit || isSubmitting}>
-						{isSubmitting ? "Saving..." : "Rename"}
+						{isSubmitting ? m.common_saving() : m.workspace_rename()}
 					</Button>
 				)}
 			</form.Subscribe>
@@ -132,18 +133,14 @@ function SettingsPage() {
 	if (!access?.workspace) {
 		return (
 			<p className="p-6 text-sm text-muted-foreground">
-				You're not in a workspace.
+				{m.common_not_in_workspace()}
 			</p>
 		);
 	}
 	const workspace = access.workspace;
 
 	const leave = async () => {
-		if (
-			!window.confirm(
-				`Leave ${workspace.name}? You'll lose access to its projects.`,
-			)
-		)
+		if (!window.confirm(m.workspace_leave_confirm({ name: workspace.name })))
 			return;
 		setPending(true);
 		const { error } = await authClient.organization.leave({
@@ -180,10 +177,8 @@ function SettingsPage() {
 			{access.can.updateWorkspace ? (
 				<Card>
 					<CardHeader>
-						<CardTitle>Name</CardTitle>
-						<CardDescription>
-							Shown to every member in the workspace switcher.
-						</CardDescription>
+						<CardTitle>{m.workspace_name_title()}</CardTitle>
+						<CardDescription>{m.workspace_name_description()}</CardDescription>
 					</CardHeader>
 					<CardContent>
 						<RenameForm name={workspace.name} onDone={setStatus} />
@@ -198,11 +193,11 @@ function SettingsPage() {
 
 			<Card>
 				<CardHeader>
-					<CardTitle>Leave workspace</CardTitle>
+					<CardTitle>{m.workspace_leave_title()}</CardTitle>
 					<CardDescription>
 						{access.role === "owner"
-							? "Owners can leave only if another owner remains. Otherwise, delete the workspace."
-							: "You'll lose access until someone invites you again."}
+							? m.workspace_leave_owner_note()
+							: m.workspace_leave_member_note()}
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
@@ -212,7 +207,7 @@ function SettingsPage() {
 						onClick={leave}
 						disabled={pending}
 					>
-						Leave {workspace.name}
+						{m.workspace_leave({ name: workspace.name })}
 					</Button>
 				</CardContent>
 			</Card>
@@ -220,15 +215,18 @@ function SettingsPage() {
 			{access.can.deleteWorkspace ? (
 				<Card className="border-destructive/50">
 					<CardHeader>
-						<CardTitle className="text-destructive">Delete workspace</CardTitle>
+						<CardTitle className="text-destructive">
+							{m.workspace_delete_title()}
+						</CardTitle>
 						<CardDescription>
-							Permanently deletes the workspace, its projects, members and
-							invitations. This can't be undone.
+							{m.workspace_delete_description()}
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="space-y-3">
 						<Label htmlFor="confirm-delete" className="font-normal">
-							Type <strong>{workspace.name}</strong> to confirm
+							{m.workspace_delete_type_before()}{" "}
+							<strong>{workspace.name}</strong>{" "}
+							{m.workspace_delete_type_after()}
 						</Label>
 						<Input
 							id="confirm-delete"
@@ -242,7 +240,7 @@ function SettingsPage() {
 							disabled={confirmName !== workspace.name || pending}
 							onClick={remove}
 						>
-							{pending ? "Deleting..." : "Delete workspace"}
+							{pending ? m.workspace_deleting() : m.workspace_delete()}
 						</Button>
 					</CardContent>
 				</Card>

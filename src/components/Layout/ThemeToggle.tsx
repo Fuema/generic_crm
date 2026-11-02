@@ -8,11 +8,12 @@ import {
 	DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
 import { applyTheme, readTheme, saveTheme, type Theme } from "#/lib/theme";
+import { m } from "#/paraglide/messages.js";
 
-const OPTIONS: { value: Theme; label: string; Icon: typeof Sun }[] = [
-	{ value: "light", label: "Light", Icon: Sun },
-	{ value: "dark", label: "Dark", Icon: Moon },
-	{ value: "system", label: "System", Icon: Monitor },
+const OPTIONS: { value: Theme; label: () => string; Icon: typeof Sun }[] = [
+	{ value: "light", label: m.shell_theme_light, Icon: Sun },
+	{ value: "dark", label: m.shell_theme_dark, Icon: Moon },
+	{ value: "system", label: m.shell_theme_system, Icon: Monitor },
 ];
 
 export function ThemeToggle() {
@@ -40,7 +41,7 @@ export function ThemeToggle() {
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button variant="ghost" size="icon" aria-label="Change theme">
+				<Button variant="ghost" size="icon" aria-label={m.shell_change_theme()}>
 					<Sun className="dark:hidden" />
 					<Moon className="hidden dark:block" />
 				</Button>
@@ -49,9 +50,9 @@ export function ThemeToggle() {
 				{OPTIONS.map(({ value, label, Icon }) => (
 					<DropdownMenuItem key={value} onSelect={() => choose(value)}>
 						<Icon />
-						{label}
+						{label()}
 						{theme === value ? (
-							<Check className="ml-auto" aria-label="selected" />
+							<Check className="ml-auto" aria-label={m.common_selected()} />
 						) : null}
 					</DropdownMenuItem>
 				))}

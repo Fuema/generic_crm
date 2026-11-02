@@ -7,6 +7,7 @@ import { Button } from "#/components/ui/button";
 import { Label } from "#/components/ui/label";
 import { authClient, authErrorMessage } from "#/lib/auth-client";
 import { otpSchema } from "#/lib/schema";
+import { m } from "#/paraglide/messages.js";
 import { FormAlert, PasswordInput } from "../FormParts";
 import { OtpField } from "../OtpField";
 
@@ -33,10 +34,7 @@ function BackupCodes({ codes }: { codes: string[] }) {
 	};
 	return (
 		<div className="space-y-3">
-			<p className="text-sm text-muted-foreground">
-				Save these backup codes somewhere safe. Each one signs you in once if
-				you lose your authenticator. They won't be shown again.
-			</p>
+			<p className="text-sm text-muted-foreground">{m.twofa_backup_intro()}</p>
 			<ul className="grid grid-cols-2 gap-2 rounded-lg bg-muted p-4 font-mono text-sm">
 				{codes.map((c) => (
 					<li key={c}>{c}</li>
@@ -49,10 +47,10 @@ function BackupCodes({ codes }: { codes: string[] }) {
 					size="sm"
 					onClick={() => navigator.clipboard.writeText(text)}
 				>
-					<Copy /> Copy
+					<Copy /> {m.twofa_copy()}
 				</Button>
 				<Button type="button" variant="outline" size="sm" onClick={download}>
-					<Download /> Download
+					<Download /> {m.twofa_download()}
 				</Button>
 			</div>
 		</div>
@@ -83,7 +81,7 @@ export function TwoFactorSettings({
 
 	const submitPassword = async (action: "enable" | "disable" | "codes") => {
 		if (!password) {
-			setStatus({ ok: false, message: "Enter your password to continue." });
+			setStatus({ ok: false, message: m.twofa_enter_password() });
 			return;
 		}
 		setStatus(null);
@@ -96,7 +94,7 @@ export function TwoFactorSettings({
 			if (!("totpURI" in data))
 				return setStatus({
 					ok: false,
-					message: "Authenticator setup isn't available.",
+					message: m.twofa_setup_unavailable(),
 				});
 			setPassword("");
 			setStep({
@@ -110,7 +108,7 @@ export function TwoFactorSettings({
 			if (error)
 				return setStatus({ ok: false, message: authErrorMessage(error) });
 			reset();
-			setStatus({ ok: true, message: "Two-factor authentication is off." });
+			setStatus({ ok: true, message: m.twofa_off() });
 			await router.invalidate();
 		} else {
 			const { data, error } = await authClient.twoFactor.generateBackupCodes({
@@ -123,7 +121,7 @@ export function TwoFactorSettings({
 			setStep({ name: "codes", backupCodes: data.backupCodes });
 			setStatus({
 				ok: true,
-				message: "New backup codes generated. Your old codes no longer work.",
+				message: m.twofa_new_codes_done(),
 			});
 		}
 	};
@@ -140,17 +138,13 @@ export function TwoFactorSettings({
 		}
 		if (step.name === "scan")
 			setStep({ name: "codes", backupCodes: step.backupCodes });
-		setStatus({ ok: true, message: "Two-factor authentication is on." });
+		setStatus({ ok: true, message: m.twofa_on() });
 		await router.invalidate();
 	};
 
 	if (!hasPassword) {
 		return (
-			<p className="text-sm text-muted-foreground">
-				You signed up with a social account. Set a password first (use "Forgot
-				password" on the sign-in page) to turn on two-factor authentication, or
-				add a passkey below.
-			</p>
+			<p className="text-sm text-muted-foreground">{m.twofa_social_only()}</p>
 		);
 	}
 
@@ -158,16 +152,12 @@ export function TwoFactorSettings({
 		<div className="space-y-4">
 			<div className="flex items-center gap-2">
 				<ShieldCheck className="size-5" aria-hidden="true" />
-				<span className="font-medium">Status</span>
+				<span className="font-medium">{m.twofa_status()}</span>
 				<Badge variant={enabled ? "default" : "secondary"}>
-					{enabled ? "On" : "Off"}
+					{enabled ? m.twofa_status_on() : m.twofa_status_off()}
 				</Badge>
 			</div>
-			<p className="text-sm text-muted-foreground">
-				When it's on, signing in with your password also needs a code from your
-				authenticator app. You can also get a code by email or use a backup
-				code.
-			</p>
+			<p className="text-sm text-muted-foreground">{m.twofa_explainer()}</p>
 
 			<FormAlert
 				message={status?.message ?? null}
@@ -183,14 +173,14 @@ export function TwoFactorSettings({
 								variant="outline"
 								onClick={() => setStep({ name: "password", action: "codes" })}
 							>
-								New backup codes
+								{m.twofa_new_codes()}
 							</Button>
 							<Button
 								type="button"
 								variant="destructive"
 								onClick={() => setStep({ name: "password", action: "disable" })}
 							>
-								Turn off
+								{m.twofa_turn_off()}
 							</Button>
 						</>
 					) : (
@@ -198,7 +188,7 @@ export function TwoFactorSettings({
 							type="button"
 							onClick={() => setStep({ name: "password", action: "enable" })}
 						>
-							Turn on two-factor authentication
+							{m.twofa_turn_on()}
 						</Button>
 					)}
 				</div>
@@ -212,7 +202,7 @@ export function TwoFactorSettings({
 					}}
 					className="space-y-3"
 				>
-					<Label htmlFor="2fa-password">Confirm your password</Label>
+					<Label htmlFor="2fa-password">{m.twofa_confirm_password()}</Label>
 					<PasswordInput
 						id="2fa-password"
 						value={password}
@@ -222,10 +212,10 @@ export function TwoFactorSettings({
 					/>
 					<div className="flex gap-2">
 						<Button type="submit" disabled={pending}>
-							{pending ? "Checking..." : "Continue"}
+							{pending ? m.twofa_checking() : m.common_continue()}
 						</Button>
 						<Button type="button" variant="ghost" onClick={reset}>
-							Cancel
+							{m.common_cancel()}
 						</Button>
 					</div>
 				</form>
@@ -233,24 +223,22 @@ export function TwoFactorSettings({
 
 			{step.name === "scan" ? (
 				<div className="space-y-4">
-					<p className="text-sm">
-						1. Scan this QR code with your authenticator app.
-					</p>
+					<p className="text-sm">{m.twofa_scan_step()}</p>
 					<div className="w-fit rounded-lg bg-white p-4">
 						<QRCode
 							value={step.totpURI}
 							size={176}
-							aria-label="QR code for your authenticator app"
+							aria-label={m.twofa_qr_label()}
 						/>
 					</div>
 					<p className="text-sm text-muted-foreground">
-						Can't scan it? Enter this key manually:{" "}
+						{m.twofa_manual_key()}{" "}
 						<code className="break-all rounded bg-muted px-1 font-mono">
 							{secretFromURI(step.totpURI)}
 						</code>
 					</p>
 					<Label htmlFor="2fa-code" className="text-sm font-normal">
-						2. Enter the 6-digit code it shows.
+						{m.twofa_code_step()}
 					</Label>
 					<OtpField
 						id="2fa-code"
@@ -265,10 +253,10 @@ export function TwoFactorSettings({
 							onClick={() => void confirmCode()}
 							disabled={pending || code.length !== 6}
 						>
-							{pending ? "Verifying..." : "Verify and turn on"}
+							{pending ? m.twofa_verifying() : m.twofa_verify_and_turn_on()}
 						</Button>
 						<Button type="button" variant="ghost" onClick={reset}>
-							Cancel
+							{m.common_cancel()}
 						</Button>
 					</div>
 				</div>
@@ -278,7 +266,7 @@ export function TwoFactorSettings({
 				<div className="space-y-3">
 					<BackupCodes codes={step.backupCodes} />
 					<Button type="button" onClick={reset}>
-						I've saved my codes
+						{m.twofa_saved_codes()}
 					</Button>
 				</div>
 			) : null}

@@ -25,6 +25,7 @@ import {
 import { authClient, authErrorMessage } from "#/lib/auth-client";
 import type { WorkspaceAccess } from "#/lib/authz";
 import { ROLE_LABELS, type WorkspaceRole } from "#/lib/permissions";
+import { m } from "#/paraglide/messages.js";
 import { NAV_GROUPS } from "./nav";
 
 export function AppLogo({ className = "size-8" }: { className?: string }) {
@@ -50,7 +51,7 @@ function initial(name: string) {
 function WorkspaceSwitcher({ access }: { access: WorkspaceAccess }) {
 	const router = useRouter();
 	const { isMobile } = useSidebar();
-	const current = access.workspace?.name ?? "Workspace";
+	const current = access.workspace?.name ?? m.shell_workspace_fallback();
 
 	const switchTo = async (organizationId: string) => {
 		if (organizationId === access.organizationId) return;
@@ -73,7 +74,7 @@ function WorkspaceSwitcher({ access }: { access: WorkspaceAccess }) {
 						<SidebarMenuButton
 							size="lg"
 							className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-							aria-label={`Current workspace: ${current}. Switch workspace`}
+							aria-label={m.shell_switch_workspace({ name: current })}
 						>
 							<span className="flex size-8 shrink-0 items-center justify-center rounded-md border bg-background text-sm font-semibold">
 								{initial(current)}
@@ -81,7 +82,7 @@ function WorkspaceSwitcher({ access }: { access: WorkspaceAccess }) {
 							<span className="grid flex-1 text-left text-sm leading-tight">
 								<span className="truncate font-medium">{current}</span>
 								<span className="truncate text-xs text-muted-foreground">
-									{ROLE_LABELS[access.role as WorkspaceRole]?.label ??
+									{ROLE_LABELS[access.role as WorkspaceRole]?.label() ??
 										access.role}
 								</span>
 							</span>
@@ -94,7 +95,7 @@ function WorkspaceSwitcher({ access }: { access: WorkspaceAccess }) {
 						align="start"
 					>
 						<DropdownMenuLabel className="text-xs text-muted-foreground">
-							Workspaces
+							{m.shell_workspaces()}
 						</DropdownMenuLabel>
 						{access.workspaces.map((w) => (
 							<DropdownMenuItem key={w.id} onSelect={() => void switchTo(w.id)}>
@@ -103,14 +104,14 @@ function WorkspaceSwitcher({ access }: { access: WorkspaceAccess }) {
 								</span>
 								<span className="truncate">{w.name}</span>
 								{w.id === access.organizationId ? (
-									<Check className="ml-auto" aria-label="current" />
+									<Check className="ml-auto" aria-label={m.common_current()} />
 								) : null}
 							</DropdownMenuItem>
 						))}
 						<DropdownMenuSeparator />
 						<DropdownMenuItem asChild>
 							<Link to="/workspace/new">
-								<Plus /> New workspace
+								<Plus /> {m.nav_new_workspace()}
 							</Link>
 						</DropdownMenuItem>
 					</DropdownMenuContent>
@@ -131,11 +132,11 @@ export function AppSidebar({ access }: { access: WorkspaceAccess | null }) {
 			<SidebarHeader>
 				<SidebarMenu>
 					<SidebarMenuItem>
-						<SidebarMenuButton size="lg" asChild tooltip="My TanStack App">
+						<SidebarMenuButton size="lg" asChild tooltip={m.app_name()}>
 							<Link to="/dashboard">
 								<AppLogo />
 								<span className="truncate text-base font-semibold">
-									My TanStack App
+									{m.app_name()}
 								</span>
 							</Link>
 						</SidebarMenuButton>
@@ -146,8 +147,8 @@ export function AppSidebar({ access }: { access: WorkspaceAccess | null }) {
 
 			<SidebarContent>
 				{NAV_GROUPS.map((group) => (
-					<SidebarGroup key={group.label}>
-						<SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+					<SidebarGroup key={group.id}>
+						<SidebarGroupLabel>{group.label()}</SidebarGroupLabel>
 						<SidebarGroupContent>
 							<SidebarMenu>
 								{group.items.map((item) => (
@@ -155,7 +156,7 @@ export function AppSidebar({ access }: { access: WorkspaceAccess | null }) {
 										<SidebarMenuButton
 											asChild
 											isActive={isActive(item.to)}
-											tooltip={item.title}
+											tooltip={item.title()}
 										>
 											<Link
 												to={item.to}
@@ -164,7 +165,7 @@ export function AppSidebar({ access }: { access: WorkspaceAccess | null }) {
 												onClick={() => isMobile && setOpenMobile(false)}
 											>
 												<item.icon />
-												<span>{item.title}</span>
+												<span>{item.title()}</span>
 											</Link>
 										</SidebarMenuButton>
 									</SidebarMenuItem>

@@ -11,62 +11,74 @@ import {
 	UserRound,
 	Users,
 } from "lucide-react";
+import { m } from "#/paraglide/messages.js";
 
-export type NavItem = { title: string; to: string; icon: LucideIcon };
+export type NavItem = { title: () => string; to: string; icon: LucideIcon };
 
 // Sidebar sections, in the order people work: customers, then what they buy
-export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
+export const NAV_GROUPS: {
+	id: string;
+	label: () => string;
+	items: NavItem[];
+}[] = [
 	{
-		label: "Overview",
-		items: [{ title: "Dashboard", to: "/dashboard", icon: LayoutDashboard }],
-	},
-	{
-		label: "Sales",
+		id: "overview",
+		label: m.nav_overview,
 		items: [
-			{ title: "Customers", to: "/customers", icon: UserRound },
-			{ title: "Products", to: "/products", icon: Package },
-			{ title: "Orders", to: "/orders", icon: ShoppingCart },
-			{ title: "Invoices", to: "/invoices", icon: FileText },
+			{ title: m.nav_dashboard, to: "/dashboard", icon: LayoutDashboard },
 		],
 	},
 	{
-		label: "Planning",
+		id: "sales",
+		label: m.nav_sales,
 		items: [
-			{ title: "Tasks", to: "/tasks", icon: KanbanSquare },
-			{ title: "Calendar", to: "/calendar", icon: CalendarDays },
+			{ title: m.nav_customers, to: "/customers", icon: UserRound },
+			{ title: m.nav_products, to: "/products", icon: Package },
+			{ title: m.nav_orders, to: "/orders", icon: ShoppingCart },
+			{ title: m.nav_invoices, to: "/invoices", icon: FileText },
 		],
 	},
 	{
-		label: "Work",
-		items: [{ title: "Projects", to: "/projects", icon: FolderKanban }],
+		id: "planning",
+		label: m.nav_planning,
+		items: [
+			{ title: m.nav_tasks, to: "/tasks", icon: KanbanSquare },
+			{ title: m.nav_calendar, to: "/calendar", icon: CalendarDays },
+		],
 	},
 	{
-		label: "Workspace",
+		id: "work",
+		label: m.nav_work,
+		items: [{ title: m.nav_projects, to: "/projects", icon: FolderKanban }],
+	},
+	{
+		id: "workspace",
+		label: m.nav_workspace,
 		items: [
-			{ title: "Members", to: "/workspace/members", icon: Users },
-			{ title: "Settings", to: "/workspace/settings", icon: Settings },
+			{ title: m.nav_members, to: "/workspace/members", icon: Users },
+			{ title: m.nav_settings, to: "/workspace/settings", icon: Settings },
 		],
 	},
 ];
 
-const EXTRA_TITLES: [string, string][] = [
-	["/orders/new", "New order"],
-	["/workspace/new", "New workspace"],
-	["/account/security", "Security"],
-	["/accept-invitation", "Invitation"],
+const EXTRA_TITLES: [string, () => string][] = [
+	["/orders/new", m.nav_new_order],
+	["/workspace/new", m.nav_new_workspace],
+	["/account/security", m.nav_security],
+	["/accept-invitation", m.nav_invitation],
 ];
 
 // Page title for the top bar: the longest matching nav path wins, so
 // /orders/abc shows "Orders" and /orders/new shows "New order"
 export function titleForPath(pathname: string) {
-	const candidates: [string, string][] = [
+	const candidates: [string, () => string][] = [
 		...NAV_GROUPS.flatMap((g) =>
-			g.items.map((i) => [i.to, i.title] as [string, string]),
+			g.items.map((i) => [i.to, i.title] as [string, () => string]),
 		),
 		...EXTRA_TITLES,
 	];
 	const match = candidates
 		.filter(([path]) => pathname === path || pathname.startsWith(`${path}/`))
 		.sort((a, b) => b[0].length - a[0].length)[0];
-	return match?.[1] ?? "";
+	return match?.[1]() ?? "";
 }

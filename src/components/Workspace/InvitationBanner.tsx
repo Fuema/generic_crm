@@ -4,6 +4,7 @@ import { MailOpen } from "lucide-react";
 import { useState } from "react";
 import { Button } from "#/components/ui/button";
 import { authClient, authErrorMessage } from "#/lib/auth-client";
+import { m } from "#/paraglide/messages.js";
 import { RoleBadge } from "./RoleBadge";
 
 const QUERY_KEY = ["my-invitations"];
@@ -59,7 +60,7 @@ export function InvitationBanner() {
 
 	return (
 		<section
-			aria-label="Workspace invitations"
+			aria-label={m.invitations_label()}
 			className="border-b bg-primary/5"
 		>
 			<ul className="mx-auto max-w-5xl divide-y divide-primary/10 px-4">
@@ -70,8 +71,8 @@ export function InvitationBanner() {
 							aria-hidden="true"
 						/>
 						<p className="flex flex-1 flex-wrap items-center gap-1.5 text-sm">
-							You're invited to join <strong>{i.organizationName}</strong> as{" "}
-							<RoleBadge role={i.role ?? "viewer"} />
+							{m.invitations_invited_to()} <strong>{i.organizationName}</strong>{" "}
+							{m.invitations_as()} <RoleBadge role={i.role ?? "viewer"} />
 						</p>
 						<div className="flex gap-2">
 							<Button
@@ -80,7 +81,7 @@ export function InvitationBanner() {
 								onClick={() => respond(i.id, i.organizationId, true)}
 								disabled={busyId !== null}
 							>
-								{busyId === i.id ? "Joining..." : "Accept"}
+								{busyId === i.id ? m.common_joining() : m.invitations_accept()}
 							</Button>
 							<Button
 								type="button"
@@ -89,7 +90,7 @@ export function InvitationBanner() {
 								onClick={() => respond(i.id, i.organizationId, false)}
 								disabled={busyId !== null}
 							>
-								Decline
+								{m.common_decline()}
 							</Button>
 						</div>
 					</li>
