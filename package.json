@@ -1,5 +1,5 @@
 {
-  "name": "my-tanstack-app",
+  "name": "generic-crm",
   "private": true,
   "type": "module",
   "imports": {
@@ -8,13 +8,12 @@
   "scripts": {
     "dev": "vite dev --port 3000",
     "generate-routes": "bunx tsr generate",
-    "build": "bun --bun vite build && cp instrument.server.mjs .output/server",
+    "build": "bun --bun vite build",
     "preview": "bun --bun vite preview",
     "format": "bunx biome format",
     "lint": "bunx biome lint",
     "check": "bunx biome check",
     "deploy": "bun run build && bunx wrangler deploy",
-    "start": "bun --bun run ./.output/server/instrument.server.mjs .output/server/index.mjs",
     "db:generate": "bunx drizzle-kit generate",
     "db:migrate": "bunx drizzle-kit migrate",
     "db:push": "bunx drizzle-kit push",
@@ -34,10 +33,7 @@
     "@dnd-kit/sortable": "10.0.0",
     "@dnd-kit/utilities": "3.2.2",
     "@faker-js/faker": "^10.3.0",
-    "@neon/config": "^1.10.0",
-    "@neon/env": "^1.6.8",
     "@neondatabase/serverless": "^1.0.2",
-    "@sentry/tanstackstart-react": "^10.67.0",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/match-sorter-utils": "9.2.6",
     "@tanstack/react-devtools": "0.10.14",
@@ -66,7 +62,6 @@
     "tailwind-merge": "^3.0.2",
     "tailwindcss": "^4.1.18",
     "tw-animate-css": "^1.3.6",
-    "vite-plugin-neon-new": "^0.8.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -91,8 +86,7 @@
       "esbuild",
       "lightningcss",
       "sharp",
-      "workerd",
-      "@sentry/cli"
+      "workerd"
     ]
   },
   "intent": {

@@ -8,10 +8,10 @@
 > Status: **Draft 1 — design only, phase 0 not started** · 2026-11-02 ·
 > repository `https://github.com/Fuema/generic_crm` (private).
 >
-> **Current code = an unmodified copy of the reference project**
-> `my-tanstack-app` (`https://github.com/Fuema/bun_tanstack_neon_cloudflare`,
-> frozen; its `specification.md` documents that code). Phase 0 (§5) turns it
-> into this design. Until then `bun run dev`/`build` fail on purpose (§5, last row).
+> **Current code = a copy of the reference project** `my-tanstack-app`
+> (`https://github.com/Fuema/bun_tanstack_neon_cloudflare`, frozen; its
+> `specification.md` documents that code) with its starter leftovers removed.
+> Phase 0 (§5) is in progress and turns it into this design.
 
 **Status labels used below:** `Planned` (designed, not started) · `Carried`
 (proven in `my-tanstack-app`, will be ported in phase 0) · `Built` (exists in
@@ -126,17 +126,17 @@ The owner created `generic_crm/` and copied `my-tanstack-app` into it (done
 | Better Auth setup: email + verification, social, 2FA (TOTP, email, backup codes), passkeys, rate limits, session rules, password policy, HIBP | `customer` table and pages → rebuilt as Contacts & Companies (phase 1) |
 | Workspaces (Better Auth organizations), members, invitations, roles, `requirePermission`, last-used workspace | `project` example → rebuilt as the Projects module (phase 3) |
 | App shell: sidebar, top bar, workspace switcher, user menu, theme, logo | Orders, invoices, tasks, calendar → re-ported onto the new data model (phases 2–3), keeping their rules |
-| Email module (Resend + dev console fallback), `email:test` | Legacy files: `src/db.ts`, `header-user.tsx`, `db/init.sql`; starter README |
-| Money/tax/date helpers, document counters, list pattern (URL state, server-side table) | Sentry rules and env vars unless we decide to wire it up |
+| Email module (Resend + dev console fallback), `email:test` | ~~Legacy files: `src/db.ts`, `header-user.tsx`, `db/init.sql`; starter README~~ **Done** |
+| Money/tax/date helpers, document counters, list pattern (URL state, server-side table) | ~~Sentry rules and env vars~~ **Done** (package removed; can be added back later) |
 | Tooling: Biome, `validate`, `check:bundle`, `.gitattributes` (LF), `vite dev` on Node | Old migrations: start a **fresh migration history** |
 | `.claude/agents/` (adapted), `.claude/skills/` (master copy moves here) | Demo seeds → new seeds per module |
-| — | Starter leftovers that the copy left dangling: the `neon-vite-plugin.ts` import in `vite.config.ts` (it auto-provisions a throwaway Neon database and seeds the old to-do schema) and `instrument.server.mjs` (Sentry) in the `build`/`start` scripts. Remove both references; the build fails until then |
+| — | Starter leftovers that the copy left dangling: the `neon-vite-plugin.ts` import in `vite.config.ts` (it auto-provisions a throwaway Neon database and seeds the old to-do schema) and `instrument.server.mjs` (Sentry) in the `build`/`start` scripts. Remove both references. **Done:** also removed `vite-plugin-neon-new`, `@neon/config`, `@neon/env`; package and Worker renamed `generic-crm` |
 
 Phase 0 also adds:
 - **Rename tenant columns to `workspace_id`** everywhere (the old app mixes `tenant_id` and `organization_id`).
 - **Automated tests from day one:** `bun test` for unit rules; integration tests on a dedicated Neon branch for isolation (workspace A never sees workspace B).
 - **i18n setup** (EN/ES) for every string ported.
-- New private GitHub repository, README, complete `.env.example`, first Cloudflare deployment, verified Resend domain.
+- ~~New private GitHub repository, README, complete `.env.example`~~ (done), first Cloudflare deployment, verified Resend domain.
 
 ## 6. Domain model `Planned`
 
@@ -434,3 +434,4 @@ Pitfalls already paid for:
 |---|---|
 | 2026-11-02 | Draft 1: vision, principles, decisions, architecture, data model, customization engine, portal, files, modules, events/workflows, security and limits, AI, i18n, partners, phases (designed in `my-tanstack-app` PR "docs: add Generic CRM design") |
 | 2026-11-02 | Initial import: foundation copied from `my-tanstack-app` unchanged; this specification, `CLAUDE.md`, `README.md` |
+| 2026-11-02 | Phase 0 step 1: starter leftovers removed (Neon auto-provision plugin, Sentry, legacy `src/db.ts` and `header-user.tsx`), package/Worker renamed `generic-crm`, complete `.env.example`; `dev` and `build` work again (this PR) |
