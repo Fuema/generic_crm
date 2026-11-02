@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AuthCard } from "#/components/Auth/AuthCard";
 import { TwoFactorForm } from "#/components/Auth/TwoFactorForm";
+import { m } from "#/paraglide/messages.js";
 
 export const Route = createFileRoute("/_guest/two-factor")({
 	component: TwoFactorPage,
@@ -9,11 +10,11 @@ export const Route = createFileRoute("/_guest/two-factor")({
 function TwoFactorPage() {
 	return (
 		<AuthCard
-			title="Two-step verification"
-			description="Confirm it's you to finish signing in"
+			title={m.auth_2fa_title()}
+			description={m.auth_2fa_description()}
 			footer={
 				<Link to="/login" className="underline-offset-4 hover:underline">
-					Back to sign in
+					{m.common_back_to_sign_in()}
 				</Link>
 			}
 		>

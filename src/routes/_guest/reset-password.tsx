@@ -3,6 +3,7 @@ import { AuthCard } from "#/components/Auth/AuthCard";
 import { FormAlert } from "#/components/Auth/FormParts";
 import { ResetPasswordForm } from "#/components/Auth/ResetPasswordForm";
 import { buttonVariants } from "#/components/ui/button";
+import { m } from "#/paraglide/messages.js";
 
 export const Route = createFileRoute("/_guest/reset-password")({
 	// Better Auth sends users here with ?token=... (or ?error=INVALID_TOKEN for a bad link)
@@ -20,19 +21,19 @@ function ResetPasswordPage() {
 
 	return (
 		<AuthCard
-			title="Choose a new password"
-			description="Make it strong and different from your old one"
+			title={m.auth_reset_title()}
+			description={m.auth_reset_description()}
 		>
 			{token && !error ? (
 				<ResetPasswordForm token={token} />
 			) : (
 				<div className="space-y-4">
-					<FormAlert message="This reset link is invalid or has expired." />
+					<FormAlert message={m.auth_reset_invalid_link()} />
 					<Link
 						to="/forgot-password"
 						className={buttonVariants({ className: "w-full" })}
 					>
-						Request a new link
+						{m.auth_reset_request_new()}
 					</Link>
 				</div>
 			)}

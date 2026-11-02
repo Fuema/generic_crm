@@ -1,7 +1,9 @@
 import { z } from "zod";
+import { m } from "#/paraglide/messages.js";
 
 // Shared by the forms (client) and the Better Auth hooks (server), so both
-// sides enforce exactly the same rules.
+// sides enforce exactly the same rules. Messages are functions (`{ error: () => … }`)
+// so they resolve in the language of the request or page doing the check.
 
 export const PASSWORD_MIN = 12;
 export const PASSWORD_MAX = 128;
@@ -9,23 +11,27 @@ export const PASSWORD_MAX = 128;
 export const passwordRules = [
 	{
 		id: "length",
-		label: `At least ${PASSWORD_MIN} characters`,
+		label: () => m.validation_password_rule_length({ min: PASSWORD_MIN }),
 		test: (v: string) => v.length >= PASSWORD_MIN,
 	},
 	{
 		id: "upper",
-		label: "One uppercase letter",
+		label: m.validation_password_rule_upper,
 		test: (v: string) => /[A-Z]/.test(v),
 	},
 	{
 		id: "lower",
-		label: "One lowercase letter",
+		label: m.validation_password_rule_lower,
 		test: (v: string) => /[a-z]/.test(v),
 	},
-	{ id: "number", label: "One number", test: (v: string) => /[0-9]/.test(v) },
+	{
+		id: "number",
+		label: m.validation_password_rule_number,
+		test: (v: string) => /[0-9]/.test(v),
+	},
 	{
 		id: "symbol",
-		label: "One symbol (e.g. ! ? # @)",
+		label: m.validation_password_rule_symbol,
 		test: (v: string) => /[^A-Za-z0-9\s]/.test(v),
 	},
 ] as const;
@@ -33,36 +39,39 @@ export const passwordRules = [
 export const nameSchema = z
 	.string()
 	.trim()
-	.min(2, "Name must be at least 2 characters")
-	.max(50, "Name must not exceed 50 characters")
-	.regex(
-		/^[\p{L}\p{M}][\p{L}\p{M} '.-]*$/u,
-		"Name can only contain letters, spaces, apostrophes, dots and hyphens",
-	);
+	.min(2, { error: () => m.validation_name_min() })
+	.max(50, { error: () => m.validation_name_max() })
+	.regex(/^[\p{L}\p{M}][\p{L}\p{M} '.-]*$/u, {
+		error: () => m.validation_name_chars(),
+	});
 
 export const emailSchema = z
 	.string()
 	.trim()
 	.toLowerCase()
-	.max(254, "Email must not exceed 254 characters")
-	.pipe(z.email("Please enter a valid email address"));
+	.max(254, { error: () => m.validation_email_max() })
+	.pipe(z.email({ error: () => m.validation_email_invalid() }));
 
 export const passwordSchema = z
 	.string()
-	.max(PASSWORD_MAX, `Password must not exceed ${PASSWORD_MAX} characters`)
+	.max(PASSWORD_MAX, {
+		error: () => m.validation_password_max({ max: PASSWORD_MAX }),
+	})
 	.superRefine((value, ctx) => {
 		for (const rule of passwordRules) {
 			if (!rule.test(value)) {
 				ctx.addIssue({
 					code: "custom",
-					message: `Password needs: ${rule.label.toLowerCase()}`,
+					message: m.validation_password_needs({
+						rule: rule.label().toLowerCase(),
+					}),
 				});
 			}
 		}
 		if (/^\s|\s$/.test(value)) {
 			ctx.addIssue({
 				code: "custom",
-				message: "Password can't start or end with a space",
+				message: m.validation_password_spaces(),
 			});
 		}
 	});
@@ -88,21 +97,21 @@ export const signUpSchema = z
 		confirmPassword: z.string(),
 		acceptTerms: z
 			.boolean()
-			.refine((v) => v, "You must accept the terms to continue"),
+			.refine((v) => v, { error: () => m.validation_terms_required() }),
 	})
 	.superRefine((data, ctx) => {
 		if (data.password !== data.confirmPassword) {
 			ctx.addIssue({
 				code: "custom",
 				path: ["confirmPassword"],
-				message: "Passwords don't match",
+				message: m.validation_passwords_mismatch(),
 			});
 		}
 		if (passwordContainsPersonalInfo(data.password, data.email, data.name)) {
 			ctx.addIssue({
 				code: "custom",
 				path: ["password"],
-				message: "Password can't contain your name or email",
+				message: m.validation_password_personal(),
 			});
 		}
 	});
@@ -114,8 +123,8 @@ export const signInSchema = z.object({
 	// Only check presence here: the policy may have changed since the account was created
 	password: z
 		.string()
-		.min(1, "Password is required")
-		.max(PASSWORD_MAX, "Password is too long"),
+		.min(1, { error: () => m.validation_password_required() })
+		.max(PASSWORD_MAX, { error: () => m.validation_password_too_long() }),
 	rememberMe: z.boolean(),
 });
 
@@ -127,12 +136,14 @@ export const resetPasswordSchema = z
 	.object({ password: passwordSchema, confirmPassword: z.string() })
 	.refine((d) => d.password === d.confirmPassword, {
 		path: ["confirmPassword"],
-		message: "Passwords don't match",
+		error: () => m.validation_passwords_mismatch(),
 	});
 
 export const changePasswordSchema = z
 	.object({
-		currentPassword: z.string().min(1, "Current password is required"),
+		currentPassword: z
+			.string()
+			.min(1, { error: () => m.validation_current_password_required() }),
 		newPassword: passwordSchema,
 		confirmPassword: z.string(),
 		revokeOtherSessions: z.boolean(),
@@ -142,28 +153,29 @@ export const changePasswordSchema = z
 			ctx.addIssue({
 				code: "custom",
 				path: ["confirmPassword"],
-				message: "Passwords don't match",
+				message: m.validation_passwords_mismatch(),
 			});
 		}
 		if (d.newPassword === d.currentPassword) {
 			ctx.addIssue({
 				code: "custom",
 				path: ["newPassword"],
-				message: "New password must be different",
+				message: m.validation_password_must_differ(),
 			});
 		}
 	});
 
-export const otpSchema = z.string().regex(/^\d{6}$/, "Enter the 6-digit code");
+export const otpSchema = z
+	.string()
+	.regex(/^\d{6}$/, { error: () => m.validation_otp() });
 
 // Better Auth backup codes are 10 characters, shown as XXXXX-XXXXX
 export const backupCodeSchema = z
 	.string()
 	.trim()
-	.regex(
-		/^[A-Za-z0-9]{5}-?[A-Za-z0-9]{5}$/,
-		"Enter a backup code like ABCDE-12345",
-	);
+	.regex(/^[A-Za-z0-9]{5}-?[A-Za-z0-9]{5}$/, {
+		error: () => m.validation_backup_code(),
+	});
 
 export const workspaceNameSchema = z
 	.string()

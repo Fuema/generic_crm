@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "#/components/ui/button";
 import { authClient, authErrorMessage } from "#/lib/auth-client";
 import type { SocialProvider } from "#/lib/auth-providers";
+import { m } from "#/paraglide/messages.js";
 
 function GoogleIcon() {
 	return (
@@ -84,7 +85,7 @@ export function SocialButtons({
 						onClick={() => signIn(id)}
 					>
 						<Icon />
-						{pending === id ? "Redirecting..." : label}
+						{pending === id ? m.common_redirecting() : label}
 					</Button>
 				);
 			})}

@@ -6,6 +6,7 @@ import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
 import { authClient, authErrorMessage } from "#/lib/auth-client";
 import { forgotPasswordSchema } from "#/lib/schema";
+import { m } from "#/paraglide/messages.js";
 import { FieldError, FormAlert, fieldErrors } from "./FormParts";
 
 export function ForgotPasswordForm() {
@@ -41,10 +42,7 @@ export function ForgotPasswordForm() {
 					className="mx-auto size-12 text-primary"
 					aria-hidden="true"
 				/>
-				<p>
-					If an account exists for that email, we've sent a link to reset your
-					password. It expires in 1 hour.
-				</p>
+				<p>{m.auth_forgot_done()}</p>
 			</div>
 		);
 	}
@@ -63,7 +61,7 @@ export function ForgotPasswordForm() {
 			<form.Field name="email">
 				{(field) => (
 					<div className="space-y-2">
-						<Label htmlFor={field.name}>Email</Label>
+						<Label htmlFor={field.name}>{m.common_email()}</Label>
 						<Input
 							id={field.name}
 							type="email"
@@ -71,7 +69,7 @@ export function ForgotPasswordForm() {
 							value={field.state.value}
 							onBlur={field.handleBlur}
 							onChange={(e) => field.handleChange(e.target.value)}
-							placeholder="you@example.com"
+							placeholder={m.common_email_placeholder()}
 							autoComplete="email"
 							inputMode="email"
 							maxLength={254}
@@ -91,7 +89,7 @@ export function ForgotPasswordForm() {
 						className="w-full"
 						disabled={!canSubmit || isSubmitting}
 					>
-						{isSubmitting ? "Sending..." : "Send reset link"}
+						{isSubmitting ? m.common_sending() : m.auth_forgot_submit()}
 					</Button>
 				)}
 			</form.Subscribe>

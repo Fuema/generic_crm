@@ -3,6 +3,7 @@ import { CheckCircle2 } from "lucide-react";
 import { AuthCard } from "#/components/Auth/AuthCard";
 import { FormAlert } from "#/components/Auth/FormParts";
 import { buttonVariants } from "#/components/ui/button";
+import { m } from "#/paraglide/messages.js";
 
 // Landing page for the email verification link. Better Auth verifies the token,
 // signs the user in, then redirects here (with ?error=... if the link was bad).
@@ -18,24 +19,24 @@ function VerifyEmailPage() {
 
 	if (error) {
 		return (
-			<AuthCard title="Link expired">
-				<FormAlert message="This verification link is invalid or has expired. Sign in to get a new one." />
+			<AuthCard title={m.auth_verify_expired_title()}>
+				<FormAlert message={m.auth_verify_expired()} />
 				<Link to="/login" className={buttonVariants({ className: "w-full" })}>
-					Go to sign in
+					{m.common_go_to_sign_in()}
 				</Link>
 			</AuthCard>
 		);
 	}
 
 	return (
-		<AuthCard title="Email verified">
+		<AuthCard title={m.auth_verify_done_title()}>
 			<CheckCircle2
 				className="mx-auto size-12 text-emerald-600"
 				aria-hidden="true"
 			/>
-			<p className="text-center">Your account is active. You're signed in.</p>
+			<p className="text-center">{m.auth_verify_done()}</p>
 			<Link to="/dashboard" className={buttonVariants({ className: "w-full" })}>
-				Continue to your dashboard
+				{m.auth_verify_continue()}
 			</Link>
 		</AuthCard>
 	);

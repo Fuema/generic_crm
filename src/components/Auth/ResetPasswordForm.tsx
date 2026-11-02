@@ -5,6 +5,7 @@ import { Button } from "#/components/ui/button";
 import { Label } from "#/components/ui/label";
 import { authClient, authErrorMessage } from "#/lib/auth-client";
 import { PASSWORD_MAX, resetPasswordSchema } from "#/lib/schema";
+import { m } from "#/paraglide/messages.js";
 import { FieldError, FormAlert, fieldErrors, PasswordInput } from "./FormParts";
 import { PasswordStrength } from "./PasswordStrength";
 
@@ -46,7 +47,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
 			<form.Field name="password">
 				{(field) => (
 					<div className="space-y-2">
-						<Label htmlFor={field.name}>New password</Label>
+						<Label htmlFor={field.name}>{m.auth_reset_new_password()}</Label>
 						<PasswordInput
 							id={field.name}
 							name={field.name}
@@ -66,7 +67,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
 			<form.Field name="confirmPassword">
 				{(field) => (
 					<div className="space-y-2">
-						<Label htmlFor={field.name}>Confirm new password</Label>
+						<Label htmlFor={field.name}>{m.auth_reset_confirm()}</Label>
 						<PasswordInput
 							id={field.name}
 							name={field.name}
@@ -83,7 +84,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
 				)}
 			</form.Field>
 			<p className="text-xs text-muted-foreground">
-				You'll be signed out on every device after resetting.
+				{m.auth_reset_signed_out_note()}
 			</p>
 			<form.Subscribe
 				selector={(state) => [state.canSubmit, state.isSubmitting]}
@@ -94,7 +95,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
 						className="w-full"
 						disabled={!canSubmit || isSubmitting}
 					>
-						{isSubmitting ? "Saving..." : "Reset password"}
+						{isSubmitting ? m.auth_reset_submitting() : m.auth_reset_submit()}
 					</Button>
 				)}
 			</form.Subscribe>

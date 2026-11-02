@@ -1,13 +1,22 @@
 import { Check, X } from "lucide-react";
 import { passwordRules } from "#/lib/schema";
+import { m } from "#/paraglide/messages.js";
 
 const LEVELS = [
-	{ label: "Very weak", className: "bg-destructive" },
-	{ label: "Weak", className: "bg-destructive" },
-	{ label: "Fair", className: "bg-amber-500" },
-	{ label: "Good", className: "bg-amber-500" },
-	{ label: "Strong", className: "bg-emerald-500" },
-	{ label: "Very strong", className: "bg-emerald-600" },
+	{
+		id: "very-weak",
+		label: m.auth_strength_very_weak,
+		className: "bg-destructive",
+	},
+	{ id: "weak", label: m.auth_strength_weak, className: "bg-destructive" },
+	{ id: "fair", label: m.auth_strength_fair, className: "bg-amber-500" },
+	{ id: "good", label: m.auth_strength_good, className: "bg-amber-500" },
+	{ id: "strong", label: m.auth_strength_strong, className: "bg-emerald-500" },
+	{
+		id: "very-strong",
+		label: m.auth_strength_very_strong,
+		className: "bg-emerald-600",
+	},
 ];
 
 // Live checklist of the password policy plus a strength bar
@@ -32,13 +41,13 @@ export function PasswordStrength({ password }: { password: string }) {
 				<div className="flex h-1.5 flex-1 gap-1" aria-hidden="true">
 					{LEVELS.slice(1).map((l, i) => (
 						<span
-							key={l.label}
+							key={l.id}
 							className={`flex-1 rounded-full ${i < score ? level.className : "bg-muted"}`}
 						/>
 					))}
 				</div>
 				<span className="text-xs font-medium text-muted-foreground">
-					{level.label}
+					{level.label()}
 				</span>
 			</div>
 			<ul className="grid gap-1 text-xs sm:grid-cols-2">
@@ -53,9 +62,10 @@ export function PasswordStrength({ password }: { password: string }) {
 							<X className="size-3.5" />
 						)}
 						<span>
-							{r.label}
+							{r.label()}
 							<span className="sr-only">
-								{r.passed ? " (met)" : " (not met)"}
+								{" "}
+								{r.passed ? m.auth_strength_met() : m.auth_strength_not_met()}
 							</span>
 						</span>
 					</li>
