@@ -177,7 +177,7 @@ export const project = pgTable(
 	"project",
 	{
 		id: text("id").primaryKey(),
-		organizationId: text("organization_id")
+		workspaceId: text("workspace_id")
 			.notNull()
 			.references(() => organization.id, { onDelete: "cascade" }),
 		name: text("name").notNull(),
@@ -188,16 +188,16 @@ export const project = pgTable(
 		createdAt: timestamp("created_at").notNull().defaultNow(),
 		updatedAt: timestamp("updated_at").notNull().defaultNow(),
 	},
-	(t) => [index("project_organization_id_idx").on(t.organizationId)],
+	(t) => [index("project_workspace_id_idx").on(t.workspaceId)],
 );
 
-// Customers. The tenant is the workspace (organization): every query filters by
-// tenant_id from the caller's active session, never from client input.
+// Customers. The workspace is a Better Auth organization: every query filters by
+// workspace_id from the caller's active session, never from client input.
 export const customer = pgTable(
 	"customer",
 	{
 		id: text("id").primaryKey(),
-		tenantId: text("tenant_id")
+		workspaceId: text("workspace_id")
 			.notNull()
 			.references(() => organization.id, { onDelete: "cascade" }),
 		name: text("name").notNull(),
@@ -217,13 +217,13 @@ export const customer = pgTable(
 		updatedAt: timestamp("updated_at").notNull().defaultNow(),
 	},
 	(t) => [
-		// One customer per email address within a tenant, case-insensitive
-		uniqueIndex("customer_tenant_email_unique").on(
-			t.tenantId,
+		// One customer per email address within a workspace, case-insensitive
+		uniqueIndex("customer_workspace_email_unique").on(
+			t.workspaceId,
 			sql`lower(${t.email})`,
 		),
-		index("customer_tenant_created_idx").on(t.tenantId, t.createdAt),
-		index("customer_tenant_status_idx").on(t.tenantId, t.status),
+		index("customer_workspace_created_idx").on(t.workspaceId, t.createdAt),
+		index("customer_workspace_status_idx").on(t.workspaceId, t.status),
 	],
 );
 
@@ -233,8 +233,8 @@ export const customer = pgTable(
 // ---------------------------------------------------------------------------
 
 // Per-workspace defaults for new orders and invoices
-export const tenantSetting = pgTable("tenant_setting", {
-	tenantId: text("tenant_id")
+export const workspaceSetting = pgTable("workspace_setting", {
+	workspaceId: text("workspace_id")
 		.primaryKey()
 		.references(() => organization.id, { onDelete: "cascade" }),
 	// ISO 4217 code, e.g. "USD"
@@ -246,10 +246,10 @@ export const tenantSetting = pgTable("tenant_setting", {
 
 // Document number sequences. Incremented with a single atomic upsert, so two
 // requests can never receive the same number. year = 0 for non-yearly series.
-export const tenantCounter = pgTable(
-	"tenant_counter",
+export const workspaceCounter = pgTable(
+	"workspace_counter",
 	{
-		tenantId: text("tenant_id")
+		workspaceId: text("workspace_id")
 			.notNull()
 			.references(() => organization.id, { onDelete: "cascade" }),
 		// "order" | "invoice"
@@ -257,14 +257,16 @@ export const tenantCounter = pgTable(
 		year: integer("year").notNull().default(0),
 		value: integer("value").notNull().default(0),
 	},
-	(t) => [uniqueIndex("tenant_counter_key").on(t.tenantId, t.kind, t.year)],
+	(t) => [
+		uniqueIndex("workspace_counter_key").on(t.workspaceId, t.kind, t.year),
+	],
 );
 
 export const product = pgTable(
 	"product",
 	{
 		id: text("id").primaryKey(),
-		tenantId: text("tenant_id")
+		workspaceId: text("workspace_id")
 			.notNull()
 			.references(() => organization.id, { onDelete: "cascade" }),
 		name: text("name").notNull(),
@@ -277,11 +279,11 @@ export const product = pgTable(
 		updatedAt: timestamp("updated_at").notNull().defaultNow(),
 	},
 	(t) => [
-		uniqueIndex("product_tenant_sku_unique").on(
-			t.tenantId,
+		uniqueIndex("product_workspace_sku_unique").on(
+			t.workspaceId,
 			sql`lower(${t.sku})`,
 		),
-		index("product_tenant_name_idx").on(t.tenantId, t.name),
+		index("product_workspace_name_idx").on(t.workspaceId, t.name),
 	],
 );
 
@@ -290,7 +292,7 @@ export const salesOrder = pgTable(
 	"sales_order",
 	{
 		id: text("id").primaryKey(),
-		tenantId: text("tenant_id")
+		workspaceId: text("workspace_id")
 			.notNull()
 			.references(() => organization.id, { onDelete: "cascade" }),
 		// Shown as ORD-0001
@@ -315,8 +317,11 @@ export const salesOrder = pgTable(
 		updatedAt: timestamp("updated_at").notNull().defaultNow(),
 	},
 	(t) => [
-		uniqueIndex("sales_order_tenant_number_unique").on(t.tenantId, t.number),
-		index("sales_order_tenant_status_idx").on(t.tenantId, t.status),
+		uniqueIndex("sales_order_workspace_number_unique").on(
+			t.workspaceId,
+			t.number,
+		),
+		index("sales_order_workspace_status_idx").on(t.workspaceId, t.status),
 		index("sales_order_customer_idx").on(t.customerId),
 	],
 );
@@ -346,7 +351,7 @@ export const invoice = pgTable(
 	"invoice",
 	{
 		id: text("id").primaryKey(),
-		tenantId: text("tenant_id")
+		workspaceId: text("workspace_id")
 			.notNull()
 			.references(() => organization.id, { onDelete: "cascade" }),
 		// One invoice per order; an order with an invoice can't be deleted
@@ -379,12 +384,12 @@ export const invoice = pgTable(
 		updatedAt: timestamp("updated_at").notNull().defaultNow(),
 	},
 	(t) => [
-		uniqueIndex("invoice_tenant_number_unique").on(
-			t.tenantId,
+		uniqueIndex("invoice_workspace_number_unique").on(
+			t.workspaceId,
 			t.year,
 			t.number,
 		),
-		index("invoice_tenant_status_idx").on(t.tenantId, t.status),
+		index("invoice_workspace_status_idx").on(t.workspaceId, t.status),
 	],
 );
 
@@ -413,7 +418,7 @@ export const task = pgTable(
 	"task",
 	{
 		id: text("id").primaryKey(),
-		tenantId: text("tenant_id")
+		workspaceId: text("workspace_id")
 			.notNull()
 			.references(() => organization.id, { onDelete: "cascade" }),
 		title: text("title").notNull(),
@@ -445,13 +450,13 @@ export const task = pgTable(
 		updatedAt: timestamp("updated_at").notNull().defaultNow(),
 	},
 	(t) => [
-		index("task_tenant_status_position_idx").on(
-			t.tenantId,
+		index("task_workspace_status_position_idx").on(
+			t.workspaceId,
 			t.status,
 			t.position,
 		),
-		index("task_tenant_due_idx").on(t.tenantId, t.dueAt),
-		index("task_tenant_assignee_idx").on(t.tenantId, t.assigneeId),
+		index("task_workspace_due_idx").on(t.workspaceId, t.dueAt),
+		index("task_workspace_assignee_idx").on(t.workspaceId, t.assigneeId),
 	],
 );
 
@@ -459,7 +464,7 @@ export const activity = pgTable(
 	"activity",
 	{
 		id: text("id").primaryKey(),
-		tenantId: text("tenant_id")
+		workspaceId: text("workspace_id")
 			.notNull()
 			.references(() => organization.id, { onDelete: "cascade" }),
 		// call | meeting | email | follow_up
@@ -487,7 +492,7 @@ export const activity = pgTable(
 		updatedAt: timestamp("updated_at").notNull().defaultNow(),
 	},
 	(t) => [
-		index("activity_tenant_starts_idx").on(t.tenantId, t.startsAt),
-		index("activity_tenant_customer_idx").on(t.tenantId, t.customerId),
+		index("activity_workspace_starts_idx").on(t.workspaceId, t.startsAt),
+		index("activity_workspace_customer_idx").on(t.workspaceId, t.customerId),
 	],
 );

@@ -1,39 +1,43 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from "#/db/index";
-import { tenantCounter, tenantSetting } from "#/db/schema";
+import { workspaceCounter, workspaceSetting } from "#/db/schema";
 
 // Server-only helpers. Import these ONLY from server-function handlers: plain
 // exported functions are not stripped from the browser bundle the way
 // createServerFn handlers are, so importing this file from a route or component
 // would ship the database client to the browser.
 
-// Next number in a per-tenant sequence, in one atomic statement: concurrent
+// Next number in a per-workspace sequence, in one atomic statement: concurrent
 // requests can never receive the same number.
 export async function nextDocumentNumber(
-	tenantId: string,
+	workspaceId: string,
 	kind: "order" | "invoice",
 	year = 0,
 ) {
 	const [row] = await db
-		.insert(tenantCounter)
-		.values({ tenantId, kind, year, value: 1 })
+		.insert(workspaceCounter)
+		.values({ workspaceId, kind, year, value: 1 })
 		.onConflictDoUpdate({
-			target: [tenantCounter.tenantId, tenantCounter.kind, tenantCounter.year],
-			set: { value: sql`${tenantCounter.value} + 1` },
+			target: [
+				workspaceCounter.workspaceId,
+				workspaceCounter.kind,
+				workspaceCounter.year,
+			],
+			set: { value: sql`${workspaceCounter.value} + 1` },
 		})
-		.returning({ value: tenantCounter.value });
+		.returning({ value: workspaceCounter.value });
 	return row.value;
 }
 
-export async function getTenantSettings(tenantId: string) {
+export async function getWorkspaceSettings(workspaceId: string) {
 	const [row] = await db
 		.select()
-		.from(tenantSetting)
-		.where(eq(tenantSetting.tenantId, tenantId))
+		.from(workspaceSetting)
+		.where(eq(workspaceSetting.workspaceId, workspaceId))
 		.limit(1);
 	return (
 		row ?? {
-			tenantId,
+			workspaceId,
 			currency: "USD",
 			defaultTaxRateBp: 0,
 			paymentTermsDays: 30,

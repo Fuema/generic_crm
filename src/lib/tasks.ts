@@ -13,7 +13,7 @@ import {
 } from "#/lib/schema";
 import { assertWorkspaceRefs } from "#/lib/workspace-refs.server";
 
-// Every query is scoped to the caller's active workspace (context.organizationId).
+// Every query is scoped to the caller's active workspace (context.workspaceId).
 
 const GAP = 1024;
 // Below this gap between neighbours, renumber the column to restore room
@@ -57,11 +57,11 @@ function selectTasks() {
 		.leftJoin(salesOrder, eq(salesOrder.id, task.orderId));
 }
 
-async function findTask(id: string, tenantId: string) {
+async function findTask(id: string, workspaceId: string) {
 	const [row] = await db
 		.select()
 		.from(task)
-		.where(and(eq(task.id, id), eq(task.tenantId, tenantId)))
+		.where(and(eq(task.id, id), eq(task.workspaceId, workspaceId)))
 		.limit(1);
 	if (!row) throw clientError(404, "Task not found");
 	return row;
@@ -84,7 +84,7 @@ export const listTasks = createServerFn({ method: "GET" })
 	.middleware([requirePermission({ task: ["read"] })])
 	.validator(taskBoardSearchSchema)
 	.handler(async ({ data, context }) => {
-		const filters: SQL[] = [eq(task.tenantId, context.organizationId)];
+		const filters: SQL[] = [eq(task.workspaceId, context.workspaceId)];
 		if (data.q) filters.push(ilike(task.title, likePattern(data.q)));
 		if (data.assignee) {
 			filters.push(
@@ -105,19 +105,22 @@ export const listTasks = createServerFn({ method: "GET" })
 export const getWorkspaceRefOptions = createServerFn({ method: "GET" })
 	.middleware([requirePermission({ task: ["read"] })])
 	.handler(async ({ context }) => {
-		const tenantId = context.organizationId;
+		const workspaceId = context.workspaceId;
 		const [members, customers, orders] = await Promise.all([
 			db
 				.select({ id: user.id, name: user.name })
 				.from(member)
 				.innerJoin(user, eq(user.id, member.userId))
-				.where(eq(member.organizationId, tenantId))
+				.where(eq(member.organizationId, workspaceId))
 				.orderBy(asc(user.name)),
 			db
 				.select({ id: customer.id, name: customer.name })
 				.from(customer)
 				.where(
-					and(eq(customer.tenantId, tenantId), ne(customer.status, "inactive")),
+					and(
+						eq(customer.workspaceId, workspaceId),
+						ne(customer.status, "inactive"),
+					),
 				)
 				.orderBy(asc(customer.name))
 				.limit(1000),
@@ -131,7 +134,7 @@ export const getWorkspaceRefOptions = createServerFn({ method: "GET" })
 				.innerJoin(customer, eq(customer.id, salesOrder.customerId))
 				.where(
 					and(
-						eq(salesOrder.tenantId, tenantId),
+						eq(salesOrder.workspaceId, workspaceId),
 						ne(salesOrder.status, "cancelled"),
 					),
 				)
@@ -150,8 +153,8 @@ export const createTask = createServerFn({ method: "POST" })
 	.middleware([requirePermission({ task: ["create"] })])
 	.validator(taskInputSchema)
 	.handler(async ({ data, context }) => {
-		const tenantId = context.organizationId;
-		await assertWorkspaceRefs(tenantId, {
+		const workspaceId = context.workspaceId;
+		await assertWorkspaceRefs(workspaceId, {
 			userId: data.assigneeId,
 			customerId: data.customerId,
 			orderId: data.orderId,
@@ -160,12 +163,14 @@ export const createTask = createServerFn({ method: "POST" })
 		const [{ top }] = await db
 			.select({ top: min(task.position) })
 			.from(task)
-			.where(and(eq(task.tenantId, tenantId), eq(task.status, data.status)));
+			.where(
+				and(eq(task.workspaceId, workspaceId), eq(task.status, data.status)),
+			);
 		const [created] = await db
 			.insert(task)
 			.values({
 				id: crypto.randomUUID(),
-				tenantId,
+				workspaceId,
 				status: data.status,
 				position: (top ?? GAP) - GAP,
 				completedAt: data.status === "done" ? new Date() : null,
@@ -180,8 +185,8 @@ export const updateTask = createServerFn({ method: "POST" })
 	.middleware([requirePermission({ task: ["update"] })])
 	.validator(taskInputSchema.extend({ id: z.uuid("Invalid task id") }))
 	.handler(async ({ data, context }) => {
-		const existing = await findTask(data.id, context.organizationId);
-		await assertWorkspaceRefs(context.organizationId, {
+		const existing = await findTask(data.id, context.workspaceId);
+		await assertWorkspaceRefs(context.workspaceId, {
 			userId: data.assigneeId,
 			customerId: data.customerId,
 			orderId: data.orderId,
@@ -194,7 +199,7 @@ export const updateTask = createServerFn({ method: "POST" })
 				.from(task)
 				.where(
 					and(
-						eq(task.tenantId, context.organizationId),
+						eq(task.workspaceId, context.workspaceId),
 						eq(task.status, data.status),
 					),
 				);
@@ -216,7 +221,7 @@ export const updateTask = createServerFn({ method: "POST" })
 			.where(
 				and(
 					eq(task.id, existing.id),
-					eq(task.tenantId, context.organizationId),
+					eq(task.workspaceId, context.workspaceId),
 				),
 			);
 		return { id: existing.id };
@@ -233,8 +238,8 @@ export const moveTask = createServerFn({ method: "POST" })
 	.middleware([requirePermission({ task: ["update"] })])
 	.validator(moveTaskSchema)
 	.handler(async ({ data, context }) => {
-		const tenantId = context.organizationId;
-		const moving = await findTask(data.id, tenantId);
+		const workspaceId = context.workspaceId;
+		const moving = await findTask(data.id, workspaceId);
 		const status = data.status as TaskStatus;
 
 		const neighbour = async (id: string | null) => {
@@ -245,7 +250,7 @@ export const moveTask = createServerFn({ method: "POST" })
 				.where(
 					and(
 						eq(task.id, id),
-						eq(task.tenantId, tenantId),
+						eq(task.workspaceId, workspaceId),
 						eq(task.status, status),
 					),
 				)
@@ -265,7 +270,7 @@ export const moveTask = createServerFn({ method: "POST" })
 				.from(task)
 				.where(
 					and(
-						eq(task.tenantId, tenantId),
+						eq(task.workspaceId, workspaceId),
 						eq(task.status, status),
 						ne(task.id, moving.id),
 					),
@@ -297,7 +302,7 @@ export const moveTask = createServerFn({ method: "POST" })
 				.from(task)
 				.where(
 					and(
-						eq(task.tenantId, tenantId),
+						eq(task.workspaceId, workspaceId),
 						eq(task.status, status),
 						ne(task.id, moving.id),
 					),
@@ -313,7 +318,7 @@ export const moveTask = createServerFn({ method: "POST" })
 				completedAt: completedAtFor(moving.status, status, moving.completedAt),
 				updatedAt: new Date(),
 			})
-			.where(and(eq(task.id, moving.id), eq(task.tenantId, tenantId)));
+			.where(and(eq(task.id, moving.id), eq(task.workspaceId, workspaceId)));
 		return { id: moving.id, status, position };
 	});
 
@@ -324,7 +329,7 @@ export const deleteTask = createServerFn({ method: "POST" })
 		const [deleted] = await db
 			.delete(task)
 			.where(
-				and(eq(task.id, data.id), eq(task.tenantId, context.organizationId)),
+				and(eq(task.id, data.id), eq(task.workspaceId, context.workspaceId)),
 			)
 			.returning({ id: task.id });
 		if (!deleted) throw clientError(404, "Task not found");

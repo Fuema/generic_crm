@@ -10,7 +10,7 @@ function forbidden(message: string) {
 
 // Guard for server functions: requires a session, an active workspace, and a
 // role in that workspace that grants every listed permission. The handler gets
-// `context.organizationId` so queries can be scoped to the workspace.
+// `context.workspaceId` so queries can be scoped to the workspace.
 // Usage: createServerFn().middleware([requirePermission({ project: ["delete"] })])
 export function requirePermission(permissions: Permissions) {
 	return createMiddleware({ type: "function" })
@@ -29,7 +29,7 @@ export function requirePermission(permissions: Permissions) {
 					"Your role in this workspace doesn't allow this action",
 				);
 			}
-			return next({ context: { organizationId } });
+			return next({ context: { workspaceId: organizationId } });
 		});
 }
 

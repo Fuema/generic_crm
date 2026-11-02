@@ -80,7 +80,7 @@ const [workspace] = await db
 if (clear) {
 	const removed = await db
 		.delete(customer)
-		.where(and(eq(customer.tenantId, workspace.id), like(customer.notes, `${DEMO_TAG}%`)))
+		.where(and(eq(customer.workspaceId, workspace.id), like(customer.notes, `${DEMO_TAG}%`)))
 		.returning({ id: customer.id });
 	console.log(`Removed ${removed.length} demo customers from "${workspace.name}".`);
 	process.exit(0);
@@ -94,7 +94,7 @@ const rows = Array.from({ length: total }, (_, i) => {
 	const createdAt = faker.date.past({ years: 1 });
 	return {
 		id: crypto.randomUUID(),
-		tenantId: workspace.id,
+		workspaceId: workspace.id,
 		name: `${firstName} ${lastName}`,
 		// The index keeps every address unique within the workspace
 		email: `${firstName}.${lastName}.${i + 1}@example.com`.toLowerCase().replace(/[^a-z0-9.@]/g, ""),

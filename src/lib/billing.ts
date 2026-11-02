@@ -1,8 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { db } from "#/db/index";
-import { tenantSetting } from "#/db/schema";
+import { workspaceSetting } from "#/db/schema";
 import { requirePermission } from "#/lib/authz";
-import { getTenantSettings } from "#/lib/billing.server";
+import { getWorkspaceSettings } from "#/lib/billing.server";
 import { bpToPercent, parsePercentToBp } from "#/lib/money";
 import { billingSettingsSchema } from "#/lib/schema";
 
@@ -12,7 +12,7 @@ import { billingSettingsSchema } from "#/lib/schema";
 export const getBillingSettings = createServerFn({ method: "GET" })
 	.middleware([requirePermission({ order: ["read"] })])
 	.handler(async ({ context }) => {
-		const s = await getTenantSettings(context.organizationId);
+		const s = await getWorkspaceSettings(context.workspaceId);
 		return {
 			currency: s.currency,
 			defaultTaxRate: bpToPercent(s.defaultTaxRateBp),
@@ -36,8 +36,11 @@ export const updateBillingSettings = createServerFn({ method: "POST" })
 			updatedAt: new Date(),
 		};
 		await db
-			.insert(tenantSetting)
-			.values({ tenantId: context.organizationId, ...values })
-			.onConflictDoUpdate({ target: tenantSetting.tenantId, set: values });
+			.insert(workspaceSetting)
+			.values({ workspaceId: context.workspaceId, ...values })
+			.onConflictDoUpdate({
+				target: workspaceSetting.workspaceId,
+				set: values,
+			});
 		return { ok: true };
 	});

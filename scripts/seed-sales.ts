@@ -17,7 +17,7 @@ import {
 	orderLine,
 	product,
 	salesOrder,
-	tenantCounter,
+	workspaceCounter,
 	user,
 } from "../src/db/schema";
 import { computeTotals } from "../src/lib/money";
@@ -55,21 +55,21 @@ if (!workspace) {
 	console.error(`${email} isn't a member of a workspace named "${workspaceName}"`);
 	process.exit(1);
 }
-const tenantId = workspace.id;
+const workspaceId = workspace.id;
 
 if (clear) {
 	// Invoices first (they block order deletion), then orders, then products
 	const invoices = await db
 		.delete(invoice)
-		.where(and(eq(invoice.tenantId, tenantId), like(invoice.notes, `${TAG}%`)))
+		.where(and(eq(invoice.workspaceId, workspaceId), like(invoice.notes, `${TAG}%`)))
 		.returning({ id: invoice.id });
 	const orders = await db
 		.delete(salesOrder)
-		.where(and(eq(salesOrder.tenantId, tenantId), like(salesOrder.notes, `${TAG}%`)))
+		.where(and(eq(salesOrder.workspaceId, workspaceId), like(salesOrder.notes, `${TAG}%`)))
 		.returning({ id: salesOrder.id });
 	const products = await db
 		.delete(product)
-		.where(and(eq(product.tenantId, tenantId), like(product.description, `${TAG}%`)))
+		.where(and(eq(product.workspaceId, workspaceId), like(product.description, `${TAG}%`)))
 		.returning({ id: product.id });
 	console.log(
 		`Removed ${invoices.length} invoices, ${orders.length} orders and ${products.length} products from "${workspace.name}".`,
@@ -79,24 +79,24 @@ if (clear) {
 
 async function nextNumber(kind: "order" | "invoice", year = 0) {
 	const [row] = await db
-		.insert(tenantCounter)
-		.values({ tenantId, kind, year, value: 1 })
+		.insert(workspaceCounter)
+		.values({ workspaceId, kind, year, value: 1 })
 		.onConflictDoUpdate({
-			target: [tenantCounter.tenantId, tenantCounter.kind, tenantCounter.year],
-			set: { value: sql`${tenantCounter.value} + 1` },
+			target: [workspaceCounter.workspaceId, workspaceCounter.kind, workspaceCounter.year],
+			set: { value: sql`${workspaceCounter.value} + 1` },
 		})
-		.returning({ value: tenantCounter.value });
+		.returning({ value: workspaceCounter.value });
 	return row.value;
 }
 
 // Different but repeatable data per workspace
-faker.seed([...tenantId].reduce((sum, c) => sum + c.charCodeAt(0), 7));
+faker.seed([...workspaceId].reduce((sum, c) => sum + c.charCodeAt(0), 7));
 
 // --- Products ---------------------------------------------------------------
 const existing = await db
 	.select({ id: product.id })
 	.from(product)
-	.where(and(eq(product.tenantId, tenantId), like(product.description, `${TAG}%`)))
+	.where(and(eq(product.workspaceId, workspaceId), like(product.description, `${TAG}%`)))
 	.limit(1);
 if (existing.length) {
 	console.error(`"${workspace.name}" already has demo sales data. Run with --clear first.`);
@@ -105,7 +105,7 @@ if (existing.length) {
 
 const productRows = Array.from({ length: 15 }, (_, i) => ({
 	id: crypto.randomUUID(),
-	tenantId,
+	workspaceId,
 	name: faker.commerce.productName(),
 	sku: `DEMO-${String(i + 1).padStart(3, "0")}`,
 	description: `${TAG} ${faker.commerce.productDescription().slice(0, 120)}`,
@@ -119,7 +119,7 @@ const activeProducts = productRows.filter((p) => p.active);
 const customers = await db
 	.select({ id: customer.id })
 	.from(customer)
-	.where(and(eq(customer.tenantId, tenantId), ne(customer.status, "inactive")))
+	.where(and(eq(customer.workspaceId, workspaceId), ne(customer.status, "inactive")))
 	.limit(200);
 if (!customers.length) {
 	console.log(`Added ${productRows.length} products. No customers in "${workspace.name}", so no orders were created.`);
@@ -161,7 +161,7 @@ for (const [i, step] of plan.entries()) {
 	const statements: BatchItem<"pg">[] = [
 		db.insert(salesOrder).values({
 			id: orderId,
-			tenantId,
+			workspaceId,
 			number: await nextNumber("order"),
 			customerId,
 			status: step.status,
@@ -191,7 +191,7 @@ for (const [i, step] of plan.entries()) {
 		statements.push(
 			db.insert(invoice).values({
 				id: invoiceId,
-				tenantId,
+				workspaceId,
 				orderId,
 				customerId,
 				year,

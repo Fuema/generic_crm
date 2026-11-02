@@ -22,7 +22,7 @@ import {
 	productSearchSchema,
 } from "#/lib/schema";
 
-// All queries are scoped to the caller's active workspace (context.organizationId)
+// All queries are scoped to the caller's active workspace (context.workspaceId)
 
 const SORT_COLUMNS = {
 	name: product.name,
@@ -39,12 +39,16 @@ function likePattern(term: string) {
 	return `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 }
 
-async function toRow(data: ProductInput, tenantId: string, exceptId?: string) {
+async function toRow(
+	data: ProductInput,
+	workspaceId: string,
+	exceptId?: string,
+) {
 	const unitPriceCents = parseMoneyToCents(data.price);
 	if (unitPriceCents === null)
 		throw clientError(400, "Enter a price like 19.99");
 	const conditions = [
-		eq(product.tenantId, tenantId),
+		eq(product.workspaceId, workspaceId),
 		sql`lower(${product.sku}) = ${data.sku.toLowerCase()}`,
 	];
 	if (exceptId) conditions.push(ne(product.id, exceptId));
@@ -68,7 +72,7 @@ export const listProducts = createServerFn({ method: "GET" })
 	.middleware([requirePermission({ product: ["read"] })])
 	.validator(productSearchSchema)
 	.handler(async ({ data, context }) => {
-		const filters: SQL[] = [eq(product.tenantId, context.organizationId)];
+		const filters: SQL[] = [eq(product.workspaceId, context.workspaceId)];
 		if (data.q) {
 			const pattern = likePattern(data.q);
 			const search = or(
@@ -114,7 +118,7 @@ export const listActiveProducts = createServerFn({ method: "GET" })
 			.from(product)
 			.where(
 				and(
-					eq(product.tenantId, context.organizationId),
+					eq(product.workspaceId, context.workspaceId),
 					eq(product.active, true),
 				),
 			)
@@ -126,12 +130,12 @@ export const createProduct = createServerFn({ method: "POST" })
 	.middleware([requirePermission({ product: ["create"] })])
 	.validator(productInputSchema)
 	.handler(async ({ data, context }) => {
-		const values = await toRow(data, context.organizationId);
+		const values = await toRow(data, context.workspaceId);
 		const [created] = await db
 			.insert(product)
 			.values({
 				id: crypto.randomUUID(),
-				tenantId: context.organizationId,
+				workspaceId: context.workspaceId,
 				...values,
 			})
 			.returning();
@@ -142,14 +146,14 @@ export const updateProduct = createServerFn({ method: "POST" })
 	.middleware([requirePermission({ product: ["update"] })])
 	.validator(productInputSchema.extend({ id: z.uuid("Invalid product id") }))
 	.handler(async ({ data, context }) => {
-		const values = await toRow(data, context.organizationId, data.id);
+		const values = await toRow(data, context.workspaceId, data.id);
 		const [updated] = await db
 			.update(product)
 			.set({ ...values, updatedAt: new Date() })
 			.where(
 				and(
 					eq(product.id, data.id),
-					eq(product.tenantId, context.organizationId),
+					eq(product.workspaceId, context.workspaceId),
 				),
 			)
 			.returning();
@@ -167,7 +171,7 @@ export const deleteProduct = createServerFn({ method: "POST" })
 			.where(
 				and(
 					eq(product.id, data.id),
-					eq(product.tenantId, context.organizationId),
+					eq(product.workspaceId, context.workspaceId),
 				),
 			)
 			.limit(1);
@@ -189,7 +193,7 @@ export const deleteProduct = createServerFn({ method: "POST" })
 			.where(
 				and(
 					eq(product.id, data.id),
-					eq(product.tenantId, context.organizationId),
+					eq(product.workspaceId, context.workspaceId),
 				),
 			)
 			.returning({ id: product.id });

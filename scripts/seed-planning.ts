@@ -40,16 +40,16 @@ if (!workspace) {
 	console.error(`${email} isn't a member of a workspace named "${workspaceName}"`);
 	process.exit(1);
 }
-const tenantId = workspace.id;
+const workspaceId = workspace.id;
 
 if (process.argv.includes("--clear")) {
 	const tasks = await db
 		.delete(task)
-		.where(and(eq(task.tenantId, tenantId), like(task.description, `${TAG}%`)))
+		.where(and(eq(task.workspaceId, workspaceId), like(task.description, `${TAG}%`)))
 		.returning({ id: task.id });
 	const activities = await db
 		.delete(activity)
-		.where(and(eq(activity.tenantId, tenantId), like(activity.notes, `${TAG}%`)))
+		.where(and(eq(activity.workspaceId, workspaceId), like(activity.notes, `${TAG}%`)))
 		.returning({ id: activity.id });
 	console.log(`Removed ${tasks.length} tasks and ${activities.length} activities from "${workspace.name}".`);
 	process.exit(0);
@@ -58,22 +58,22 @@ if (process.argv.includes("--clear")) {
 const [existing] = await db
 	.select({ id: task.id })
 	.from(task)
-	.where(and(eq(task.tenantId, tenantId), like(task.description, `${TAG}%`)))
+	.where(and(eq(task.workspaceId, workspaceId), like(task.description, `${TAG}%`)))
 	.limit(1);
 if (existing) {
 	console.error(`"${workspace.name}" already has demo planning data. Run with --clear first.`);
 	process.exit(1);
 }
 
-faker.seed([...tenantId].reduce((sum, c) => sum + c.charCodeAt(0), 11));
+faker.seed([...workspaceId].reduce((sum, c) => sum + c.charCodeAt(0), 11));
 const [members, customers, orders] = await Promise.all([
-	db.select({ id: member.userId }).from(member).where(eq(member.organizationId, tenantId)),
+	db.select({ id: member.userId }).from(member).where(eq(member.organizationId, workspaceId)),
 	db
 		.select({ id: customer.id, name: customer.name })
 		.from(customer)
-		.where(and(eq(customer.tenantId, tenantId), ne(customer.status, "inactive")))
+		.where(and(eq(customer.workspaceId, workspaceId), ne(customer.status, "inactive")))
 		.limit(100),
-	db.select({ id: salesOrder.id }).from(salesOrder).where(eq(salesOrder.tenantId, tenantId)).limit(50),
+	db.select({ id: salesOrder.id }).from(salesOrder).where(eq(salesOrder.workspaceId, workspaceId)).limit(50),
 ]);
 const pick = <T>(list: T[], probability: number) =>
 	list.length ? (faker.helpers.maybe(() => faker.helpers.arrayElement(list), { probability }) ?? null) : null;
@@ -119,7 +119,7 @@ const taskRows = plan.map((status) => {
 	columnPosition.set(status, position);
 	return {
 		id: crypto.randomUUID(),
-		tenantId,
+		workspaceId,
 		title: c ? `${faker.helpers.arrayElement(TITLES)} ${c.name}` : faker.company.buzzPhrase().replace(/^\w/, (s) => s.toUpperCase()),
 		description: `${TAG} ${faker.lorem.sentences({ min: 1, max: 2 })}`,
 		status,
@@ -146,7 +146,7 @@ const activityRows = Array.from({ length: 25 }, () => {
 	const c = pick(customers, 0.9);
 	return {
 		id: crypto.randomUUID(),
-		tenantId,
+		workspaceId,
 		type,
 		subject: `${{ call: "Call with", meeting: "Meeting with", email: "Email to", follow_up: "Follow up with" }[type]} ${c?.name ?? "prospect"}`,
 		notes: `${TAG} ${faker.lorem.sentence()}`,

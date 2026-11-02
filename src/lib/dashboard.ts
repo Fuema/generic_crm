@@ -18,18 +18,18 @@ function lastTwelveMonths(now: Date) {
 	});
 }
 
-// KPIs for the active workspace. Every query is scoped to the tenant from the
+// KPIs for the active workspace. Every query is scoped to the workspace from the
 // session; viewers can see it because it only needs read permissions.
 export const getDashboardStats = createServerFn({ method: "GET" })
 	.middleware([requirePermission({ customer: ["read"], project: ["read"] })])
 	.handler(async ({ context }) => {
-		const tenant = context.organizationId;
+		const workspace = context.workspaceId;
 		const now = new Date();
 		const last30 = new Date(now.getTime() - 30 * DAY);
 		const prev30 = new Date(now.getTime() - 60 * DAY);
 		const months = lastTwelveMonths(now);
 		const monthsStart = new Date(`${months[0]}-01T00:00:00Z`);
-		const inTenant = eq(customer.tenantId, tenant);
+		const inWorkspace = eq(customer.workspaceId, workspace);
 		const month = sql<string>`to_char(date_trunc('month', ${customer.createdAt}), 'YYYY-MM')`;
 
 		const [
@@ -45,18 +45,18 @@ export const getDashboardStats = createServerFn({ method: "GET" })
 			db
 				.select({ status: customer.status, n: count() })
 				.from(customer)
-				.where(inTenant)
+				.where(inWorkspace)
 				.groupBy(customer.status),
 			db
 				.select({ n: count() })
 				.from(customer)
-				.where(and(inTenant, gte(customer.createdAt, last30))),
+				.where(and(inWorkspace, gte(customer.createdAt, last30))),
 			db
 				.select({ n: count() })
 				.from(customer)
 				.where(
 					and(
-						inTenant,
+						inWorkspace,
 						gte(customer.createdAt, prev30),
 						lt(customer.createdAt, last30),
 					),
@@ -64,28 +64,28 @@ export const getDashboardStats = createServerFn({ method: "GET" })
 			db
 				.select({ month, n: count() })
 				.from(customer)
-				.where(and(inTenant, gte(customer.createdAt, monthsStart)))
+				.where(and(inWorkspace, gte(customer.createdAt, monthsStart)))
 				.groupBy(month),
 			db
 				.select({ country: customer.country, n: count() })
 				.from(customer)
-				.where(and(inTenant, isNotNull(customer.country)))
+				.where(and(inWorkspace, isNotNull(customer.country)))
 				.groupBy(customer.country)
 				.orderBy(desc(count()), customer.country),
 			db
 				.select({ n: count() })
 				.from(project)
-				.where(eq(project.organizationId, tenant)),
+				.where(eq(project.workspaceId, workspace)),
 			db
 				.select({ n: count() })
 				.from(member)
-				.where(eq(member.organizationId, tenant)),
+				.where(eq(member.organizationId, workspace)),
 			db
 				.select({ n: count() })
 				.from(invitation)
 				.where(
 					and(
-						eq(invitation.organizationId, tenant),
+						eq(invitation.organizationId, workspace),
 						eq(invitation.status, "pending"),
 						gte(invitation.expiresAt, now),
 					),

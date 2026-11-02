@@ -15,7 +15,7 @@ import { z } from "zod";
 import { db } from "#/db/index";
 import { customer, invoice, orderLine, product, salesOrder } from "#/db/schema";
 import { requirePermission } from "#/lib/authz";
-import { getTenantSettings, nextDocumentNumber } from "#/lib/billing.server";
+import { getWorkspaceSettings, nextDocumentNumber } from "#/lib/billing.server";
 import { computeTotals, parsePercentToBp } from "#/lib/money";
 import {
 	ORDER_STATUSES,
@@ -25,7 +25,7 @@ import {
 	orderSearchSchema,
 } from "#/lib/schema";
 
-// Every query is scoped to the caller's active workspace (context.organizationId).
+// Every query is scoped to the caller's active workspace (context.workspaceId).
 
 const SORT_COLUMNS = {
 	number: salesOrder.number,
@@ -52,19 +52,19 @@ function likePattern(term: string) {
 	return `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 }
 
-async function findOrder(id: string, tenantId: string) {
+async function findOrder(id: string, workspaceId: string) {
 	const [row] = await db
 		.select()
 		.from(salesOrder)
-		.where(and(eq(salesOrder.id, id), eq(salesOrder.tenantId, tenantId)))
+		.where(and(eq(salesOrder.id, id), eq(salesOrder.workspaceId, workspaceId)))
 		.limit(1);
 	if (!row) throw clientError(404, "Order not found");
 	return row;
 }
 
-// Validates the customer and products against the tenant and prices the lines
+// Validates the customer and products against the workspace and prices the lines
 // from the catalog (the client never sends prices)
-async function priceOrder(data: OrderInput, tenantId: string) {
+async function priceOrder(data: OrderInput, workspaceId: string) {
 	const taxRateBp = parsePercentToBp(data.taxRate);
 	if (taxRateBp === null)
 		throw clientError(400, "Enter a tax rate between 0 and 100");
@@ -73,7 +73,10 @@ async function priceOrder(data: OrderInput, tenantId: string) {
 		.select({ id: customer.id })
 		.from(customer)
 		.where(
-			and(eq(customer.id, data.customerId), eq(customer.tenantId, tenantId)),
+			and(
+				eq(customer.id, data.customerId),
+				eq(customer.workspaceId, workspaceId),
+			),
 		)
 		.limit(1);
 	if (!owner) throw clientError(400, "Choose a customer from this workspace");
@@ -82,7 +85,7 @@ async function priceOrder(data: OrderInput, tenantId: string) {
 	const products = await db
 		.select()
 		.from(product)
-		.where(and(eq(product.tenantId, tenantId), inArray(product.id, ids)));
+		.where(and(eq(product.workspaceId, workspaceId), inArray(product.id, ids)));
 	const byId = new Map(products.map((p) => [p.id, p]));
 	const lines = data.lines.map((l, position) => {
 		const p = byId.get(l.productId);
@@ -117,7 +120,7 @@ export const listOrders = createServerFn({ method: "GET" })
 	.middleware([requirePermission({ order: ["read"] })])
 	.validator(orderSearchSchema)
 	.handler(async ({ data, context }) => {
-		const filters: SQL[] = [eq(salesOrder.tenantId, context.organizationId)];
+		const filters: SQL[] = [eq(salesOrder.workspaceId, context.workspaceId)];
 		if (data.q) {
 			// "ORD-0012", "12" or part of a customer's name
 			const numberMatch = /^(?:ord-?)?0*(\d{1,9})$/i.exec(data.q);
@@ -169,7 +172,7 @@ export const getOrder = createServerFn({ method: "GET" })
 	.middleware([requirePermission({ order: ["read"] })])
 	.validator(idSchema)
 	.handler(async ({ data, context }) => {
-		const order = await findOrder(data.id, context.organizationId);
+		const order = await findOrder(data.id, context.workspaceId);
 		const [[buyer], lines, [linkedInvoice]] = await Promise.all([
 			db
 				.select({
@@ -207,7 +210,7 @@ export const listOrderCustomers = createServerFn({ method: "GET" })
 			.from(customer)
 			.where(
 				and(
-					eq(customer.tenantId, context.organizationId),
+					eq(customer.workspaceId, context.workspaceId),
 					ne(customer.status, "inactive"),
 				),
 			)
@@ -219,18 +222,18 @@ export const createOrder = createServerFn({ method: "POST" })
 	.middleware([requirePermission({ order: ["create"] })])
 	.validator(orderInputSchema)
 	.handler(async ({ data, context }) => {
-		const tenantId = context.organizationId;
+		const workspaceId = context.workspaceId;
 		const [{ lines, totals, taxRateBp }, settings] = await Promise.all([
-			priceOrder(data, tenantId),
-			getTenantSettings(tenantId),
+			priceOrder(data, workspaceId),
+			getWorkspaceSettings(workspaceId),
 		]);
-		const number = await nextDocumentNumber(tenantId, "order");
+		const number = await nextDocumentNumber(workspaceId, "order");
 		const id = crypto.randomUUID();
 		// neon-http has no interactive transactions; batch runs both inserts atomically
 		await db.batch([
 			db.insert(salesOrder).values({
 				id,
-				tenantId,
+				workspaceId,
 				number,
 				customerId: data.customerId,
 				currency: settings.currency,
@@ -254,12 +257,12 @@ export const updateOrder = createServerFn({ method: "POST" })
 	.middleware([requirePermission({ order: ["update"] })])
 	.validator(orderInputSchema.extend({ id: z.uuid("Invalid order id") }))
 	.handler(async ({ data, context }) => {
-		const order = await findOrder(data.id, context.organizationId);
+		const order = await findOrder(data.id, context.workspaceId);
 		if (order.status !== "draft")
 			throw clientError(409, "Only draft orders can be edited");
 		const { lines, totals, taxRateBp } = await priceOrder(
 			data,
-			context.organizationId,
+			context.workspaceId,
 		);
 		await db.batch([
 			db
@@ -292,7 +295,7 @@ export const setOrderStatus = createServerFn({ method: "POST" })
 	.middleware([requirePermission({ order: ["update"] })])
 	.validator(idSchema.extend({ status: z.enum(ORDER_STATUSES) }))
 	.handler(async ({ data, context }) => {
-		const order = await findOrder(data.id, context.organizationId);
+		const order = await findOrder(data.id, context.workspaceId);
 		const from = order.status as OrderStatus;
 		if (!TRANSITIONS[from]?.includes(data.status)) {
 			throw clientError(
@@ -327,7 +330,7 @@ export const deleteOrder = createServerFn({ method: "POST" })
 	.middleware([requirePermission({ order: ["delete"] })])
 	.validator(idSchema)
 	.handler(async ({ data, context }) => {
-		const order = await findOrder(data.id, context.organizationId);
+		const order = await findOrder(data.id, context.workspaceId);
 		if (order.status !== "draft" && order.status !== "cancelled") {
 			throw clientError(409, "Only draft or cancelled orders can be deleted");
 		}
