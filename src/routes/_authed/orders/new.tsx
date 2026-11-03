@@ -10,14 +10,14 @@ import {
 } from "#/components/ui/card";
 import { getBillingSettings } from "#/lib/billing";
 import { createOrder, listOrderCustomers } from "#/lib/orders";
-import { listActiveProducts } from "#/lib/products";
+import { pickProducts } from "#/modules/products/products";
 
 // listOrderCustomers requires order:create, so viewers are stopped by the server
 export const Route = createFileRoute("/_authed/orders/new")({
 	loader: async () => {
 		const [customers, products, settings] = await Promise.all([
 			listOrderCustomers(),
-			listActiveProducts(),
+			pickProducts({ data: { q: "" } }),
 			getBillingSettings(),
 		]);
 		return { customers, products, settings };

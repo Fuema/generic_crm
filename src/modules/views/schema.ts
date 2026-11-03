@@ -102,6 +102,12 @@ export const BUILT_IN_FIELDS: Record<
 		expectedCloseAt: { kind: "date", label: m.deal_expected_close },
 		createdAt: { kind: "date", label: m.contacts_col_added },
 	},
+	product: {
+		name: { kind: "text", label: m.product_name },
+		sku: { kind: "text", label: m.product_sku },
+		description: { kind: "text", label: m.product_description },
+		createdAt: { kind: "date", label: m.contacts_col_added },
+	},
 };
 
 // Columns a list can show; "name" is always shown first
@@ -137,6 +143,7 @@ export const BUILT_IN_COLUMNS: Record<ObjectKey, string[]> = {
 		"ownerId",
 		"createdAt",
 	],
+	product: ["sku", "unitPriceCents", "description", "createdAt"],
 };
 export const DEFAULT_COLUMNS: Record<ObjectKey, string[]> = {
 	contact: [
@@ -156,6 +163,7 @@ export const DEFAULT_COLUMNS: Record<ObjectKey, string[]> = {
 		"createdAt",
 	],
 	deal: ["valueCents", "stageId", "contactId", "expectedCloseAt", "ownerId"],
+	product: ["sku", "unitPriceCents", "description"],
 };
 export const DEFAULT_SORT: Record<
 	ObjectKey,
@@ -164,12 +172,14 @@ export const DEFAULT_SORT: Record<
 	contact: { field: "createdAt", dir: "desc" },
 	company: { field: "name", dir: "asc" },
 	deal: { field: "createdAt", dir: "desc" },
+	product: { field: "name", dir: "asc" },
 };
 // Built-in columns the server can sort by
 export const BUILT_IN_SORT: Record<ObjectKey, string[]> = {
 	contact: ["name", "email", "lifecycleStage", "createdAt"],
 	company: ["name", "domain", "createdAt"],
 	deal: ["name", "valueCents", "expectedCloseAt", "createdAt"],
+	product: ["name", "sku", "unitPriceCents", "createdAt"],
 };
 
 const filterValue = z.union([

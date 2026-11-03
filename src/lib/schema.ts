@@ -274,38 +274,7 @@ export const customerSearchSchema = z.object({
 
 export type CustomerSearch = z.infer<typeof customerSearchSchema>;
 
-// --- Products, orders, invoices ---------------------------------------------
-
-const moneyString = (label: string) =>
-	z
-		.string()
-		.trim()
-		.regex(/^\d{1,9}(\.\d{1,2})?$/, `${label}: enter an amount like 19.99`);
-
-export const productInputSchema = z.object({
-	name: z
-		.string()
-		.trim()
-		.min(2, "Name must be at least 2 characters")
-		.max(100, "Name must not exceed 100 characters"),
-	sku: z
-		.string()
-		.trim()
-		.toUpperCase()
-		.min(2, "SKU must be at least 2 characters")
-		.max(32, "SKU must not exceed 32 characters")
-		.regex(
-			/^[A-Z0-9][A-Z0-9._-]*$/,
-			"SKU can use letters, numbers, dots, dashes and underscores",
-		),
-	description: z
-		.string()
-		.trim()
-		.max(500, "Description must not exceed 500 characters"),
-	price: moneyString("Price"),
-	active: z.boolean(),
-});
-export type ProductInput = z.infer<typeof productInputSchema>;
+// --- Orders, invoices (products: src/modules/products) ----------------------
 
 export const ORDER_STATUSES = [
 	"draft",
@@ -402,12 +371,6 @@ export function listSearchSchema<
 	});
 }
 
-export const productSearchSchema = listSearchSchema(
-	["active", "inactive"],
-	["name", "sku", "unitPriceCents", "createdAt"],
-	"name",
-	"asc",
-);
 export const orderSearchSchema = listSearchSchema(
 	ORDER_STATUSES,
 	["number", "orderDate", "totalCents", "status"],
@@ -419,7 +382,6 @@ export const invoiceSearchSchema = listSearchSchema(
 	["number", "issueDate", "dueDate", "totalCents", "status"],
 	"issueDate",
 );
-export type ProductSearch = z.infer<typeof productSearchSchema>;
 export type OrderSearch = z.infer<typeof orderSearchSchema>;
 export type InvoiceSearch = z.infer<typeof invoiceSearchSchema>;
 

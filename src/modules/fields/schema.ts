@@ -6,7 +6,7 @@ import { getLocale } from "#/paraglide/runtime.js";
 // builds the value schema from the stored definitions on every write and never
 // trusts the client's copy.
 
-export const OBJECT_KEYS = ["contact", "company", "deal"] as const;
+export const OBJECT_KEYS = ["contact", "company", "deal", "product"] as const;
 export type ObjectKey = (typeof OBJECT_KEYS)[number];
 
 export const FIELD_TYPES = [

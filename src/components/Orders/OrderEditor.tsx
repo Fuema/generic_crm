@@ -15,8 +15,8 @@ import {
 import { Textarea } from "#/components/ui/textarea";
 import { computeTotals, formatMoney, parsePercentToBp } from "#/lib/money";
 import type { OrderCustomerOption } from "#/lib/orders";
-import type { ProductOption } from "#/lib/products";
 import { type OrderInput, orderInputSchema } from "#/lib/schema";
+import type { ProductOption } from "#/modules/products/products";
 
 type Line = { key: string; productId: string; quantity: string };
 
