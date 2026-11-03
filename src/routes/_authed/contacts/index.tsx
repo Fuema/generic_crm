@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { Archive, ArchiveRestore, Lock, Pencil, Plus } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { FormAlert } from "#/components/Auth/FormParts";
 import {
 	ariaSort,
@@ -35,30 +35,41 @@ import {
 	restoreContact,
 } from "#/modules/contacts/contacts";
 import {
+	CONSENT_LABELS,
 	type ContactSearch,
 	contactName,
 	contactSearchSchema,
+	EMAIL_CONSENTS,
+	type EmailConsent,
 	LIFECYCLE_STAGES,
 	STAGE_LABELS,
 } from "#/modules/contacts/schema";
 import { getRecordFields } from "#/modules/fields/fields";
+import { formatValue } from "#/modules/fields/values";
 import { TagPill } from "#/modules/records/components/TagEditor";
 import { listWorkspaceTags } from "#/modules/records/records";
+import {
+	columnLabel,
+	ViewToolbar,
+} from "#/modules/views/components/ViewToolbar";
+import { BUILT_IN_SORT, DEFAULT_COLUMNS } from "#/modules/views/schema";
+import { listViews } from "#/modules/views/views";
 import { m } from "#/paraglide/messages.js";
 
 // Protected by the _authed guard; listContacts requires contact:read. The list
-// state (page, size, search, filters, sort) lives in the URL.
+// state (page, size, search, filters, columns, sort, view) lives in the URL.
 export const Route = createFileRoute("/_authed/contacts/")({
 	validateSearch: contactSearchSchema,
 	loaderDeps: ({ search }) => search,
 	loader: async ({ deps }) => {
-		const [list, options, allTags, fields] = await Promise.all([
+		const [list, options, allTags, fields, views] = await Promise.all([
 			listContacts({ data: deps }),
 			getContactFormOptions(),
 			listWorkspaceTags(),
 			getRecordFields({ data: { objectKey: "contact" } }),
+			listViews({ data: { objectKey: "contact" } }),
 		]);
-		return { ...list, options, allTags, fields };
+		return { ...list, options, allTags, fields, views };
 	},
 	component: ContactsPage,
 });
@@ -67,7 +78,7 @@ function ContactsPage() {
 	const router = useRouter();
 	const navigate = Route.useNavigate();
 	const search = Route.useSearch();
-	const { rows, total, pageCount, options, allTags, fields } =
+	const { rows, total, pageCount, options, allTags, fields, views } =
 		Route.useLoaderData();
 	const { access } = Route.useRouteContext();
 	const can = {
@@ -78,6 +89,11 @@ function ContactsPage() {
 	const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(
 		null,
 	);
+	const columns = search.columns ?? DEFAULT_COLUMNS.contact;
+	const sortable = new Set([
+		...BUILT_IN_SORT.contact,
+		...fields.fields.map((f) => `custom.${f.key}`),
+	]);
 
 	const patch = useCallback(
 		(p: Partial<ContactSearch>) => {
@@ -113,17 +129,79 @@ function ContactsPage() {
 		}
 	};
 
-	const sortHeader = (column: ContactSearch["sort"], label: string) => (
-		<TableHead aria-sort={ariaSort(search, column)}>
-			<SortButton
-				column={column}
-				state={search}
-				onSort={(p) => patch(p as Partial<ContactSearch>)}
-			>
-				{label}
-			</SortButton>
-		</TableHead>
-	);
+	const header = (column: string, label: string) =>
+		sortable.has(column) ? (
+			<TableHead key={column} aria-sort={ariaSort(search, column)}>
+				<SortButton
+					column={column}
+					state={search}
+					onSort={(p) => patch(p as Partial<ContactSearch>)}
+				>
+					{label}
+				</SortButton>
+			</TableHead>
+		) : (
+			<TableHead key={column}>{label}</TableHead>
+		);
+
+	// One cell per chosen column; custom fields use their definition's formatting
+	const cell = (row: ContactListRow, column: string): ReactNode => {
+		switch (column) {
+			case "email":
+				return row.email ? (
+					<a href={`mailto:${row.email}`} className="hover:underline">
+						{row.email}
+					</a>
+				) : (
+					m.common_none()
+				);
+			case "phone":
+				return row.phone ?? m.common_none();
+			case "jobTitle":
+				return row.jobTitle ?? m.common_none();
+			case "companyId":
+				return row.companyId && row.companyName ? (
+					<Link
+						to="/companies/$companyId"
+						params={{ companyId: row.companyId }}
+						className="hover:underline"
+					>
+						{row.companyName}
+					</Link>
+				) : (
+					m.common_none()
+				);
+			case "lifecycleStage":
+				return <StageBadge stage={row.lifecycleStage} />;
+			case "tags":
+				return (
+					<div className="flex max-w-48 flex-wrap gap-1">
+						{row.tags.slice(0, 3).map((t) => (
+							<TagPill key={t.id} tag={t} />
+						))}
+						{row.tags.length > 3 ? (
+							<span className="text-xs text-muted-foreground">
+								+{row.tags.length - 3}
+							</span>
+						) : null}
+					</div>
+				);
+			case "ownerId":
+				return row.ownerName ?? m.common_none();
+			case "emailConsent":
+				return CONSENT_LABELS[row.emailConsent as EmailConsent]?.() ?? "";
+			case "createdAt":
+				return formatDate(row.createdAt);
+			default: {
+				const def = fields.fields.find((f) => `custom.${f.key}` === column);
+				if (!def) return m.common_none();
+				const value = Object.hasOwn(row.custom, def.key)
+					? row.custom[def.key]
+					: undefined;
+				return formatValue(def, value, fields.currency) || m.common_none();
+			}
+		}
+	};
 
 	return (
 		<div className="mx-auto max-w-7xl space-y-6 p-6">
@@ -151,6 +229,32 @@ function ContactsPage() {
 			<FormAlert
 				message={status?.message ?? null}
 				variant={status?.ok ? "success" : "destructive"}
+			/>
+
+			<ViewToolbar
+				objectKey="contact"
+				state={search}
+				views={views}
+				defs={fields.fields}
+				choices={{
+					lifecycleStage: LIFECYCLE_STAGES.map((s) => ({
+						value: s,
+						label: STAGE_LABELS[s](),
+					})),
+					emailConsent: EMAIL_CONSENTS.map((c) => ({
+						value: c,
+						label: CONSENT_LABELS[c](),
+					})),
+					ownerId: options.members.map((u) => ({ value: u.id, label: u.name })),
+					companyId: options.companies.map((c) => ({
+						value: c.id,
+						label: c.name,
+					})),
+					tag: allTags.map((t) => ({ value: t.id, label: t.name })),
+				}}
+				onChange={(p) => patch(p as Partial<ContactSearch>)}
+				onViewsChanged={() => router.invalidate()}
+				onStatus={setStatus}
 			/>
 
 			<div className="flex flex-col gap-3 md:flex-row md:items-end">
@@ -197,13 +301,8 @@ function ContactsPage() {
 				<Table>
 					<TableHeader>
 						<TableRow>
-							{sortHeader("name", m.contacts_col_name())}
-							{sortHeader("email", m.contacts_col_email())}
-							<TableHead>{m.contacts_col_company()}</TableHead>
-							{sortHeader("lifecycleStage", m.contacts_col_stage())}
-							<TableHead>{m.contacts_col_tags()}</TableHead>
-							<TableHead>{m.common_owner()}</TableHead>
-							{sortHeader("createdAt", m.contacts_col_added())}
+							{header("name", m.contacts_col_name())}
+							{columns.map((c) => header(c, columnLabel(c, fields.fields)))}
 							<TableHead>
 								<span className="sr-only">{m.list_actions()}</span>
 							</TableHead>
@@ -223,54 +322,10 @@ function ContactsPage() {
 											>
 												{name}
 											</Link>
-											{row.jobTitle ? (
-												<p className="text-xs text-muted-foreground">
-													{row.jobTitle}
-												</p>
-											) : null}
 										</TableCell>
-										<TableCell>
-											{row.email ? (
-												<a
-													href={`mailto:${row.email}`}
-													className="hover:underline"
-												>
-													{row.email}
-												</a>
-											) : (
-												m.common_none()
-											)}
-										</TableCell>
-										<TableCell>
-											{row.companyId && row.companyName ? (
-												<Link
-													to="/companies/$companyId"
-													params={{ companyId: row.companyId }}
-													className="hover:underline"
-												>
-													{row.companyName}
-												</Link>
-											) : (
-												m.common_none()
-											)}
-										</TableCell>
-										<TableCell>
-											<StageBadge stage={row.lifecycleStage} />
-										</TableCell>
-										<TableCell>
-											<div className="flex max-w-48 flex-wrap gap-1">
-												{row.tags.slice(0, 3).map((t) => (
-													<TagPill key={t.id} tag={t} />
-												))}
-												{row.tags.length > 3 ? (
-													<span className="text-xs text-muted-foreground">
-														+{row.tags.length - 3}
-													</span>
-												) : null}
-											</div>
-										</TableCell>
-										<TableCell>{row.ownerName ?? m.common_none()}</TableCell>
-										<TableCell>{formatDate(row.createdAt)}</TableCell>
+										{columns.map((c) => (
+											<TableCell key={c}>{cell(row, c)}</TableCell>
+										))}
 										<TableCell>
 											<div className="flex justify-end gap-1">
 												{!row.archivedAt ? (
@@ -306,7 +361,7 @@ function ContactsPage() {
 						) : (
 							<TableRow>
 								<TableCell
-									colSpan={8}
+									colSpan={columns.length + 2}
 									className="h-24 text-center text-muted-foreground"
 								>
 									{m.contacts_empty()}

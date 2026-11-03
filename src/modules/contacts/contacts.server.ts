@@ -2,7 +2,6 @@ import {
 	and,
 	asc,
 	count,
-	desc,
 	eq,
 	ilike,
 	isNotNull,
@@ -15,7 +14,15 @@ import {
 import { db } from "#/db/index";
 import { company, contact, member, user } from "#/db/schema";
 import { assertWorkspaceRefs } from "#/lib/workspace-refs.server";
-import { customChanges, prepareCustom } from "#/modules/fields/fields.server";
+import {
+	customChanges,
+	listFields,
+	prepareCustom,
+} from "#/modules/fields/fields.server";
+import {
+	filterConditions,
+	sortExpression,
+} from "#/modules/views/filters.server";
 import { m } from "#/paraglide/messages.js";
 import {
 	type Actor,
@@ -169,9 +176,17 @@ export async function listContacts(workspaceId: string, search: ContactSearch) {
 	if (search.status) filters.push(eq(contact.lifecycleStage, search.status));
 	if (search.company) filters.push(eq(contact.companyId, search.company));
 	if (search.tag) filters.push(hasTag("contact", search.tag));
+	const { fields } = await listFields(workspaceId, "contact", {
+		includeArchived: false,
+	});
+	filters.push(...filterConditions("contact", search.filters, fields));
 	const where = and(...filters);
-	const column = CONTACT_SORT[search.sort];
-	const order = search.dir === "asc" ? asc(column) : desc(column);
+	const order = sortExpression(
+		"contact",
+		{ field: search.sort, dir: search.dir },
+		fields,
+		CONTACT_SORT,
+	);
 
 	const [rows, [{ total }]] = await Promise.all([
 		db
@@ -187,6 +202,9 @@ export async function listContacts(workspaceId: string, search: ContactSearch) {
 				companyName: company.name,
 				ownerName: ownerNameOf("contact"),
 				tags: tagsOf("contact"),
+				custom: contact.custom,
+				emailConsent: contact.emailConsent,
+				ownerId: contact.ownerId,
 				archivedAt: contact.archivedAt,
 				createdAt: contact.createdAt,
 			})
@@ -429,9 +447,17 @@ export async function listCompanies(
 		if (match) filters.push(match);
 	}
 	if (search.tag) filters.push(hasTag("company", search.tag));
+	const { fields } = await listFields(workspaceId, "company", {
+		includeArchived: false,
+	});
+	filters.push(...filterConditions("company", search.filters, fields));
 	const where = and(...filters);
-	const column = COMPANY_SORT[search.sort];
-	const order = search.dir === "asc" ? asc(column) : desc(column);
+	const order = sortExpression(
+		"company",
+		{ field: search.sort, dir: search.dir },
+		fields,
+		COMPANY_SORT,
+	);
 
 	const [rows, [{ total }]] = await Promise.all([
 		db
@@ -444,6 +470,8 @@ export async function listCompanies(
 				ownerName: ownerNameOf("company"),
 				tags: tagsOf("company"),
 				contactCount: sql<number>`(select count(*)::int from "contact" c where c."company_id" = "company"."id" and c."workspace_id" = "company"."workspace_id" and c."archived_at" is null)`,
+				phone: company.phone,
+				custom: company.custom,
 				archivedAt: company.archivedAt,
 				createdAt: company.createdAt,
 			})

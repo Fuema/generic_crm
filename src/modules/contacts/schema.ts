@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { COUNTRY_CODES } from "#/lib/countries";
 import { listSearchSchema } from "#/lib/schema";
+import { filtersSchema } from "#/modules/views/schema";
 import { m } from "#/paraglide/messages.js";
 
 // Shared by the forms (client) and the server functions. Messages are functions
@@ -131,6 +132,18 @@ export const idSchema = z.object({
 	id: z.uuid({ error: () => m.validation_invalid_id() }),
 });
 
+// Saved-view state in the URL: filters (all must match), visible columns, the
+// active view, and a sort that may be a custom field ("custom.<key>"). The
+// server checks all of it against the field definitions.
+function viewState(defaultSort: string) {
+	return {
+		sort: z.string().max(60).catch(defaultSort).default(defaultSort),
+		filters: filtersSchema.catch([]).default([]),
+		columns: z.array(z.string().max(60)).max(30).optional().catch(undefined),
+		view: z.uuid().optional().catch(undefined),
+	};
+}
+
 const archivedFilter = z
 	.enum(["active", "archived"])
 	.catch("active")
@@ -144,6 +157,7 @@ export const contactSearchSchema = listSearchSchema(
 	show: archivedFilter,
 	company: z.uuid().optional().catch(undefined),
 	tag: z.uuid().optional().catch(undefined),
+	...viewState("createdAt"),
 });
 export type ContactSearch = z.infer<typeof contactSearchSchema>;
 
@@ -155,6 +169,7 @@ export const companySearchSchema = listSearchSchema(
 ).extend({
 	show: archivedFilter,
 	tag: z.uuid().optional().catch(undefined),
+	...viewState("name"),
 });
 export type CompanySearch = z.infer<typeof companySearchSchema>;
 

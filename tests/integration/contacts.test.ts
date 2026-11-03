@@ -44,6 +44,7 @@ const searchAll = {
 	sort: "createdAt" as const,
 	dir: "desc" as const,
 	show: "active" as const,
+	filters: [],
 };
 
 async function status(promise: Promise<unknown>) {

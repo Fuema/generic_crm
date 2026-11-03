@@ -782,3 +782,30 @@ export const userPreference = pgTable("user_preference", {
 	taskDueDays: integer("task_due_days"),
 	updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+// A named combination of filters, columns and sort for a list (spec §7.3).
+// Private to its creator, or shared with the workspace.
+export const savedView = pgTable(
+	"saved_view",
+	{
+		id: text("id").primaryKey(),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
+		// "contact" | "company"
+		objectKey: text("object_key").notNull(),
+		name: text("name").notNull(),
+		ownerId: text("owner_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		shared: boolean("shared").notNull().default(false),
+		// { filters, columns, sort } — validated against the field definitions
+		config: jsonb("config").$type<Record<string, Json>>().notNull(),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+		updatedAt: timestamp("updated_at").notNull().defaultNow(),
+	},
+	(t) => [
+		index("saved_view_object_idx").on(t.workspaceId, t.objectKey),
+		index("saved_view_owner_idx").on(t.workspaceId, t.ownerId),
+	],
+);
