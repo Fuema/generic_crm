@@ -31,6 +31,8 @@ import { Route as AuthedCompaniesCompanyIdRouteImport } from './routes/_authed/c
 import { Route as AuthedContactsIndexRouteImport } from './routes/_authed/contacts/index'
 import { Route as AuthedContactsContactIdRouteImport } from './routes/_authed/contacts/$contactId'
 import { Route as AuthedContactsMergeRouteImport } from './routes/_authed/contacts/merge'
+import { Route as AuthedDealsIndexRouteImport } from './routes/_authed/deals/index'
+import { Route as AuthedDealsDealIdRouteImport } from './routes/_authed/deals/$dealId'
 import { Route as AuthedInvoicesIndexRouteImport } from './routes/_authed/invoices/index'
 import { Route as AuthedInvoicesInvoiceIdRouteImport } from './routes/_authed/invoices/$invoiceId'
 import { Route as AuthedOrdersIndexRouteImport } from './routes/_authed/orders/index'
@@ -153,6 +155,16 @@ const AuthedContactsMergeRoute = AuthedContactsMergeRouteImport.update({
   path: '/contacts/merge',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedDealsIndexRoute = AuthedDealsIndexRouteImport.update({
+  id: '/deals/',
+  path: '/deals/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedDealsDealIdRoute = AuthedDealsDealIdRouteImport.update({
+  id: '/deals/$dealId',
+  path: '/deals/$dealId',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedInvoicesIndexRoute = AuthedInvoicesIndexRouteImport.update({
   id: '/invoices/',
   path: '/invoices/',
@@ -228,6 +240,7 @@ export interface FileRoutesByFullPath {
   '/companies/$companyId': typeof AuthedCompaniesCompanyIdRoute
   '/contacts/$contactId': typeof AuthedContactsContactIdRoute
   '/contacts/merge': typeof AuthedContactsMergeRoute
+  '/deals/$dealId': typeof AuthedDealsDealIdRoute
   '/invoices/$invoiceId': typeof AuthedInvoicesInvoiceIdRoute
   '/orders/$orderId': typeof AuthedOrdersOrderIdRoute
   '/orders/new': typeof AuthedOrdersNewRoute
@@ -239,6 +252,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/companies/': typeof AuthedCompaniesIndexRoute
   '/contacts/': typeof AuthedContactsIndexRoute
+  '/deals/': typeof AuthedDealsIndexRoute
   '/invoices/': typeof AuthedInvoicesIndexRoute
   '/orders/': typeof AuthedOrdersIndexRoute
 }
@@ -261,6 +275,7 @@ export interface FileRoutesByTo {
   '/companies/$companyId': typeof AuthedCompaniesCompanyIdRoute
   '/contacts/$contactId': typeof AuthedContactsContactIdRoute
   '/contacts/merge': typeof AuthedContactsMergeRoute
+  '/deals/$dealId': typeof AuthedDealsDealIdRoute
   '/invoices/$invoiceId': typeof AuthedInvoicesInvoiceIdRoute
   '/orders/$orderId': typeof AuthedOrdersOrderIdRoute
   '/orders/new': typeof AuthedOrdersNewRoute
@@ -272,6 +287,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/companies': typeof AuthedCompaniesIndexRoute
   '/contacts': typeof AuthedContactsIndexRoute
+  '/deals': typeof AuthedDealsIndexRoute
   '/invoices': typeof AuthedInvoicesIndexRoute
   '/orders': typeof AuthedOrdersIndexRoute
 }
@@ -297,6 +313,7 @@ export interface FileRoutesById {
   '/_authed/companies/$companyId': typeof AuthedCompaniesCompanyIdRoute
   '/_authed/contacts/$contactId': typeof AuthedContactsContactIdRoute
   '/_authed/contacts/merge': typeof AuthedContactsMergeRoute
+  '/_authed/deals/$dealId': typeof AuthedDealsDealIdRoute
   '/_authed/invoices/$invoiceId': typeof AuthedInvoicesInvoiceIdRoute
   '/_authed/orders/$orderId': typeof AuthedOrdersOrderIdRoute
   '/_authed/orders/new': typeof AuthedOrdersNewRoute
@@ -308,6 +325,7 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/_authed/companies/': typeof AuthedCompaniesIndexRoute
   '/_authed/contacts/': typeof AuthedContactsIndexRoute
+  '/_authed/deals/': typeof AuthedDealsIndexRoute
   '/_authed/invoices/': typeof AuthedInvoicesIndexRoute
   '/_authed/orders/': typeof AuthedOrdersIndexRoute
 }
@@ -332,6 +350,7 @@ export interface FileRouteTypes {
     | '/companies/$companyId'
     | '/contacts/$contactId'
     | '/contacts/merge'
+    | '/deals/$dealId'
     | '/invoices/$invoiceId'
     | '/orders/$orderId'
     | '/orders/new'
@@ -343,6 +362,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/companies/'
     | '/contacts/'
+    | '/deals/'
     | '/invoices/'
     | '/orders/'
   fileRoutesByTo: FileRoutesByTo
@@ -365,6 +385,7 @@ export interface FileRouteTypes {
     | '/companies/$companyId'
     | '/contacts/$contactId'
     | '/contacts/merge'
+    | '/deals/$dealId'
     | '/invoices/$invoiceId'
     | '/orders/$orderId'
     | '/orders/new'
@@ -376,6 +397,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/companies'
     | '/contacts'
+    | '/deals'
     | '/invoices'
     | '/orders'
   id:
@@ -400,6 +422,7 @@ export interface FileRouteTypes {
     | '/_authed/companies/$companyId'
     | '/_authed/contacts/$contactId'
     | '/_authed/contacts/merge'
+    | '/_authed/deals/$dealId'
     | '/_authed/invoices/$invoiceId'
     | '/_authed/orders/$orderId'
     | '/_authed/orders/new'
@@ -411,6 +434,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/_authed/companies/'
     | '/_authed/contacts/'
+    | '/_authed/deals/'
     | '/_authed/invoices/'
     | '/_authed/orders/'
   fileRoutesById: FileRoutesById
@@ -579,6 +603,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedContactsMergeRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/deals/': {
+      id: '/_authed/deals/'
+      path: '/deals'
+      fullPath: '/deals/'
+      preLoaderRoute: typeof AuthedDealsIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/deals/$dealId': {
+      id: '/_authed/deals/$dealId'
+      path: '/deals/$dealId'
+      fullPath: '/deals/$dealId'
+      preLoaderRoute: typeof AuthedDealsDealIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/invoices/': {
       id: '/_authed/invoices/'
       path: '/invoices'
@@ -671,6 +709,7 @@ interface AuthedRouteChildren {
   AuthedCompaniesCompanyIdRoute: typeof AuthedCompaniesCompanyIdRoute
   AuthedContactsContactIdRoute: typeof AuthedContactsContactIdRoute
   AuthedContactsMergeRoute: typeof AuthedContactsMergeRoute
+  AuthedDealsDealIdRoute: typeof AuthedDealsDealIdRoute
   AuthedInvoicesInvoiceIdRoute: typeof AuthedInvoicesInvoiceIdRoute
   AuthedOrdersOrderIdRoute: typeof AuthedOrdersOrderIdRoute
   AuthedOrdersNewRoute: typeof AuthedOrdersNewRoute
@@ -681,6 +720,7 @@ interface AuthedRouteChildren {
   AuthedWorkspaceSettingsRoute: typeof AuthedWorkspaceSettingsRoute
   AuthedCompaniesIndexRoute: typeof AuthedCompaniesIndexRoute
   AuthedContactsIndexRoute: typeof AuthedContactsIndexRoute
+  AuthedDealsIndexRoute: typeof AuthedDealsIndexRoute
   AuthedInvoicesIndexRoute: typeof AuthedInvoicesIndexRoute
   AuthedOrdersIndexRoute: typeof AuthedOrdersIndexRoute
 }
@@ -698,6 +738,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedCompaniesCompanyIdRoute: AuthedCompaniesCompanyIdRoute,
   AuthedContactsContactIdRoute: AuthedContactsContactIdRoute,
   AuthedContactsMergeRoute: AuthedContactsMergeRoute,
+  AuthedDealsDealIdRoute: AuthedDealsDealIdRoute,
   AuthedInvoicesInvoiceIdRoute: AuthedInvoicesInvoiceIdRoute,
   AuthedOrdersOrderIdRoute: AuthedOrdersOrderIdRoute,
   AuthedOrdersNewRoute: AuthedOrdersNewRoute,
@@ -708,6 +749,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedWorkspaceSettingsRoute: AuthedWorkspaceSettingsRoute,
   AuthedCompaniesIndexRoute: AuthedCompaniesIndexRoute,
   AuthedContactsIndexRoute: AuthedContactsIndexRoute,
+  AuthedDealsIndexRoute: AuthedDealsIndexRoute,
   AuthedInvoicesIndexRoute: AuthedInvoicesIndexRoute,
   AuthedOrdersIndexRoute: AuthedOrdersIndexRoute,
 }

@@ -60,6 +60,11 @@ const BUILT_IN_COLUMN_LABELS: Record<string, () => string> = {
 	domain: m.companies_col_domain,
 	contactCount: m.companies_col_contacts,
 	location: m.companies_col_location,
+	valueCents: m.deals_col_value,
+	stageId: m.deal_stage,
+	status: m.deal_status,
+	contactId: m.deal_contact,
+	expectedCloseAt: m.deal_expected_close,
 };
 
 export function columnLabel(column: string, defs: FieldDef[]) {

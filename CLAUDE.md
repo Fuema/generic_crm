@@ -6,12 +6,15 @@ first**: vision, decisions, data model, customization engine, portal, phases,
 conventions and pitfalls live there.
 
 ## Where things stand
-- **Phase 2 (Sales) in progress** (spec §16; phases 0–1 done). Step 1, pipelines and stages,
-  is built (migration `0006` applied to dev); **next is step 2, deals.** Spec §16.1 is the
-  handoff: the 7-step phase 2 plan, what waits on the owner, how to resume.
+- **Phase 2 (Sales) in progress** (spec §16; phases 0–1 done). Step 1, pipelines (#22), is
+  merged; step 2, deals, is built (migration `0007` applied to dev); **next is step 3,
+  products rebuilt.** Spec §16.1 is the handoff: the 7-step phase 2 plan, what waits on the
+  owner, how to resume.
 - Quotes/invoices are printable pages, not generated PDFs (Workers free-plan CPU, spec §3).
-- Modules that point to contacts (deals, invoices, portal access…) must also move their rows
-  in `mergeContacts` (spec §10).
+- Modules that point to contacts must also move their rows in `mergeContacts` (deals do;
+  quotes, invoices, portal access… follow, spec §10).
+- Deal writes that set or keep a stage take the pipelines' advisory lock and guard the stage
+  in the batch (`lockPipelines`/`guard`, spec §10); reuse that for stage-bound records.
 - New modules live in `src/modules/` and `src/platform/` (spec §4); older code is still the
   reference project `my-tanstack-app` (frozen; GitHub `Fuema/bun_tanstack_neon_cloudflare`)
   until its module is rebuilt.

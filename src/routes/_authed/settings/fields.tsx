@@ -264,7 +264,11 @@ function FieldsPage() {
 							}
 							className={`rounded-md px-3 py-1 text-sm font-medium ${object === key ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
 						>
-							{key === "contact" ? m.nav_contacts() : m.nav_companies()}
+							{key === "contact"
+								? m.nav_contacts()
+								: key === "company"
+									? m.nav_companies()
+									: m.nav_deals()}
 						</button>
 					))}
 				</fieldset>

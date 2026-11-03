@@ -13,7 +13,15 @@ import {
 	sql,
 } from "drizzle-orm";
 import { db } from "#/db/index";
-import { company, contact, member, note, recordTag, user } from "#/db/schema";
+import {
+	company,
+	contact,
+	deal,
+	member,
+	note,
+	recordTag,
+	user,
+} from "#/db/schema";
 import { assertWorkspaceRefs } from "#/lib/workspace-refs.server";
 import {
 	customChanges,
@@ -537,7 +545,17 @@ export async function mergeContacts(
 				eq(note.subjectId, duplicateId),
 			),
 		);
-	const summary = { notesMoved: notes, tagsMoved: tags.added.length };
+	const [{ deals }] = await db
+		.select({ deals: count() })
+		.from(deal)
+		.where(
+			and(eq(deal.workspaceId, workspaceId), eq(deal.contactId, duplicateId)),
+		);
+	const summary = {
+		notesMoved: notes,
+		tagsMoved: tags.added.length,
+		dealsMoved: deals,
+	};
 	try {
 		await db.batch([
 			// Locks both rows and fails the whole batch (division by zero) unless
@@ -583,6 +601,17 @@ export async function mergeContacts(
 						eq(contact.id, keepId),
 						eq(contact.workspaceId, workspaceId),
 						isNull(contact.archivedAt),
+					),
+				),
+			// Records that point to contacts move to the kept one (deals today;
+			// quotes, orders, invoices and portal access as they arrive)
+			db
+				.update(deal)
+				.set({ contactId: keepId, updatedAt: now })
+				.where(
+					and(
+						eq(deal.workspaceId, workspaceId),
+						eq(deal.contactId, duplicateId),
 					),
 				),
 			db

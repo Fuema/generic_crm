@@ -23,6 +23,8 @@ import {
 	updateCompany,
 } from "#/modules/contacts/contacts";
 import { type CompanyInput, contactName } from "#/modules/contacts/schema";
+import { RelatedDeals } from "#/modules/deals/components/RelatedDeals";
+import { listRelatedDeals } from "#/modules/deals/deals";
 import {
 	CustomFieldsView,
 	customFieldLabels,
@@ -40,14 +42,24 @@ export const Route = createFileRoute("/_authed/companies/$companyId")({
 				subjectType: "company" as const,
 				subjectId: params.companyId,
 			};
-			const [detail, options, timeline, allTags, fields] = await Promise.all([
-				getCompany({ data: { id: params.companyId } }),
-				getContactFormOptions(),
-				getTimeline({ data: subject }),
-				listWorkspaceTags(),
-				getRecordFields({ data: { objectKey: "company" } }),
-			]);
-			return { ...detail, members: options.members, timeline, allTags, fields };
+			const [detail, options, timeline, allTags, fields, deals] =
+				await Promise.all([
+					getCompany({ data: { id: params.companyId } }),
+					getContactFormOptions(),
+					getTimeline({ data: subject }),
+					listWorkspaceTags(),
+					getRecordFields({ data: { objectKey: "company" } }),
+					listRelatedDeals({ data: { companyId: params.companyId } }),
+				]);
+			return {
+				...detail,
+				members: options.members,
+				options,
+				timeline,
+				allTags,
+				fields,
+				deals,
+			};
 		} catch (e) {
 			// Unknown, malformed or another workspace's id: the same "not found"
 			if (e instanceof Response && (e.status === 404 || e.status === 400))
@@ -74,8 +86,17 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 
 function CompanyPage() {
 	const router = useRouter();
-	const { company, ownerName, contacts, timeline, allTags, members, fields } =
-		Route.useLoaderData();
+	const {
+		company,
+		ownerName,
+		contacts,
+		timeline,
+		allTags,
+		members,
+		fields,
+		options,
+		deals,
+	} = Route.useLoaderData();
 	const { access, session } = Route.useRouteContext();
 	const can = {
 		update: roleCan(access?.role, { company: ["update"] }),
@@ -245,6 +266,15 @@ function CompanyPage() {
 					</Card>
 				</div>
 			</div>
+
+			<RelatedDeals
+				deals={deals}
+				currency={fields.currency}
+				contact={null}
+				companyId={company.id}
+				canCreate={roleCan(access?.role, { deal: ["create"] })}
+				options={options}
+			/>
 
 			<CompanyFormDialog
 				open={open}

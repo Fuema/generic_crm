@@ -10,6 +10,7 @@ import { type Filter, fieldKind, filterProblem } from "./schema";
 const TABLE: Record<ObjectKey, string> = {
 	contact: `"contact"`,
 	company: `"company"`,
+	deal: `"deal"`,
 };
 
 // Built-in columns by field id (raw, fixed names only)
@@ -33,6 +34,17 @@ const COLUMNS: Record<ObjectKey, Record<string, string>> = {
 		country: `"company"."country"`,
 		ownerId: `"company"."owner_id"`,
 		createdAt: `"company"."created_at"`,
+	},
+	deal: {
+		name: `"deal"."name"`,
+		pipelineId: `"deal"."pipeline_id"`,
+		stageId: `"deal"."stage_id"`,
+		status: `"deal"."status"`,
+		contactId: `"deal"."contact_id"`,
+		companyId: `"deal"."company_id"`,
+		ownerId: `"deal"."owner_id"`,
+		expectedCloseAt: `"deal"."expected_close_at"`,
+		createdAt: `"deal"."created_at"`,
 	},
 };
 
@@ -73,7 +85,7 @@ function builtInFilter(objectKey: ObjectKey, f: Filter): SQL {
 			return sql`(${col} is null or ${col}::text = '')`;
 		case "not_empty":
 			return sql`(${col} is not null and ${col}::text <> '')`;
-		// Only createdAt is a date among built-ins: compare calendar days (UTC)
+		// Built-in dates (createdAt, expectedCloseAt): compare calendar days (UTC)
 		case "eq":
 			return sql`(${col} at time zone 'UTC')::date = ${v}::date`;
 		case "gt":

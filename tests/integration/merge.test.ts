@@ -130,7 +130,12 @@ describe("mergeContacts", () => {
 			duplicateId: dup.id,
 			choices: { phone: "duplicate" },
 		});
-		expect(result).toEqual({ id: keep.id, notesMoved: 1, tagsMoved: 1 });
+		expect(result).toEqual({
+			id: keep.id,
+			notesMoved: 1,
+			tagsMoved: 1,
+			dealsMoved: 0,
+		});
 
 		const kept = await row(keep.id);
 		expect(kept.firstName).toBe("Ana"); // conflict, default keeps

@@ -10,7 +10,13 @@ import {
 	sql,
 } from "drizzle-orm";
 import { db } from "#/db/index";
-import { company, contact, fieldDefinition, fieldGroup } from "#/db/schema";
+import {
+	company,
+	contact,
+	deal,
+	fieldDefinition,
+	fieldGroup,
+} from "#/db/schema";
 import { m } from "#/paraglide/messages.js";
 import {
 	type Actor,
@@ -40,7 +46,7 @@ function clientError(status: number, message: string) {
 	return new Response(message, { status });
 }
 
-const RECORD_TABLES = { contact, company } as const;
+const RECORD_TABLES = { contact, company, deal } as const;
 
 const definitionColumns = {
 	id: fieldDefinition.id,

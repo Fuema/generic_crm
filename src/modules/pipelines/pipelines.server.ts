@@ -3,13 +3,16 @@ import {
 	asc,
 	count,
 	eq,
+	inArray,
 	isNull,
+	ne,
 	notInArray,
+	or,
 	type SQL,
 	sql,
 } from "drizzle-orm";
 import { db } from "#/db/index";
-import { organization, pipeline, pipelineStage } from "#/db/schema";
+import { deal, organization, pipeline, pipelineStage } from "#/db/schema";
 import { keyFromLabel, type Localized } from "#/modules/fields/schema";
 import { m } from "#/paraglide/messages.js";
 import { type Actor, eventInsert } from "#/platform/events.server";
@@ -115,7 +118,7 @@ async function activeCount(workspaceId: string) {
 // failed guard divides by zero, which rolls back the whole batch (change and
 // event alike); runBatch turns that into a 409. Checks before the batch only
 // give friendlier messages.
-const lockPipelines = (workspaceId: string) =>
+export const lockPipelines = (workspaceId: string) =>
 	db
 		.select({
 			locked: sql`pg_advisory_xact_lock(hashtext(${`pipeline:${workspaceId}`}))::text`,
@@ -123,7 +126,7 @@ const lockPipelines = (workspaceId: string) =>
 		.from(organization)
 		.where(eq(organization.id, workspaceId));
 
-const guard = (workspaceId: string, condition: SQL) =>
+export const guard = (workspaceId: string, condition: SQL) =>
 	db
 		.select({ ok: sql<number>`1 / (case when ${condition} then 1 else 0 end)` })
 		.from(organization)
@@ -135,7 +138,7 @@ const activePipelines = (workspaceId: string) =>
 const isActivePipeline = (workspaceId: string, id: string) =>
 	sql`exists (select 1 from "pipeline" p where p."id" = ${id} and p."workspace_id" = ${workspaceId} and p."archived_at" is null)`;
 
-function errorCode(error: unknown) {
+export function errorCode(error: unknown) {
 	const e = error as { code?: string; cause?: { code?: string } };
 	return e?.code ?? e?.cause?.code;
 }
@@ -254,6 +257,44 @@ export async function updatePipeline(
 	)
 		throw clientError(400, m.validation_invalid_id());
 	const removed = [...currentIds].filter((id) => !keptIds.includes(id));
+	// A stage that holds deals keeps its type: deal status mirrors it
+	const typeChecks = input.stages
+		.filter((s) => s.id)
+		.map((s) => sql`(d."stage_id" = ${s.id} and d."status" <> ${s.type})`);
+	const kept = input.stages.filter((s) => s.id);
+	if (kept.length) {
+		const [{ n }] = await db
+			.select({ n: count() })
+			.from(deal)
+			.where(
+				and(
+					eq(deal.workspaceId, workspaceId),
+					eq(deal.pipelineId, input.id),
+					isNull(deal.archivedAt),
+					or(
+						...kept.map((s) =>
+							and(eq(deal.stageId, s.id), ne(deal.status, s.type)),
+						),
+					),
+				),
+			);
+		if (n > 0) throw clientError(409, m.error_stage_type_has_deals());
+	}
+	// A stage that still holds deals (open or closed) can't be removed
+	if (removed.length) {
+		const [{ n }] = await db
+			.select({ n: count() })
+			.from(deal)
+			.where(
+				and(
+					eq(deal.workspaceId, workspaceId),
+					eq(deal.pipelineId, input.id),
+					isNull(deal.archivedAt),
+					inArray(deal.stageId, removed),
+				),
+			);
+		if (n > 0) throw clientError(409, m.error_stage_has_deals());
+	}
 	const keptList = keptIds.length
 		? sql.join(
 				keptIds.map((id) => sql`${id}`),
@@ -274,6 +315,13 @@ export async function updatePipeline(
 			keptList
 				? sql`${isActivePipeline(workspaceId, input.id)} and (select count(*) from "pipeline_stage" s where s."workspace_id" = ${workspaceId} and s."pipeline_id" = ${input.id} and s."archived_at" is null and s."id" in (${keptList})) = ${keptIds.length}`
 				: isActivePipeline(workspaceId, input.id),
+		),
+		// The same, inside the transaction (a deal moved in meanwhile): no active
+		// deal in a stage this save archives, and none in a stage whose type it
+		// changes (deal status mirrors the stage type)
+		guard(
+			workspaceId,
+			sql`not exists (select 1 from "deal" d where d."workspace_id" = ${workspaceId} and d."pipeline_id" = ${input.id} and d."archived_at" is null and (d."stage_id" in (select s."id" from "pipeline_stage" s where s."workspace_id" = ${workspaceId} and s."pipeline_id" = ${input.id} and s."archived_at" is null and s."id" not in (${keptList ?? sql`''`}))${typeChecks.length ? sql` or ${sql.join(typeChecks, sql` or `)}` : sql``}))`,
 		),
 		db
 			.update(pipeline)
@@ -338,6 +386,20 @@ export async function setPipelineArchived(
 	if (Boolean(before.archivedAt) === archived) return { id };
 	const active = await activeCount(workspaceId);
 	if (archived && active <= 1) throw clientError(409, m.error_pipeline_last());
+	if (archived) {
+		const [{ n }] = await db
+			.select({ n: count() })
+			.from(deal)
+			.where(
+				and(
+					eq(deal.workspaceId, workspaceId),
+					eq(deal.pipelineId, id),
+					isNull(deal.archivedAt),
+					eq(deal.status, "open"),
+				),
+			);
+		if (n > 0) throw clientError(409, m.error_pipeline_has_deals());
+	}
 	if (!archived && active >= PIPELINE_LIMITS.pipelinesPerWorkspace)
 		throw clientError(
 			409,
@@ -350,7 +412,7 @@ export async function setPipelineArchived(
 		guard(
 			workspaceId,
 			archived
-				? sql`${isActivePipeline(workspaceId, id)} and ${activePipelines(workspaceId)} > 1`
+				? sql`${isActivePipeline(workspaceId, id)} and ${activePipelines(workspaceId)} > 1 and not exists (select 1 from "deal" d where d."workspace_id" = ${workspaceId} and d."pipeline_id" = ${id} and d."archived_at" is null and d."status" = 'open')`
 				: sql`not ${isActivePipeline(workspaceId, id)} and ${activePipelines(workspaceId)} < ${PIPELINE_LIMITS.pipelinesPerWorkspace}`,
 		),
 		db

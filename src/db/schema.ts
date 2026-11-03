@@ -822,6 +822,58 @@ export const pipelineStage = pgTable(
 	],
 );
 
+// An opportunity in a pipeline (spec §6.2). Every deal has a contact; the
+// company is optional. status mirrors the stage's type (open / won / lost) so
+// lists can filter without a join; lost deals keep their reason.
+export const deal = pgTable(
+	"deal",
+	{
+		id: text("id").primaryKey(),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
+		name: text("name").notNull(),
+		pipelineId: text("pipeline_id")
+			.notNull()
+			.references(() => pipeline.id),
+		stageId: text("stage_id")
+			.notNull()
+			.references(() => pipelineStage.id),
+		// open | won | lost (the stage's type)
+		status: text("status").notNull().default("open"),
+		valueCents: integer("value_cents").notNull().default(0),
+		// All-day date, stored at 12:00 UTC
+		expectedCloseAt: timestamp("expected_close_at"),
+		contactId: text("contact_id")
+			.notNull()
+			.references(() => contact.id),
+		companyId: text("company_id").references(() => company.id, {
+			onDelete: "set null",
+		}),
+		ownerId: text("owner_id").references(() => user.id, {
+			onDelete: "set null",
+		}),
+		lostReason: text("lost_reason"),
+		closedAt: timestamp("closed_at"),
+		custom: jsonb("custom").$type<Record<string, Json>>().notNull().default({}),
+		archivedAt: timestamp("archived_at"),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+		updatedAt: timestamp("updated_at").notNull().defaultNow(),
+	},
+	(t) => [
+		index("deal_workspace_stage_idx").on(
+			t.workspaceId,
+			t.pipelineId,
+			t.stageId,
+		),
+		index("deal_workspace_status_idx").on(t.workspaceId, t.status),
+		index("deal_workspace_contact_idx").on(t.workspaceId, t.contactId),
+		index("deal_workspace_company_idx").on(t.workspaceId, t.companyId),
+		index("deal_workspace_created_idx").on(t.workspaceId, t.createdAt),
+		index("deal_custom_gin_idx").using("gin", t.custom),
+	],
+);
+
 // Personal display preferences, per user across workspaces and devices
 export const userPreference = pgTable("user_preference", {
 	userId: text("user_id")

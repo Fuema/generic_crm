@@ -3,15 +3,16 @@ import {
 	LIFECYCLE_STAGES,
 	STAGE_LABELS,
 } from "#/modules/contacts/schema";
-import {
-	type FieldDef,
-	localized,
-	type ObjectKey,
-} from "#/modules/fields/schema";
+import { type FieldDef, localized } from "#/modules/fields/schema";
 import { m } from "#/paraglide/messages.js";
 
 // The fields an import can fill and an export writes, per record type, with the
 // column names they are recognised by (English and Spanish, any case/accents).
+
+// CSV import and export cover contacts and companies (deals: later)
+export const CSV_OBJECT_KEYS = ["contact", "company"] as const;
+export type CsvObjectKey = (typeof CSV_OBJECT_KEYS)[number];
+type ObjectKey = CsvObjectKey;
 
 export type ImportField = {
 	id: string;

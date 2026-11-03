@@ -5,8 +5,8 @@ import {
 	companySearchSchema,
 	contactSearchSchema,
 } from "#/modules/contacts/schema";
-import { OBJECT_KEYS } from "#/modules/fields/schema";
 import { assertPermission, hasPermission } from "#/platform/permissions.server";
+import { CSV_OBJECT_KEYS } from "./columns";
 import { CSV_LIMITS } from "./csv";
 import * as data from "./transfer.server";
 
@@ -45,7 +45,7 @@ export const importCsv = createServerFn({ method: "POST" })
 	.validator(
 		z
 			.object({
-				objectKey: z.enum(OBJECT_KEYS),
+				objectKey: z.enum(CSV_OBJECT_KEYS),
 				// This batch, and where it starts in the file (0 = first row after
 				// the header)
 				rows: z.array(cells(2000)).min(1).max(CSV_LIMITS.importBatch),
