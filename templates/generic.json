@@ -128,5 +128,19 @@
 				"sort": { "field": "createdAt", "dir": "desc" }
 			}
 		}
+	],
+	"pipelines": [
+		{
+			"key": "sales",
+			"name": { "en": "Sales", "es": "Ventas" },
+			"stages": [
+				{ "name": { "en": "New lead", "es": "Nuevo" }, "probability": 10, "type": "open" },
+				{ "name": { "en": "Qualified", "es": "Calificado" }, "probability": 25, "type": "open" },
+				{ "name": { "en": "Proposal sent", "es": "Propuesta enviada" }, "probability": 50, "type": "open" },
+				{ "name": { "en": "Negotiation", "es": "Negociación" }, "probability": 75, "type": "open" },
+				{ "name": { "en": "Won", "es": "Ganado" }, "probability": 100, "type": "won" },
+				{ "name": { "en": "Lost", "es": "Perdido" }, "probability": 0, "type": "lost" }
+			]
+		}
 	]
 }

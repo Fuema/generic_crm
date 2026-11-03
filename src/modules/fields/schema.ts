@@ -69,7 +69,7 @@ export function localized(
 
 // --------------------------------------------------------- definitions
 
-const localizedText = (max: number) =>
+export const localizedText = (max: number) =>
 	z.object({
 		en: z
 			.string()
@@ -81,7 +81,7 @@ const localizedText = (max: number) =>
 			.max(max, { error: () => m.validation_text_max({ max }) }),
 	});
 
-const labelSchema = localizedText(60).refine((l) => l.en || l.es, {
+export const labelSchema = localizedText(60).refine((l) => l.en || l.es, {
 	error: () => m.validation_label_required(),
 });
 

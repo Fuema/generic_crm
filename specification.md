@@ -5,13 +5,13 @@
 > before changing anything; update it in the same PR as any change it
 > describes** (`spec-keeper` agent).
 >
-> Status: **Phase 1 built** (phase 0 done; phase 1 steps 1–6 merged and its
-> acceptance criteria met in code and tests; browser checks pending; next the
-> owner decides on phase 2) · 2026-11-03 ·
+> Status: **Phase 2 (Sales) in progress** (phases 0 and 1 done, phase 1
+> browser checks pending; phase 2 started 2026-11-03: step 1, pipelines and
+> stages, built; next step 2, deals) · 2026-11-03 ·
 > repository `https://github.com/Fuema/generic_crm` (private).
 >
 > **Current code:** the rebuilt modules live in `src/modules/` (contacts and
-> companies, records, fields, views, templates, preferences, csv) and
+> companies, records, fields, views, templates, preferences, csv, pipelines) and
 > `src/platform/` (§4). Everything else is still the reference project
 > `my-tanstack-app` (`https://github.com/Fuema/bun_tanstack_neon_cloudflare`,
 > frozen; its `specification.md` documents that code) until its phase
@@ -85,6 +85,11 @@ workshop, a school — without hiring someone to configure it.
 | 2026-11-03 | **Merging contacts needs `contact:update` and `contact:delete`** (the duplicate is archived) |
 | 2026-11-03 | **A merge can't be undone:** the duplicate is archived and the two `contact.merged` events are the audit trail; restoring the duplicate does not bring back its notes, tags or the unique values it gave up |
 | 2026-11-03 | **Merge contacts only for now;** merging companies is `Later` (§10) |
+| 2026-11-03 | **Phase 2 (Sales) starts**, one PR per step in the order of §16.1 |
+| 2026-11-03 | **Quotes, orders and invoices point to a contact plus an optional company.** The old `customer` table stays only for tasks and activities until phase 3 re-ports them, then it is dropped. The dev database's demo orders and invoices will be deleted by a destructive migration (asked first) |
+| 2026-11-03 | **Documents are printable pages, not generated PDFs:** quotes and invoices have a printable page in the contact's language ("Print / Save as PDF" in the browser) and emails link to it, because the Workers free plan's ~10 ms CPU per request can't generate PDFs |
+| 2026-11-03 | **One tax rate per document** (carried rule from `my-tanstack-app`) |
+| 2026-11-03 | **Every deal has a contact;** the company is optional |
 
 ## 4. Stack and architecture `Carried`
 
@@ -116,7 +121,7 @@ createServerFn({ method: "POST" })
 Custom objects add a dynamic variant, `requireObjectPermission(objectKey,
 action)`, because their permissions live in the database (§7.4).
 
-### Source layout (planned; `src/platform` and `src/modules/` exist since phase 1: `contacts`, `records`, `fields`, `views`, `templates`, `preferences`, `csv`)
+### Source layout (planned; `src/platform` and `src/modules/` exist since phase 1: `contacts`, `records`, `fields`, `views`, `templates`, `preferences`, `csv`; phase 2 adds `pipelines`)
 New code follows this layout; older code moves when its module is rebuilt. A module has `schema.ts` (Zod rules and labels shared by forms and server), `*.server.ts` (data layer: every function takes the workspace id first, so integration tests call it directly), a thin server-function file (permission + validator + `context.workspaceId`) and `components/`. Records are archived (`archived_at`), not deleted; ids are UUID v7 (`src/platform/ids.ts`).
 
 ```
@@ -144,7 +149,7 @@ The owner created `generic_crm/` and copied `my-tanstack-app` into it (done
 
 | Keep (adapt) | Replace or drop |
 |---|---|
-| Better Auth setup: email + verification, social, 2FA (TOTP, email, backup codes), passkeys, rate limits, session rules, password policy, HIBP | `customer` table and pages → rebuilt as Contacts & Companies (phase 1) |
+| Better Auth setup: email + verification, social, 2FA (TOTP, email, backup codes), passkeys, rate limits, session rules, password policy, HIBP | `customer` table and pages → rebuilt as Contacts & Companies (phase 1); the table stays only for tasks and activities until phase 3 re-ports them, then it is dropped (owner decision 2026-11-03, §3) |
 | Workspaces (Better Auth organizations), members, invitations, roles, `requirePermission`, last-used workspace | `project` example → rebuilt as the Projects module (phase 3) |
 | App shell: sidebar, top bar, workspace switcher, user menu, theme, logo | Orders, invoices, tasks, calendar → re-ported onto the new data model (phases 2–3), keeping their rules |
 | Email module (Resend + dev console fallback), `email:test` | ~~Legacy files: `src/db.ts`, `header-user.tsx`, `db/init.sql`; starter README~~ **Done** |
@@ -201,12 +206,13 @@ Portal users = contacts invited to the portal
 | `field_group`, `field_definition` `Built` | Custom fields engine | §7 |
 | `object_definition`, `custom_record`, `relationship_definition`, `record_link` | Custom objects | §7.4 |
 | `saved_view` `Built` | Saved filters/columns/sort | §7.3 |
-| `pipeline`, `pipeline_stage` | Pipelines for deals (and later tickets/projects) | Stage has order, probability, type `open`/`won`/`lost` |
-| `deal` | Opportunity | Value (cents), stage, expected close, contact/company, owner, lost reason |
+| `pipeline` `Built` | Pipelines for deals (and later tickets/projects) | `key` unique per workspace (immutable; a template adds a key once); `name` `{ en, es }`; `position`; `archived_at`; at most 10 active and at least 1 active per workspace (§10) |
+| `pipeline_stage` `Built` | Ordered stages of a pipeline | `pipeline_id`; `name` `{ en, es }`; `position`; `probability` 0–100; `type` `open`/`won`/`lost` (at least 1 open, exactly 1 won and 1 lost; won = 100, lost = 0); at most 20 per pipeline; archived, never deleted (deals point to them) |
+| `deal` | Opportunity | Value (cents), stage, expected close, **contact required**, company optional, owner, won/lost with a required reason |
 | `product` `Carried` | Catalog | SKU unique per workspace; price in cents; active flag |
-| `quote`, `quote_line` | Quote | Number `QUO-0001`; status draft → sent → accepted / declined / expired; valid until; lines snapshot catalog data |
-| `sales_order`, `order_line` `Carried` | Order | Created from an accepted quote or by hand |
-| `invoice`, `invoice_line` `Carried` | Invoice | Adds `partially_paid`; balance = total − confirmed payments |
+| `quote`, `quote_line` | Quote | Contact + optional company; number `QUO-0001`; status draft → sent → accepted / declined / expired; valid until (default 30 days after sending); one tax rate; lines snapshot catalog data, plus free-text lines |
+| `sales_order`, `order_line` `Carried` | Order | Contact + optional company (no longer `customer`, §3); created from an accepted quote or by hand |
+| `invoice`, `invoice_line` `Carried` | Invoice | Contact + optional company; numbered on issue (`INV-2026-0001`); adds `partially_paid`; balance = total − confirmed payments |
 | `payment` | Payment against an invoice | Amount, date, method (bank transfer, cash, card, other), reference, status **reported** (by customer) → **confirmed** / **rejected**; receipt file |
 | `project` | Project | Status planned → active → on hold → completed / cancelled; start/due; contact/company; source deal; portal visible |
 | `task`, `activity` `Carried` | Work items, calls, meetings | Gain `project_id`; link to contact/company/deal/custom record |
@@ -257,8 +263,8 @@ workspace. Segments for campaigns are saved views on contacts.
 - **What they are not:** built-in modules with real rules (deals, quotes, invoices, payments, tickets) stay real tables; custom objects hold business-specific information without special logic.
 - **Permissions:** checked by `requireObjectPermission(objectKey, action)` against the definition and the member's role, in addition to workspace isolation.
 
-### 7.5 Templates (`Built`: Generic, fields, groups and views)
-**Built:** `templates/generic.json`, validated at startup (`src/modules/templates/templates.server.ts`). Contacts get a "Profile" group (Source, Preferred contact method, Birthday, LinkedIn); companies a "Profile" group (Industry, Size, Website, Annual revenue); three shared contact views (Customers, Leads to qualify, No company yet), named in the creator's language. Applied when a workspace is created (Better Auth `afterCreateOrganization` and `ensureWorkspace`); a failure is logged and never blocks sign-up. Applying adds only what's missing (fields by key, archived ones included; groups by English label; views by name) and never changes existing content, so workspaces created earlier can add it from Settings → Fields (owners/admins). Template fields keep the template's keys so its views can refer to them. Pipelines, categories and the rest join the file with their modules.
+### 7.5 Templates (`Built`: Generic, fields, groups, views and pipelines)
+**Built:** `templates/generic.json`, validated at startup (`src/modules/templates/templates.server.ts`). Contacts get a "Profile" group (Source, Preferred contact method, Birthday, LinkedIn); companies a "Profile" group (Industry, Size, Website, Annual revenue); three shared contact views (Customers, Leads to qualify, No company yet), named in the creator's language. Applied when a workspace is created (Better Auth `afterCreateOrganization` and `ensureWorkspace`); a failure is logged and never blocks sign-up. Applying adds only what's missing (fields by key, archived ones included; groups by English label; views by name) and never changes existing content, so workspaces created earlier can add it from Settings → Fields (owners/admins). Template fields keep the template's keys so its views can refer to them. **Pipelines (phase 2 step 1):** the file's `pipelines` list (key, `{ en, es }` name, stages with probability and type, checked with the same stage rules as the server) adds a "sales" pipeline: New lead 10 %, Qualified 25 %, Proposal sent 50 %, Negotiation 75 %, Won, Lost. A pipeline is added only when its key is missing (archived ones count); if a concurrent run already added it (409 and the key now exists), it is skipped; other refusals, such as the pipeline limit, are reported. `templateStatus` reports `pipelinesMissing` and `applyTemplate` returns `added.pipelines`; the template card on Settings → Fields counts them. Categories and the rest join the file with their modules.
 
 A template is a **JSON file** in `templates/` with: modules on/off, vocabulary,
 field groups and fields, custom objects, pipelines and stages, ticket
@@ -268,7 +274,9 @@ dashboard. Applied once, when a workspace is created; everything stays editable.
 
 ### 7.6 Limits (initial defaults, tune later)
 Custom objects per workspace: 10 · fields per object: 75 · field groups per
-object: 15 · saved views per member: 50 · choice options per field: 100.
+object: 15 · saved views per member: 50 · choice options per field: 100 ·
+active pipelines per workspace: 10 · stages per pipeline: 20
+(`PIPELINE_LIMITS`, `src/modules/pipelines/schema.ts`).
 
 ## 8. Customer portal `Planned`
 
@@ -294,9 +302,9 @@ object: 15 · saved views per member: 50 · choice options per field: 100.
 | Module | First version | Later |
 |---|---|---|
 | **Contacts & companies** `Built` | Contact-first records, optional company, lifecycle stage, owner, tags, notes, custom fields, timeline, merge duplicate contacts (`Built`, below), CSV import/export (`Built`, below) | Several companies per contact, enrichment, merging duplicate companies (owner decision 2026-11-03) |
-| **Deals** | Several pipelines, board and list, value, expected close, won/lost with reason, link to contact/company/project | Forecasts, products on deals |
-| **Quotes** | From a deal or contact; catalog lines; tax; validity; PDF; send by email; accept/decline in the portal → order | E-signature (partner), versions |
-| **Orders & invoices** `Carried` | Rules from the old app; invoice created from order; numbering; PDF and send by email | Credit notes, recurring invoices |
+| **Deals** (pipelines `Built`, below) | Several pipelines, board and list, value, expected close, won/lost with a required reason, owner, contact required + optional company, link to project | Forecasts, products on deals |
+| **Quotes** | From a deal or contact; catalog lines plus free-text lines; one tax rate; validity; printable page instead of a PDF (§3); send by email; staff mark it accepted until the portal (phase 4) accepts/declines → order | E-signature (partner), versions |
+| **Orders & invoices** `Carried` | Rules from the old app; invoice created from order; numbering on issue; printable page and send by email | Credit notes, recurring invoices |
 | **Payments** | Record and confirm payments, partial payments, balances, customer-reported payments | Online payments (partner) |
 | **Projects** | Status, dates, owner, contact/company, source deal; tasks, milestones (tasks flagged as milestone), files, notes; portal view | Time tracking, budgets, Gantt |
 | **Tasks & calendar** `Carried` | Kanban and calendar from the old app, linked to projects and any record | Recurring tasks, reminders by email |
@@ -345,6 +353,23 @@ No migration. Tests: `tests/unit/csv.test.ts` (5: quoting, BOM and `;`, formula 
 
 No migration. Tests: `tests/unit/merge.test.ts` (10: conflicts, unknown consent, revoked consent wins, empty sides, choices, ignored choices, empty values not stored, tag limit, same contact, choice values) and `tests/integration/merge.test.ts` (4: values, notes, tags, uniqueness and archiving; archived/self/tag-limit refusals; two opposite merges at once, exactly one wins; no merging or finding across workspaces).
 
+### Pipelines and stages (`Built`, phase 2 step 1)
+**Built:** `src/modules/pipelines` (`schema.ts`: rules, labels, `PIPELINE_LIMITS`, `stagesProblem`, `normalizedProbability`; `pipelines.server.ts`: data layer; `pipelines.ts`: server functions `listPipelines`, `createPipeline`, `updatePipeline`, `archivePipeline`, `restorePipeline`; `components/PipelineDialog.tsx`) and the page Settings → Pipelines (`src/routes/_authed/settings/pipelines.tsx`, with a nav entry). Migration `0006_pipelines` (additive). `LocalizedInputs` (`fields/components/FieldDialogs.tsx`), `labelSchema` and `localizedText` (`fields/schema.ts`) are now exported for reuse.
+
+| Topic | Rule |
+|---|---|
+| Permissions | `pipeline` statement: owner/admin create, read, update, delete; editor and viewer read. Archiving and restoring need `delete` |
+| Stage rules | At least 1 open stage, exactly 1 won and 1 lost; probability 0–100, but the server forces won = 100 and lost = 0; at most 20 stages per pipeline; names `{ en, es }` with at least one filled |
+| Limits | At most 10 active pipelines per workspace (checked on create and restore). A workspace keeps at least 1 active pipeline: archiving the last one is refused (409) |
+| Concurrency | Every pipeline write (create, save, archive, restore) starts its `db.batch` with a per-workspace advisory lock (`pg_advisory_xact_lock`), then a guard statement re-checks its preconditions inside the transaction (pipeline still active, listed stage ids still its active stages, the limit, not the last active pipeline). A failed guard divides by zero, which rolls back the whole batch, event included, and answers 409 "changed meanwhile". Checks before the batch only give friendlier messages. New positions are computed in SQL. The Zod schema caps the stage array at 20 before validating each stage |
+| Saving | The dialog sends the name and the **whole ordered stage list**. Listed ids must be this pipeline's active stages, each listed once (400 otherwise); stages without an id are added; every other active stage of the pipeline is **archived, never deleted** (deals will point to them), so after a save the pipeline has exactly the saved list, whatever a concurrent save did. One `db.batch` per save. An archived pipeline can't be edited (409) |
+| Keys | Immutable `key`, unique per workspace: from the name (with `_2`, `_3`… when taken) or given by a template (`sales`); a concurrent duplicate → 409 |
+| Events | `pipeline.created` (payload `key`, `stages`), `pipeline.updated` (`stagesAdded`, `stagesArchived`), `pipeline.archived`, `pipeline.restored`, each in the same `db.batch` as the change |
+| UI | Settings → Pipelines lists active and archived pipelines; the dialog edits the EN/ES name and the stages (reorder, type, probability, add, remove); archive and restore buttons |
+| Step 2 must add | Refuse to archive (leave out) a stage that still has open deals |
+
+Tests: `tests/unit/pipelines.test.ts` (4: stage shape, 20-stage limit, won/lost probability, input schema) and `tests/integration/pipelines.test.ts` (6: create, then save the whole list with update/add/reorder/archive; broken shapes and unknown or duplicated ids refused; archive/restore and the last active pipeline; a stage id from another pipeline of the same workspace refused; two archives at once leave exactly one active pipeline and one event; no reach across workspaces); the workspace-deletion test in `isolation.test.ts` covers `pipeline` and `pipeline_stage`; `templates.test.ts` also checks the Sales pipeline and that a second run adds nothing.
+
 ### Navigation (staff app)
 Home · **Contacts** (Contacts, Companies, custom objects) · **Sales** (Deals,
 Quotes, Orders, Invoices, Payments, Products) · **Work** (Projects, Tasks,
@@ -356,7 +381,7 @@ Portal, Email, Limits). Modules switched off are hidden.
 ## 11. Events, timeline and workflows `Planned`
 
 ### 11.1 Event log (`Built` for contacts and companies)
-**Built:** `src/platform/events.server.ts`: `eventInsert(workspaceId, actor, …)` returns the insert to put in the same `db.batch` as the change; `changedFields(before, after)` produces `{ field: { from, to } }` for `*.updated` events (saving without changes writes no event). Types so far: `<record>.created|updated|archived|restored|tag_added|tag_removed|note_added|note_edited|note_pinned|note_unpinned|note_deleted` for contacts and companies, plus `contact.merged` on both merged contacts (payload `role` `kept`/`duplicate`, `otherId`, `otherName`, `notesMoved`, `tagsMoved`; the kept one adds `taken` and `changes`, the duplicate `cleared`, the unique values it gave up; §10); records created by a CSV import (§10) carry payload `{ source: "import" }` on their `*.created` event (and on the events of companies the import creates). **Known limits (security review, phase 1 step 1):** update events keep the old and new values of changed fields, including email and phone, so erasing a person (§12.4) must also scrub their events; an edit and an archive sent at the same moment can both pass their checks, so an update can land on a just-archived record (rare, harmless, revisit if workflows make it likely).
+**Built:** `src/platform/events.server.ts`: `eventInsert(workspaceId, actor, …)` returns the insert to put in the same `db.batch` as the change; `changedFields(before, after)` produces `{ field: { from, to } }` for `*.updated` events (saving without changes writes no event). Types so far: `<record>.created|updated|archived|restored|tag_added|tag_removed|note_added|note_edited|note_pinned|note_unpinned|note_deleted` for contacts and companies, plus `pipeline.created|updated|archived|restored` (§10), `contact.merged` on both merged contacts (payload `role` `kept`/`duplicate`, `otherId`, `otherName`, `notesMoved`, `tagsMoved`; the kept one adds `taken` and `changes`, the duplicate `cleared`, the unique values it gave up; §10); records created by a CSV import (§10) carry payload `{ source: "import" }` on their `*.created` event (and on the events of companies the import creates). **Known limits (security review, phase 1 step 1):** update events keep the old and new values of changed fields, including email and phone, so erasing a person (§12.4) must also scrub their events; an edit and an archive sent at the same moment can both pass their checks, so an update can land on a just-archived record (rare, harmless, revisit if workflows make it likely).
 
 `event`: `workspace_id`, `type` (e.g. `contact.created`, `deal.stage_changed`,
 `invoice.payment_confirmed`, `ticket.closed`), `subject_type` + `subject_id`,
@@ -391,7 +416,7 @@ related records' key events, newest first, filterable by kind.
 Owner, admin, editor, viewer. Settings (fields, objects, pipelines, templates,
 workflows, portal, limits) are owner/admin only. Payments: confirming is
 admin+; editors can record. Custom roles: `Later`.
-**Built:** references are checked when set or changed: an unchanged owner who left the workspace, or an unchanged link to an archived company, doesn't block editing; new links need a current member and an active company. Custom field definitions (`field` permission): owner/admin create/update/delete, every role reads. Contacts and companies: owner/admin full; editor create, read, update; viewer read. Archiving and restoring need `delete` (owner/admin). CSV export needs `read`; CSV import needs `create`, plus `update` when it updates existing records (§10). Merging contacts needs `update` and `delete` (owner/admin); finding merge candidates needs `read` (§10).
+**Built:** references are checked when set or changed: an unchanged owner who left the workspace, or an unchanged link to an archived company, doesn't block editing; new links need a current member and an active company. Custom field definitions (`field` permission): owner/admin create/update/delete, every role reads. Contacts and companies: owner/admin full; editor create, read, update; viewer read. Archiving and restoring need `delete` (owner/admin). CSV export needs `read`; CSV import needs `create`, plus `update` when it updates existing records (§10). Merging contacts needs `update` and `delete` (owner/admin); finding merge candidates needs `read` (§10). Pipelines and stages (`pipeline` permission): owner/admin create, read, update, delete (archiving and restoring need `delete`); editor and viewer read (§10).
 
 ### 12.3 Limits per workspace (initial defaults)
 | Resource | Default |
@@ -428,7 +453,7 @@ rows and R2 files.
 - **How it is detected (built):** the `PARAGLIDE_LOCALE` cookie, then the browser's `Accept-Language`, then English; no locale in the URL. Phase 1 makes the member's saved preference set the cookie at sign-in, and the portal use the contact's `locale`.
 - **Content written by the business:** field labels, options, KB articles, email/survey/campaign templates, portal texts are stored as `{ en, es }`; missing translations fall back to the workspace default.
 - **Formatting:** dates, numbers and currency through `Intl` with the reader's locale and the workspace's currency and time zone.
-- **Documents:** quotes and invoices render in the contact's language.
+- **Documents:** quotes and invoices render in the contact's language, as a printable page ("Print / Save as PDF" in the browser), not a generated PDF (owner decision 2026-11-03, §3).
 - **Input in either language (built, CSV import):** a Paraglide message function accepts `{ locale }` (`m.stage_lead({}, { locale: "es" })`), so labels such as `STAGE_LABELS` and `CONSENT_LABELS` are typed as message functions (`typeof m.stage_lead`), not `() => string`, and imported values are recognised in English and Spanish whatever the importer's language.
 
 ## 15. Partner services
@@ -453,7 +478,7 @@ current pricing and terms before adopting one.
 |---|---|---|
 | **0. Foundation** `Built` | Port and clean up (§5), `workspace_id` everywhere, i18n, tests (deploy and email domain moved to the end, §3) | `validate` + tests pass; sign-in, 2FA, passkeys, invitations work in EN and ES |
 | **1. CRM core** (steps 1–6 `Built`; acceptance check met 2026-11-03, browser checks pending) | Contacts & companies, custom fields + groups, saved views, event log + timeline, notes, tags, Generic template, import/export | A new workspace gets the template; a contact with custom fields can be created, filtered, imported, exported; isolation tests pass |
-| **2. Sales** | Pipelines & deals, quotes, orders, invoices, payments | Deal → quote → order → invoice → partial payments → paid, all on the timeline |
+| **2. Sales** (in progress: step 1 pipelines `Built`) | Pipelines & deals, quotes, orders, invoices, payments | Deal → quote → order → invoice → partial payments → paid, all on the timeline |
 | **3. Work** | Projects, tasks & calendar re-ported, files & folders (R2) | A won deal becomes a project with tasks and files; downloads are permission-checked |
 | **4. Customer portal** | Email-link sign-in, contact isolation, profile, quotes, invoices & payments, projects, files | A contact accepts a quote and reports a payment; contact-isolation tests prove one contact can't see another's data |
 | **5. Custom objects** | Object definitions, records, relationships, permissions, views, portal visibility | An admin creates "Membership" linked to contacts, with views, workflows-ready events and optional portal display |
@@ -465,7 +490,21 @@ current pricing and terms before adopting one.
 
 ### 16.1 Where to resume (handoff, updated 2026-11-03)
 
-**Done:** phase 0; phase 1 steps 1–5 and 6a merged into `main` (#18 CSV import/export); step 6b, merging duplicate contacts (§10, #20, no migration). Migrations `0000`–`0005` are applied to the Neon `main` branch (dev database).
+**Done:** phase 0; phase 1 (steps 1–6, #11–#20; acceptance check #21). Phase 2 started 2026-11-03 (owner): step 1, pipelines and stages, is built on `feat/phase2-pipelines` (§10). Migrations `0000`–`0006` are applied to the Neon `main` branch (dev database); `0006_pipelines` (additive) was applied on 2026-11-03 and verified (2 tables, 3 foreign keys, 2 indexes, other tables' row counts unchanged).
+
+**Phase 2 plan (one PR per step):**
+
+| Step | Content | Status |
+|---|---|---|
+| 1 | Pipelines and stages (§10) | `Built` (this PR); integration tests not run yet (the `test` branch must be recreated from `main` first) |
+| 2 | Deals: list and board, value, expected close, won/lost with a required reason, owner, contact required + optional company; custom fields, views, tags, notes, timeline; `mergeContacts` moves deals; archiving a stage with open deals is refused | Next |
+| 3 | Products rebuilt in the module layout, EN/ES | Planned |
+| 4 | Quotes: from a deal or a contact, `QUO-0001`, catalog lines (snapshot) plus free-text lines, draft → sent → accepted / declined / expired, valid until defaults to 30 days after sending, printable page, send by email; staff mark it accepted until the portal (phase 4); accepting creates the order and offers to mark the deal won | Planned |
+| 5 | Orders and invoices re-ported to contact + optional company: invoice from an order, numbered on issue (`INV-2026-0001`), `partially_paid`, printable page, send by email. Needs the destructive migration that removes the dev demo orders/invoices (ask first, §3) | Planned |
+| 6 | Payments: editors record, admins confirm or reject; partial payments; balance = total − confirmed; paid at 0; overpayment refused; a `reported` status ready for the portal | Planned |
+| 7 | End-to-end acceptance integration test (deal → quote → order → invoice → partial payments → paid), the timeline across the chain, `mergeContacts` moves quotes/orders/invoices | Planned |
+
+Real email delivery of quotes and invoices waits for the domain (§19); until then emails print to the dev console or reach only the Resend account owner (§17 pitfall 9).
 
 **Phase 1 acceptance check (2026-11-03): met in code and tests.**
 - A new workspace gets the template: `src/lib/auth.ts` (sign-up and "New workspace"), `templates.test.ts`.
@@ -473,11 +512,13 @@ current pricing and terms before adopting one.
 - Isolation tests pass: each module tests that workspace B can't reach A's data. The workspace-deletion test in `isolation.test.ts` now also proves that every phase 1 table (company, contact, tag, record_tag, note, event, field_group, field_definition, saved_view) is emptied with the workspace.
 - Not proven yet: nothing has run on the real Workers runtime (deploy waits until the end, §3); the 50-subrequest limit is respected by design (CSV import, merge) but only exercised on Node.
 
-**Next: the owner decides whether phase 2 starts**, after the browser checks below. Don't start phase 2 without the owner's go-ahead.
+**Next: phase 2 step 2, deals**, after step 1 is merged. Before merging step 1: recreate the `test` branch from `main` (§17 pitfall 11) and run the integration tests; the owner's browser check of Settings → Pipelines in EN and ES.
 
 **Later (agreed, not scheduled):** merging duplicate companies the same way (owner decision 2026-11-03, §3).
 
 **Waiting on the owner:**
+- recreating the Neon `test` branch from `main` (it lacks migration `0006`), so the phase 2 step 1 integration tests can run;
+- the browser check of Settings → Pipelines (EN/ES: create, edit stages, reorder, archive/restore, the template card's pipeline count);
 - the browser check of the merge screen in EN and ES (merged in #20 before it) ("Merge with…", search, swap, choices, confirm, both timelines);
 - the browser check of CSV import/export (EN/ES, skip and update, a `;` file);
 - confirming that archived records count as "existing" on import;
@@ -538,7 +579,7 @@ Pitfalls already paid for:
 
 ## 19. Open questions
 
-1. **Product name and domain** (needed for the portal address, email sender and passkeys).
+1. **Product name and domain** (needed for the portal address, email sender and passkeys; real delivery of phase 2 quote and invoice emails also waits for it).
 2. ~~**i18n library**~~ Answered 2026-11-02: Paraglide JS (§3).
 3. **Custom subdomains** for portals (`acme.example.com`) — when?
 4. **Data location** (Neon region, R2 location) if customers need data kept in a region.
@@ -571,4 +612,5 @@ Pitfalls already paid for:
 | 2026-11-02 | Phase 1 step 6a: CSV import and export for contacts and companies (`src/modules/csv`, no migration): export of all fields for the current search/filters (10,000 rows max, BOM, formula neutralizing); 3-step import with EN/ES column mapping, dry run, skip or update existing records (email/domain), 1,000 rows / 2 MB sent in batches of 100 rows (Workers free-plan subrequest limit), each batch one transaction, `;` detection; owner decisions: skip/update per import, 1,000-row limit, export of all fields; 5 unit and 9 integration tests (#18) |
 | 2026-11-02 | Docs: handoff notes for the next session (§16.1, header), README status, `security-reviewer`/`resource-builder`/`validator` agents describe the module layout, events and Workers free-plan limits (#19) |
 | 2026-11-03 | Phase 1 step 6b: merging duplicate contacts (no migration): "Merge with…" search dialog, side-by-side screen with swap and per-field choices, server recomputes values from the stored records, one `db.batch` that clears and archives the duplicate, moves notes and tags (20-per-record limit) and writes `contact.merged` on both; `prepareCustom` skips several ids; owner decisions: `update` + `delete` required, no undo, contacts only (companies later); security review fixes (a `FOR UPDATE` guard against concurrent merges, revoked consent wins); 10 unit and 4 integration tests (#20) |
-| 2026-11-03 | Phase 1 acceptance check: criteria met in code and tests (§16.1); the workspace-deletion isolation test now covers every phase 1 table (this PR) |
+| 2026-11-03 | Phase 1 acceptance check: criteria met in code and tests (§16.1); the workspace-deletion isolation test now covers every phase 1 table (#21) |
+| 2026-11-03 | Phase 2 starts; step 1: pipelines and stages (migration `0006`, applied to `main`): `pipeline`/`pipeline_stage` tables, `pipeline` permission, Settings → Pipelines page and dialog, stage rules (≥1 open, exactly 1 won and 1 lost, won 100 / lost 0), whole-list save that archives stages left out, ≥1 active pipeline guarded in SQL, `pipeline.*` events; Generic template adds the "sales" pipeline; owner decisions on contact links for documents, printable pages instead of PDFs, one tax rate, contact required on deals; phase 2 plan in §16.1; 4 unit and 4 integration tests (this PR) |

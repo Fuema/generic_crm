@@ -10,6 +10,8 @@ import {
 	fieldGroup,
 	note,
 	organization,
+	pipeline,
+	pipelineStage,
 	product,
 	recordTag,
 	salesOrder,
@@ -142,8 +144,8 @@ describe("database rules", () => {
 
 	test("deleting a workspace removes all of its data and nothing else", async () => {
 		const c = await createWorkspace("c");
-		// Phase 1 data too: template fields, groups and views, a company, a
-		// contact (with events), a tag and a note
+		// Phase 1 and 2 data too: template fields, groups, views and the Sales
+		// pipeline, a company, a contact (with events), a tag and a note
 		const actor = { type: "member" as const, id: c.userId };
 		await applyTemplateToNewWorkspace(c.workspaceId, c.userId);
 		const acme = await contacts.createCompany(c.workspaceId, actor, {
@@ -180,6 +182,8 @@ describe("database rules", () => {
 			fieldGroup,
 			fieldDefinition,
 			savedView,
+			pipeline,
+			pipelineStage,
 		];
 		for (const table of phase1) {
 			const [{ n }] = await db

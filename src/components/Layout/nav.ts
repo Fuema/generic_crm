@@ -4,6 +4,7 @@ import {
 	Contact,
 	FileText,
 	FolderKanban,
+	Kanban,
 	KanbanSquare,
 	Layers,
 	LayoutDashboard,
@@ -69,6 +70,7 @@ export const NAV_GROUPS: {
 			{ title: m.nav_members, to: "/workspace/members", icon: Users },
 			{ title: m.nav_settings, to: "/workspace/settings", icon: Settings },
 			{ title: m.nav_fields, to: "/settings/fields", icon: Layers },
+			{ title: m.nav_pipelines, to: "/settings/pipelines", icon: Kanban },
 		],
 	},
 ];

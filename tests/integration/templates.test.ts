@@ -4,6 +4,7 @@ import { db } from "#/db/index";
 import { fieldDefinition } from "#/db/schema";
 import * as contacts from "#/modules/contacts/contacts.server";
 import * as fields from "#/modules/fields/fields.server";
+import * as pipelines from "#/modules/pipelines/pipelines.server";
 import * as templates from "#/modules/templates/templates.server";
 import * as views from "#/modules/views/views.server";
 import { cleanup, createWorkspace, type Workspace } from "./fixtures";
@@ -22,18 +23,35 @@ test("a new workspace gets the fields, groups and shared views; a second run add
 	expect(await templates.templateStatus(a.workspaceId)).toEqual({
 		fieldsMissing: 8,
 		viewsMissing: 3,
+		pipelinesMissing: 1,
 	});
 	const first = await templates.applyTemplate(a.workspaceId, a.userId);
-	expect(first).toEqual({ groups: 2, fields: 8, views: 3 });
+	expect(first).toEqual({ groups: 2, fields: 8, views: 3, pipelines: 1 });
 	expect(await templates.templateStatus(a.workspaceId)).toEqual({
 		fieldsMissing: 0,
 		viewsMissing: 0,
+		pipelinesMissing: 0,
 	});
 	expect(await templates.applyTemplate(a.workspaceId, a.userId)).toEqual({
 		groups: 0,
 		fields: 0,
 		views: 0,
+		pipelines: 0,
 	});
+
+	// The Sales pipeline, with its stages in order
+	const [sales] = await pipelines.listPipelines(a.workspaceId, {
+		includeArchived: false,
+	});
+	expect(sales.key).toBe("sales");
+	expect(sales.stages.map((s) => [s.name.en, s.probability, s.type])).toEqual([
+		["New lead", 10, "open"],
+		["Qualified", 25, "open"],
+		["Proposal sent", 50, "open"],
+		["Negotiation", 75, "open"],
+		["Won", 100, "won"],
+		["Lost", 0, "lost"],
+	]);
 
 	const contactFields = await fields.listFields(a.workspaceId, "contact", {
 		includeArchived: false,
@@ -65,6 +83,7 @@ test("a new workspace gets the fields, groups and shared views; a second run add
 	expect(await templates.templateStatus(b.workspaceId)).toEqual({
 		fieldsMissing: 8,
 		viewsMissing: 3,
+		pipelinesMissing: 1,
 	});
 });
 

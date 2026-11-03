@@ -48,7 +48,7 @@ export const TYPE_LABELS: Record<FieldType, () => string> = {
 
 type OptionDraft = { value: string; en: string; es: string };
 
-function LocalizedInputs({
+export function LocalizedInputs({
 	id,
 	labels,
 	value,
