@@ -20,7 +20,8 @@ export const EMAIL_CONSENTS = ["unknown", "granted", "revoked"] as const;
 export type EmailConsent = (typeof EMAIL_CONSENTS)[number];
 
 // Fixed set (spec decision): businesses may rename stages later, not add them
-export const STAGE_LABELS: Record<LifecycleStage, () => string> = {
+// Message functions: callable with { locale } to get a specific language
+export const STAGE_LABELS: Record<LifecycleStage, typeof m.stage_lead> = {
 	subscriber: m.stage_subscriber,
 	lead: m.stage_lead,
 	qualified: m.stage_qualified,
@@ -28,7 +29,7 @@ export const STAGE_LABELS: Record<LifecycleStage, () => string> = {
 	inactive: m.stage_inactive,
 };
 
-export const CONSENT_LABELS: Record<EmailConsent, () => string> = {
+export const CONSENT_LABELS: Record<EmailConsent, typeof m.consent_unknown> = {
 	unknown: m.consent_unknown,
 	granted: m.consent_granted,
 	revoked: m.consent_revoked,

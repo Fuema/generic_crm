@@ -155,7 +155,8 @@ async function findContact(workspaceId: string, id: string) {
 	return row;
 }
 
-export async function listContacts(workspaceId: string, search: ContactSearch) {
+// The list's WHERE and ORDER BY for this search (shared by the list and the export)
+async function contactQuery(workspaceId: string, search: ContactSearch) {
 	const filters: SQL[] = [
 		eq(contact.workspaceId, workspaceId),
 		search.show === "archived"
@@ -187,6 +188,11 @@ export async function listContacts(workspaceId: string, search: ContactSearch) {
 		fields,
 		CONTACT_SORT,
 	);
+	return { where, order, fields };
+}
+
+export async function listContacts(workspaceId: string, search: ContactSearch) {
+	const { where, order } = await contactQuery(workspaceId, search);
 
 	const [rows, [{ total }]] = await Promise.all([
 		db
@@ -427,10 +433,8 @@ async function findCompany(workspaceId: string, id: string) {
 	return row;
 }
 
-export async function listCompanies(
-	workspaceId: string,
-	search: CompanySearch,
-) {
+// The list's WHERE and ORDER BY for this search (shared by the list and the export)
+async function companyQuery(workspaceId: string, search: CompanySearch) {
 	const filters: SQL[] = [
 		eq(company.workspaceId, workspaceId),
 		search.show === "archived"
@@ -458,6 +462,14 @@ export async function listCompanies(
 		fields,
 		COMPANY_SORT,
 	);
+	return { where, order, fields };
+}
+
+export async function listCompanies(
+	workspaceId: string,
+	search: CompanySearch,
+) {
+	const { where, order } = await companyQuery(workspaceId, search);
 
 	const [rows, [{ total }]] = await Promise.all([
 		db
@@ -615,4 +627,73 @@ export async function setCompanyArchived(
 		}),
 	]);
 	return { id };
+}
+
+// ------------------------------------------------------------------ export
+
+// Every row matching the list's search and filters (all pages), with the values
+// an export needs: names instead of ids, tag names, custom values
+export async function exportContactRows(
+	workspaceId: string,
+	search: ContactSearch,
+	limit: number,
+) {
+	const { where, order, fields } = await contactQuery(workspaceId, search);
+	const rows = await db
+		.select({
+			firstName: contact.firstName,
+			lastName: contact.lastName,
+			email: contact.email,
+			phone: contact.phone,
+			jobTitle: contact.jobTitle,
+			companyName: company.name,
+			lifecycleStage: contact.lifecycleStage,
+			ownerEmail: sql<
+				string | null
+			>`(select u."email" from "user" u where u."id" = "contact"."owner_id")`,
+			locale: contact.locale,
+			emailConsent: contact.emailConsent,
+			tags: tagsOf("contact"),
+			custom: contact.custom,
+			createdAt: contact.createdAt,
+		})
+		.from(contact)
+		.leftJoin(
+			company,
+			and(
+				eq(company.id, contact.companyId),
+				eq(company.workspaceId, contact.workspaceId),
+			),
+		)
+		.where(where)
+		.orderBy(order, asc(contact.id))
+		.limit(limit);
+	return { rows, fields };
+}
+
+export async function exportCompanyRows(
+	workspaceId: string,
+	search: CompanySearch,
+	limit: number,
+) {
+	const { where, order, fields } = await companyQuery(workspaceId, search);
+	const rows = await db
+		.select({
+			name: company.name,
+			domain: company.domain,
+			phone: company.phone,
+			city: company.city,
+			country: company.country,
+			ownerEmail: sql<
+				string | null
+			>`(select u."email" from "user" u where u."id" = "company"."owner_id")`,
+			tags: tagsOf("company"),
+			custom: company.custom,
+			createdAt: company.createdAt,
+		})
+		.from(company)
+		.where(where)
+		.orderBy(order, asc(company.id))
+		.limit(limit);
+	return { rows, fields };
 }
