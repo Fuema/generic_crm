@@ -2,15 +2,27 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { eq, sql } from "drizzle-orm";
 import { db } from "#/db/index";
 import {
+	company,
+	contact,
 	customer,
+	event,
+	fieldDefinition,
+	fieldGroup,
+	note,
 	organization,
 	product,
+	recordTag,
 	salesOrder,
+	savedView,
+	tag,
 	workspaceCounter,
 	workspaceSetting,
 } from "#/db/schema";
 import { getWorkspaceSettings, nextDocumentNumber } from "#/lib/billing.server";
 import { assertWorkspaceRefs } from "#/lib/workspace-refs.server";
+import * as contacts from "#/modules/contacts/contacts.server";
+import * as records from "#/modules/records/records.server";
+import { applyTemplateToNewWorkspace } from "#/modules/templates/templates.server";
 import { cleanup, createWorkspace, type Workspace } from "./fixtures";
 
 // Workspace A must never see or use workspace B's data (spec §12.1)
@@ -130,9 +142,63 @@ describe("database rules", () => {
 
 	test("deleting a workspace removes all of its data and nothing else", async () => {
 		const c = await createWorkspace("c");
+		// Phase 1 data too: template fields, groups and views, a company, a
+		// contact (with events), a tag and a note
+		const actor = { type: "member" as const, id: c.userId };
+		await applyTemplateToNewWorkspace(c.workspaceId, c.userId);
+		const acme = await contacts.createCompany(c.workspaceId, actor, {
+			name: "Acme",
+			domain: "",
+			phone: "",
+			city: "",
+			country: "",
+			ownerId: "",
+		});
+		const ana = await contacts.createContact(c.workspaceId, actor, {
+			firstName: "Ana",
+			lastName: "",
+			email: "",
+			phone: "",
+			jobTitle: "",
+			companyId: acme.id,
+			ownerId: "",
+			lifecycleStage: "lead",
+			locale: "",
+			emailConsent: "unknown",
+		});
+		const subject = { subjectType: "contact" as const, subjectId: ana.id };
+		await records.addTag(c.workspaceId, actor, { ...subject, name: "vip" });
+		await records.createNote(c.workspaceId, actor, { ...subject, body: "Hi" });
+
+		const phase1 = [
+			company,
+			contact,
+			tag,
+			recordTag,
+			note,
+			event,
+			fieldGroup,
+			fieldDefinition,
+			savedView,
+		];
+		for (const table of phase1) {
+			const [{ n }] = await db
+				.select({ n: sql<number>`count(*)::int` })
+				.from(table)
+				.where(eq(table.workspaceId, c.workspaceId));
+			expect(n).toBeGreaterThan(0);
+		}
+
 		await db.delete(organization).where(eq(organization.id, c.workspaceId));
 
-		for (const table of [customer, product, salesOrder, workspaceCounter]) {
+		for (const table of [
+			customer,
+			product,
+			salesOrder,
+			workspaceCounter,
+			workspaceSetting,
+			...phase1,
+		]) {
 			const left = await db
 				.select({ n: sql<number>`count(*)::int` })
 				.from(table)

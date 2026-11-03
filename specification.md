@@ -5,9 +5,9 @@
 > before changing anything; update it in the same PR as any change it
 > describes** (`spec-keeper` agent).
 >
-> Status: **Phase 1 in progress** (phase 0 done; phase 1 steps 1–6 built,
-> 6b merging duplicate contacts awaiting the owner's browser check; next the
-> final check of phase 1's acceptance criteria) · 2026-11-03 ·
+> Status: **Phase 1 built** (phase 0 done; phase 1 steps 1–6 merged and its
+> acceptance criteria met in code and tests; browser checks pending; next the
+> owner decides on phase 2) · 2026-11-03 ·
 > repository `https://github.com/Fuema/generic_crm` (private).
 >
 > **Current code:** the rebuilt modules live in `src/modules/` (contacts and
@@ -452,7 +452,7 @@ current pricing and terms before adopting one.
 | Phase | Content | Done when |
 |---|---|---|
 | **0. Foundation** `Built` | Port and clean up (§5), `workspace_id` everywhere, i18n, tests (deploy and email domain moved to the end, §3) | `validate` + tests pass; sign-in, 2FA, passkeys, invitations work in EN and ES |
-| **1. CRM core** (in progress: steps 1–6 `Built`: 6a CSV import/export, 6b merging duplicate contacts; final acceptance check next) | Contacts & companies, custom fields + groups, saved views, event log + timeline, notes, tags, Generic template, import/export | A new workspace gets the template; a contact with custom fields can be created, filtered, imported, exported; isolation tests pass |
+| **1. CRM core** (steps 1–6 `Built`; acceptance check met 2026-11-03, browser checks pending) | Contacts & companies, custom fields + groups, saved views, event log + timeline, notes, tags, Generic template, import/export | A new workspace gets the template; a contact with custom fields can be created, filtered, imported, exported; isolation tests pass |
 | **2. Sales** | Pipelines & deals, quotes, orders, invoices, payments | Deal → quote → order → invoice → partial payments → paid, all on the timeline |
 | **3. Work** | Projects, tasks & calendar re-ported, files & folders (R2) | A won deal becomes a project with tasks and files; downloads are permission-checked |
 | **4. Customer portal** | Email-link sign-in, contact isolation, profile, quotes, invoices & payments, projects, files | A contact accepts a quote and reports a payment; contact-isolation tests prove one contact can't see another's data |
@@ -465,14 +465,20 @@ current pricing and terms before adopting one.
 
 ### 16.1 Where to resume (handoff, updated 2026-11-03)
 
-**Done:** phase 0; phase 1 steps 1–5 and 6a merged into `main` (#18 CSV import/export); step 6b, merging duplicate contacts (§10), built on `feat/phase1-merge-contacts` (no migration). Migrations `0000`–`0005` are applied to the Neon `main` branch (dev database). Step 6 is done once the owner checks the merge screen in the browser.
+**Done:** phase 0; phase 1 steps 1–5 and 6a merged into `main` (#18 CSV import/export); step 6b, merging duplicate contacts (§10, #20, no migration). Migrations `0000`–`0005` are applied to the Neon `main` branch (dev database).
 
-**Next: the final check of phase 1's acceptance criteria** (§16 table: a new workspace gets the template; a contact with custom fields can be created, filtered, imported, exported; isolation tests pass), then the owner decides whether phase 2 starts. Don't start phase 2 without the owner's go-ahead.
+**Phase 1 acceptance check (2026-11-03): met in code and tests.**
+- A new workspace gets the template: `src/lib/auth.ts` (sign-up and "New workspace"), `templates.test.ts`.
+- A contact with custom fields can be created, filtered, imported, exported: `fields.test.ts`, `views.test.ts`, `csv.test.ts`.
+- Isolation tests pass: each module tests that workspace B can't reach A's data. The workspace-deletion test in `isolation.test.ts` now also proves that every phase 1 table (company, contact, tag, record_tag, note, event, field_group, field_definition, saved_view) is emptied with the workspace.
+- Not proven yet: nothing has run on the real Workers runtime (deploy waits until the end, §3); the 50-subrequest limit is respected by design (CSV import, merge) but only exercised on Node.
+
+**Next: the owner decides whether phase 2 starts**, after the browser checks below. Don't start phase 2 without the owner's go-ahead.
 
 **Later (agreed, not scheduled):** merging duplicate companies the same way (owner decision 2026-11-03, §3).
 
 **Waiting on the owner:**
-- the browser check of the merge screen in EN and ES ("Merge with…", search, swap, choices, confirm, both timelines);
+- the browser check of the merge screen in EN and ES (merged in #20 before it) ("Merge with…", search, swap, choices, confirm, both timelines);
 - the browser check of CSV import/export (EN/ES, skip and update, a `;` file);
 - confirming that archived records count as "existing" on import;
 - product name and domain (§19);
@@ -564,4 +570,5 @@ Pitfalls already paid for:
 | 2026-11-02 | Phase 1 step 5: Generic template (`templates/generic.json`) applied to new workspaces and addable from Settings → Fields; `resolveJsonModule` on; 2 unit and 2 integration tests (#17) |
 | 2026-11-02 | Phase 1 step 6a: CSV import and export for contacts and companies (`src/modules/csv`, no migration): export of all fields for the current search/filters (10,000 rows max, BOM, formula neutralizing); 3-step import with EN/ES column mapping, dry run, skip or update existing records (email/domain), 1,000 rows / 2 MB sent in batches of 100 rows (Workers free-plan subrequest limit), each batch one transaction, `;` detection; owner decisions: skip/update per import, 1,000-row limit, export of all fields; 5 unit and 9 integration tests (#18) |
 | 2026-11-02 | Docs: handoff notes for the next session (§16.1, header), README status, `security-reviewer`/`resource-builder`/`validator` agents describe the module layout, events and Workers free-plan limits (#19) |
-| 2026-11-03 | Phase 1 step 6b: merging duplicate contacts (no migration): "Merge with…" search dialog, side-by-side screen with swap and per-field choices, server recomputes values from the stored records, one `db.batch` that clears and archives the duplicate, moves notes and tags (20-per-record limit) and writes `contact.merged` on both; `prepareCustom` skips several ids; owner decisions: `update` + `delete` required, no undo, contacts only (companies later); 9 unit and 3 integration tests (this PR) |
+| 2026-11-03 | Phase 1 step 6b: merging duplicate contacts (no migration): "Merge with…" search dialog, side-by-side screen with swap and per-field choices, server recomputes values from the stored records, one `db.batch` that clears and archives the duplicate, moves notes and tags (20-per-record limit) and writes `contact.merged` on both; `prepareCustom` skips several ids; owner decisions: `update` + `delete` required, no undo, contacts only (companies later); security review fixes (a `FOR UPDATE` guard against concurrent merges, revoked consent wins); 10 unit and 4 integration tests (#20) |
+| 2026-11-03 | Phase 1 acceptance check: criteria met in code and tests (§16.1); the workspace-deletion isolation test now covers every phase 1 table (this PR) |
