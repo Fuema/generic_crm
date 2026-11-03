@@ -29,8 +29,8 @@ import {
 	updateOrder,
 } from "#/lib/orders";
 import { roleCan } from "#/lib/permissions";
-import { listActiveProducts } from "#/lib/products";
 import type { OrderStatus } from "#/lib/schema";
+import { pickProducts } from "#/modules/products/products";
 
 export const Route = createFileRoute("/_authed/orders/$orderId")({
 	loader: async ({ params, context }) => {
@@ -42,7 +42,7 @@ export const Route = createFileRoute("/_authed/orders/$orderId")({
 		const editor = editable
 			? await Promise.all([
 					listOrderCustomers(),
-					listActiveProducts(),
+					pickProducts({ data: { q: "" } }),
 					getBillingSettings(),
 				]).then(([customers, products, settings]) => ({
 					customers,

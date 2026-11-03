@@ -276,8 +276,12 @@ export const product = pgTable(
 		sku: text("sku").notNull(),
 		description: text("description"),
 		unitPriceCents: integer("unit_price_cents").notNull(),
-		// Inactive products stay on old orders but can't be added to new ones
+		// Kept equal to "not archived" for the old order code until orders are
+		// re-ported (phase 2 step 5), then dropped
 		active: boolean("active").notNull().default(true),
+		custom: jsonb("custom").$type<Record<string, Json>>().notNull().default({}),
+		// Archived products stay on old documents but can't be added to new ones
+		archivedAt: timestamp("archived_at"),
 		createdAt: timestamp("created_at").notNull().defaultNow(),
 		updatedAt: timestamp("updated_at").notNull().defaultNow(),
 	},

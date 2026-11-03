@@ -11,6 +11,7 @@ const TABLE: Record<ObjectKey, string> = {
 	contact: `"contact"`,
 	company: `"company"`,
 	deal: `"deal"`,
+	product: `"product"`,
 };
 
 // Built-in columns by field id (raw, fixed names only)
@@ -45,6 +46,12 @@ const COLUMNS: Record<ObjectKey, Record<string, string>> = {
 		ownerId: `"deal"."owner_id"`,
 		expectedCloseAt: `"deal"."expected_close_at"`,
 		createdAt: `"deal"."created_at"`,
+	},
+	product: {
+		name: `"product"."name"`,
+		sku: `"product"."sku"`,
+		description: `"product"."description"`,
+		createdAt: `"product"."created_at"`,
 	},
 };
 

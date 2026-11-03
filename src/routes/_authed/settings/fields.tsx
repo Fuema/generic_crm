@@ -268,7 +268,9 @@ function FieldsPage() {
 								? m.nav_contacts()
 								: key === "company"
 									? m.nav_companies()
-									: m.nav_deals()}
+									: key === "deal"
+										? m.nav_deals()
+										: m.nav_products()}
 						</button>
 					))}
 				</fieldset>

@@ -6,9 +6,9 @@ first**: vision, decisions, data model, customization engine, portal, phases,
 conventions and pitfalls live there.
 
 ## Where things stand
-- **Phase 2 (Sales) in progress** (spec §16; phases 0–1 done). Step 1, pipelines (#22), is
-  merged; step 2, deals, is built (migration `0007` applied to dev); **next is step 3,
-  products rebuilt.** Spec §16.1 is the handoff: the 7-step phase 2 plan, what waits on the
+- **Phase 2 (Sales) in progress** (spec §16; phases 0–1 done). Steps 1–2, pipelines (#22)
+  and deals (#23), are merged; step 3, products, is built (migration `0008` applied to
+  dev); **next is step 4, quotes.** Spec §16.1 is the handoff: the 7-step phase 2 plan, what waits on the
   owner, how to resume.
 - Quotes/invoices are printable pages, not generated PDFs (Workers free-plan CPU, spec §3).
 - Modules that point to contacts must also move their rows in `mergeContacts` (deals do;
