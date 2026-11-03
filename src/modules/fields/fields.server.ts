@@ -6,7 +6,7 @@ import {
 	inArray,
 	isNull,
 	max,
-	ne,
+	notInArray,
 	sql,
 } from "drizzle-orm";
 import { db } from "#/db/index";
@@ -516,8 +516,10 @@ export async function prepareCustom(
 	objectKey: ObjectKey,
 	input: Record<string, unknown>,
 	existing: Record<string, Json> = {},
-	exceptId?: string,
+	// The record being saved (and, for a merge, the duplicate giving up its values)
+	exceptId?: string | string[],
 ) {
+	const except = typeof exceptId === "string" ? [exceptId] : (exceptId ?? []);
 	const { fields } = await listFields(workspaceId, objectKey, {
 		includeArchived: true,
 	});
@@ -545,7 +547,7 @@ export async function prepareCustom(
 				and(
 					eq(table.workspaceId, workspaceId),
 					sql`lower(${table.custom} ->> ${def.key}) = lower(${result[def.key] as string})`,
-					exceptId ? ne(table.id, exceptId) : undefined,
+					except.length ? notInArray(table.id, except) : undefined,
 				),
 			)
 			.limit(1);

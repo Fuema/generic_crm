@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requirePermission } from "#/lib/authz";
 import * as data from "./contacts.server";
+import { mergeContactsSchema, mergeSearchSchema } from "./merge";
 import {
 	companyInputSchema,
 	companySearchSchema,
@@ -77,6 +78,26 @@ export const restoreContact = createServerFn({ method: "POST" })
 			member(context.session.user.id),
 			id,
 			false,
+		),
+	);
+
+// Other active contacts to merge the open one with
+export const searchMergeCandidates = createServerFn({ method: "GET" })
+	.middleware([requirePermission({ contact: ["read"] })])
+	.validator(mergeSearchSchema)
+	.handler(({ data: { excludeId, q }, context }) =>
+		data.searchMergeCandidates(context.workspaceId, excludeId, q),
+	);
+
+// Merging archives the duplicate, so it needs delete as well as update
+export const mergeContacts = createServerFn({ method: "POST" })
+	.middleware([requirePermission({ contact: ["update", "delete"] })])
+	.validator(mergeContactsSchema)
+	.handler(({ data: input, context }) =>
+		data.mergeContacts(
+			context.workspaceId,
+			member(context.session.user.id),
+			input,
 		),
 	);
 

@@ -4,7 +4,13 @@ import {
 	notFound,
 	useRouter,
 } from "@tanstack/react-router";
-import { Archive, ArchiveRestore, ArrowLeft, Pencil } from "lucide-react";
+import {
+	Archive,
+	ArchiveRestore,
+	ArrowLeft,
+	Merge,
+	Pencil,
+} from "lucide-react";
 import { useState } from "react";
 import { FormAlert } from "#/components/Auth/FormParts";
 import { formatDate } from "#/components/data/ListControls";
@@ -13,6 +19,7 @@ import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { roleCan } from "#/lib/permissions";
 import { ContactFormDialog } from "#/modules/contacts/components/ContactFormDialog";
+import { MergeContactDialog } from "#/modules/contacts/components/MergeContactDialog";
 import { StageBadge } from "#/modules/contacts/components/StageBadge";
 import {
 	archiveContact,
@@ -84,8 +91,10 @@ function ContactPage() {
 	const can = {
 		update: roleCan(access?.role, { contact: ["update"] }),
 		archive: roleCan(access?.role, { contact: ["delete"] }),
+		merge: roleCan(access?.role, { contact: ["update", "delete"] }),
 	};
 	const [open, setOpen] = useState(false);
+	const [merging, setMerging] = useState(false);
 	const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(
 		null,
 	);
@@ -155,6 +164,15 @@ function ContactPage() {
 					{can.update && !archived ? (
 						<Button type="button" onClick={() => setOpen(true)}>
 							<Pencil /> {m.common_edit()}
+						</Button>
+					) : null}
+					{can.merge && !archived ? (
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => setMerging(true)}
+						>
+							<Merge /> {m.merge_action()}
 						</Button>
 					) : null}
 					{can.archive ? (
@@ -248,6 +266,12 @@ function ContactPage() {
 				</Card>
 			</div>
 
+			<MergeContactDialog
+				open={merging}
+				onOpenChange={setMerging}
+				contactId={contact.id}
+				name={name}
+			/>
 			<ContactFormDialog
 				open={open}
 				onOpenChange={setOpen}

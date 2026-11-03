@@ -7,8 +7,11 @@ conventions and pitfalls live there.
 
 ## Where things stand
 - **Phase 1 in progress** (spec §16; phase 0 done). Steps 1–5 and 6a (CSV import/export,
-  #18) are merged; **next is step 6b, merging duplicate contacts: plan it with the owner
-  first.** Spec §16.1 is the handoff: the draft plan, what waits on the owner, how to resume.
+  #18) are merged; 6b (merging duplicate contacts, spec §10) is built and waits on the
+  owner's browser check. **Next is the final check of phase 1's acceptance criteria**, then
+  the owner decides on phase 2. Spec §16.1 is the handoff: what waits on the owner, how to resume.
+- Modules that point to contacts (deals, invoices, portal access…) must also move their rows
+  in `mergeContacts` (spec §10).
 - New modules live in `src/modules/` and `src/platform/` (spec §4); older code is still the
   reference project `my-tanstack-app` (frozen; GitHub `Fuema/bun_tanstack_neon_cloudflare`)
   until its module is rebuilt.
