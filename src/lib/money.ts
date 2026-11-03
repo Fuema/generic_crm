@@ -76,6 +76,10 @@ export function computeTotals(
 	};
 }
 
+export function quoteNumberLabel(n: number) {
+	return `QUO-${String(n).padStart(4, "0")}`;
+}
+
 export function orderNumberLabel(n: number) {
 	return `ORD-${String(n).padStart(4, "0")}`;
 }

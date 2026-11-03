@@ -41,6 +41,8 @@ import {
 	customFieldLabels,
 } from "#/modules/fields/components/CustomFields";
 import { getRecordFields } from "#/modules/fields/fields";
+import { RelatedQuotes } from "#/modules/quotes/components/RelatedQuotes";
+import { listRelatedQuotes } from "#/modules/quotes/quotes";
 import { RecordTimeline } from "#/modules/records/components/RecordTimeline";
 import { TagEditor } from "#/modules/records/components/TagEditor";
 import { getTimeline, listWorkspaceTags } from "#/modules/records/records";
@@ -53,7 +55,7 @@ export const Route = createFileRoute("/_authed/contacts/$contactId")({
 				subjectType: "contact" as const,
 				subjectId: params.contactId,
 			};
-			const [detail, options, timeline, allTags, fields, deals] =
+			const [detail, options, timeline, allTags, fields, deals, quotes] =
 				await Promise.all([
 					getContact({ data: { id: params.contactId } }),
 					getContactFormOptions(),
@@ -61,8 +63,9 @@ export const Route = createFileRoute("/_authed/contacts/$contactId")({
 					listWorkspaceTags(),
 					getRecordFields({ data: { objectKey: "contact" } }),
 					listRelatedDeals({ data: { contactId: params.contactId } }),
+					listRelatedQuotes({ data: { contactId: params.contactId } }),
 				]);
-			return { ...detail, options, timeline, allTags, fields, deals };
+			return { ...detail, options, timeline, allTags, fields, deals, quotes };
 		} catch (e) {
 			// Unknown, malformed or another workspace's id: the same "not found"
 			if (e instanceof Response && (e.status === 404 || e.status === 400))
@@ -98,6 +101,7 @@ function ContactPage() {
 		options,
 		fields,
 		deals,
+		quotes,
 	} = Route.useLoaderData();
 	const { access, session } = Route.useRouteContext();
 	const can = {
@@ -105,6 +109,7 @@ function ContactPage() {
 		archive: roleCan(access?.role, { contact: ["delete"] }),
 		merge: roleCan(access?.role, { contact: ["update", "delete"] }),
 		createDeal: roleCan(access?.role, { deal: ["create"] }),
+		createQuote: roleCan(access?.role, { quote: ["create"] }),
 	};
 	const [open, setOpen] = useState(false);
 	const [merging, setMerging] = useState(false);
@@ -285,6 +290,12 @@ function ContactPage() {
 				contact={archived ? null : contact}
 				canCreate={can.createDeal && !archived}
 				options={options}
+			/>
+
+			<RelatedQuotes
+				quotes={quotes}
+				from={archived ? null : { contactId: contact.id }}
+				canCreate={can.createQuote && !archived}
 			/>
 
 			<MergeContactDialog

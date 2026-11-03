@@ -68,7 +68,7 @@ export function emptyDeal(
 }
 
 // Search box over the workspace's active contacts; one is chosen
-function ContactPicker({
+export function ContactPicker({
 	id,
 	value,
 	onChange,

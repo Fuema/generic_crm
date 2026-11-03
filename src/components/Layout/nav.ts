@@ -2,6 +2,7 @@ import {
 	Building2,
 	CalendarDays,
 	Contact,
+	FileSignature,
 	FileText,
 	FolderKanban,
 	Handshake,
@@ -46,6 +47,7 @@ export const NAV_GROUPS: {
 		label: m.nav_sales,
 		items: [
 			{ title: m.nav_deals, to: "/deals", icon: Handshake },
+			{ title: m.nav_quotes, to: "/quotes", icon: FileSignature },
 			{ title: m.nav_customers, to: "/customers", icon: UserRound },
 			{ title: m.nav_products, to: "/products", icon: Package },
 			{ title: m.nav_orders, to: "/orders", icon: ShoppingCart },

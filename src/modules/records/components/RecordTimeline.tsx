@@ -51,6 +51,8 @@ function describe(e: TimelineEvent, fieldLabels: Record<string, string>) {
 		otherName?: string;
 		toName?: string;
 		reason?: string | null;
+		fields?: string[];
+		email?: boolean;
 	};
 	switch (kind) {
 		case "created":
@@ -78,12 +80,24 @@ function describe(e: TimelineEvent, fieldLabels: Record<string, string>) {
 				? m.event_deal_lost_reason({ reason: payload.reason })
 				: m.event_deal_lost();
 		case "reopened":
-			return m.event_deal_reopened();
+			return e.type.startsWith("quote.")
+				? m.event_quote_reopened()
+				: m.event_deal_reopened();
 		case "merged":
 			return payload.role === "duplicate"
 				? m.event_merged_into({ name: payload.otherName ?? "" })
 				: m.event_merged_from({ name: payload.otherName ?? "" });
+		case "sent":
+			return payload.email ? m.event_quote_emailed() : m.event_quote_sent();
+		case "accepted":
+			return m.event_quote_accepted();
+		case "declined":
+			return payload.reason
+				? m.event_quote_declined_reason({ reason: payload.reason })
+				: m.event_quote_declined();
 		case "updated":
+			if (!payload.changes && e.type.startsWith("quote."))
+				return m.event_quote_updated();
 			return m.event_updated({
 				fields: Object.keys(payload.changes ?? {})
 					.map((key) => FIELD_LABELS[key]?.() ?? fieldLabels[key] ?? key)

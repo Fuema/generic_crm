@@ -17,6 +17,7 @@ import {
 	fieldDefinition,
 	fieldGroup,
 	product,
+	quote,
 } from "#/db/schema";
 import { m } from "#/paraglide/messages.js";
 import {
@@ -47,7 +48,7 @@ function clientError(status: number, message: string) {
 	return new Response(message, { status });
 }
 
-const RECORD_TABLES = { contact, company, deal, product } as const;
+const RECORD_TABLES = { contact, company, deal, product, quote } as const;
 
 const definitionColumns = {
 	id: fieldDefinition.id,

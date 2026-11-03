@@ -10,9 +10,16 @@ import { baseLocale, getLocale } from "#/paraglide/runtime.js";
 // The product name is the same in every language; one source for UI and emails
 export const APP_NAME = m.app_name({}, { locale: baseLocale });
 
-type Email = { to: string; subject: string; html: string; text: string };
+type Email = {
+	to: string;
+	subject: string;
+	html: string;
+	text: string;
+	// Where replies go (e.g. the member who sent a quote)
+	replyTo?: string;
+};
 
-function escapeHtml(value: string) {
+export function escapeHtml(value: string) {
 	return value
 		.replaceAll("&", "&amp;")
 		.replaceAll("<", "&lt;")
@@ -21,7 +28,7 @@ function escapeHtml(value: string) {
 		.replaceAll("'", "&#39;");
 }
 
-async function sendEmail({ to, subject, html, text }: Email) {
+export async function sendEmail({ to, subject, html, text, replyTo }: Email) {
 	const apiKey = process.env.RESEND_API_KEY;
 	const from = process.env.EMAIL_FROM;
 
@@ -48,7 +55,15 @@ async function sendEmail({ to, subject, html, text }: Email) {
 			Authorization: `Bearer ${apiKey}`,
 			"Content-Type": "application/json",
 		},
-		body: JSON.stringify({ from, to, subject, html, text }),
+		body: JSON.stringify({
+			from,
+			to,
+			// A subject is one line, whatever names went into it
+			subject: subject.replace(/[\r\n]+/g, " "),
+			html,
+			text,
+			...(replyTo ? { reply_to: replyTo } : {}),
+		}),
 	});
 
 	if (!response.ok) {

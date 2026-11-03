@@ -68,6 +68,9 @@ const BUILT_IN_COLUMN_LABELS: Record<string, () => string> = {
 	sku: m.product_sku,
 	unitPriceCents: m.product_price_col,
 	description: m.product_description,
+	dealId: m.quote_deal,
+	totalCents: m.quote_total,
+	validUntil: m.quote_valid_until,
 };
 
 export function columnLabel(column: string, defs: FieldDef[]) {

@@ -102,6 +102,14 @@ export const BUILT_IN_FIELDS: Record<
 		expectedCloseAt: { kind: "date", label: m.deal_expected_close },
 		createdAt: { kind: "date", label: m.contacts_col_added },
 	},
+	quote: {
+		status: { kind: "choice", label: m.quote_status },
+		companyId: { kind: "ref", label: m.contact_company },
+		ownerId: { kind: "ref", label: m.common_owner },
+		tag: { kind: "ref", label: m.tags_label },
+		validUntil: { kind: "date", label: m.quote_valid_until },
+		createdAt: { kind: "date", label: m.contacts_col_added },
+	},
 	product: {
 		name: { kind: "text", label: m.product_name },
 		sku: { kind: "text", label: m.product_sku },
@@ -144,6 +152,15 @@ export const BUILT_IN_COLUMNS: Record<ObjectKey, string[]> = {
 		"createdAt",
 	],
 	product: ["sku", "unitPriceCents", "description", "createdAt"],
+	quote: [
+		"status",
+		"contactId",
+		"companyId",
+		"dealId",
+		"totalCents",
+		"validUntil",
+		"createdAt",
+	],
 };
 export const DEFAULT_COLUMNS: Record<ObjectKey, string[]> = {
 	contact: [
@@ -164,6 +181,7 @@ export const DEFAULT_COLUMNS: Record<ObjectKey, string[]> = {
 	],
 	deal: ["valueCents", "stageId", "contactId", "expectedCloseAt", "ownerId"],
 	product: ["sku", "unitPriceCents", "description"],
+	quote: ["status", "contactId", "dealId", "totalCents", "validUntil"],
 };
 export const DEFAULT_SORT: Record<
 	ObjectKey,
@@ -173,6 +191,7 @@ export const DEFAULT_SORT: Record<
 	company: { field: "name", dir: "asc" },
 	deal: { field: "createdAt", dir: "desc" },
 	product: { field: "name", dir: "asc" },
+	quote: { field: "number", dir: "desc" },
 };
 // Built-in columns the server can sort by
 export const BUILT_IN_SORT: Record<ObjectKey, string[]> = {
@@ -180,6 +199,7 @@ export const BUILT_IN_SORT: Record<ObjectKey, string[]> = {
 	company: ["name", "domain", "createdAt"],
 	deal: ["name", "valueCents", "expectedCloseAt", "createdAt"],
 	product: ["name", "sku", "unitPriceCents", "createdAt"],
+	quote: ["number", "totalCents", "validUntil", "createdAt"],
 };
 
 const filterValue = z.union([

@@ -11,7 +11,7 @@ import { workspaceCounter, workspaceSetting } from "#/db/schema";
 // requests can never receive the same number.
 export async function nextDocumentNumber(
 	workspaceId: string,
-	kind: "order" | "invoice",
+	kind: "order" | "invoice" | "quote",
 	year = 0,
 ) {
 	const [row] = await db
