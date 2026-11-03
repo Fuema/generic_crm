@@ -14,9 +14,10 @@ import {
 import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
 import type { CompanySearch, ContactSearch } from "#/modules/contacts/schema";
-import type { FieldDef, ObjectKey } from "#/modules/fields/schema";
+import type { FieldDef } from "#/modules/fields/schema";
 import { localized } from "#/modules/fields/schema";
 import { m } from "#/paraglide/messages.js";
+import type { CsvObjectKey as ObjectKey } from "../columns";
 import { guessMapping, IMPORT_FIELDS } from "../columns";
 import { CSV_LIMITS, parseCsv } from "../csv";
 import { exportCsv, importCsv } from "../transfer";

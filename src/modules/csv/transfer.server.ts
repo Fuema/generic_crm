@@ -25,7 +25,6 @@ import { customChanges, listFields } from "#/modules/fields/fields.server";
 import {
 	type FieldDef,
 	localized,
-	type ObjectKey,
 	validateCustomValues,
 } from "#/modules/fields/schema";
 import { colorFor } from "#/modules/records/records.server";
@@ -38,6 +37,7 @@ import { changedFields } from "#/platform/events.server";
 import { uuidv7 } from "#/platform/ids";
 import type { Json } from "#/platform/json";
 import {
+	type CsvObjectKey,
 	consentFromText,
 	customFromText,
 	customToText,
@@ -71,7 +71,7 @@ const MAX_ERRORS = 100;
 
 export async function exportCsv(
 	workspaceId: string,
-	objectKey: ObjectKey,
+	objectKey: CsvObjectKey,
 	search: ContactSearch | CompanySearch,
 ) {
 	if (objectKey === "contact") {
@@ -223,7 +223,7 @@ function cellReader(row: string[], mapping: string[]) {
 
 function rowKeys(
 	v: Map<string, string>,
-	objectKey: ObjectKey,
+	objectKey: CsvObjectKey,
 	uniqueDefs: FieldDef[],
 ) {
 	const dedupe = (
@@ -262,7 +262,7 @@ async function memberEmails(workspaceId: string) {
 // unique custom field, in one query: per field, lowercased value -> record id
 async function uniqueHolders(
 	workspaceId: string,
-	objectKey: ObjectKey,
+	objectKey: CsvObjectKey,
 	wanted: { key: string; values: string[] }[],
 ) {
 	const holders = wanted.map(() => new Map<string, string>());
@@ -293,7 +293,7 @@ async function uniqueHolders(
 
 async function existingRecords(
 	workspaceId: string,
-	objectKey: ObjectKey,
+	objectKey: CsvObjectKey,
 	keys: string[],
 ) {
 	if (!keys.length) return new Map<string, Existing>();
@@ -327,7 +327,7 @@ async function existingRecords(
 // written here
 async function planImport(
 	workspaceId: string,
-	objectKey: ObjectKey,
+	objectKey: CsvObjectKey,
 	input: ImportInput,
 ) {
 	const { fields: defs } = await listFields(workspaceId, objectKey, {
@@ -597,7 +597,7 @@ async function planImport(
 
 // Table columns of a checked row
 function columnsOf(
-	objectKey: ObjectKey,
+	objectKey: CsvObjectKey,
 	i: Record<string, unknown>,
 	companyId: string | null,
 ): Record<string, unknown> {
@@ -628,7 +628,7 @@ function columnsOf(
 export async function importCsv(
 	workspaceId: string,
 	userId: string,
-	objectKey: ObjectKey,
+	objectKey: CsvObjectKey,
 	input: ImportInput,
 ): Promise<ImportResult> {
 	if (

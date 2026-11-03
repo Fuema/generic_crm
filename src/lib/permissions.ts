@@ -15,6 +15,7 @@ export const statements = {
 	field: ["create", "read", "update", "delete"],
 	// Pipelines and stages (settings): owners and admins manage them
 	pipeline: ["create", "read", "update", "delete"],
+	deal: ["create", "read", "update", "delete"],
 	contact: ["create", "read", "update", "delete"],
 	company: ["create", "read", "update", "delete"],
 	project: ["create", "read", "update", "delete"],
@@ -33,6 +34,7 @@ export const owner = ac.newRole({
 	...ownerAc.statements,
 	field: ["create", "read", "update", "delete"],
 	pipeline: ["create", "read", "update", "delete"],
+	deal: ["create", "read", "update", "delete"],
 	contact: ["create", "read", "update", "delete"],
 	company: ["create", "read", "update", "delete"],
 	project: ["create", "read", "update", "delete"],
@@ -49,6 +51,7 @@ export const admin = ac.newRole({
 	...adminAc.statements,
 	field: ["create", "read", "update", "delete"],
 	pipeline: ["create", "read", "update", "delete"],
+	deal: ["create", "read", "update", "delete"],
 	contact: ["create", "read", "update", "delete"],
 	company: ["create", "read", "update", "delete"],
 	project: ["create", "read", "update", "delete"],
@@ -63,6 +66,7 @@ export const admin = ac.newRole({
 export const editor = ac.newRole({
 	field: ["read"],
 	pipeline: ["read"],
+	deal: ["create", "read", "update"],
 	contact: ["create", "read", "update"],
 	company: ["create", "read", "update"],
 	project: ["create", "read", "update"],
@@ -78,6 +82,7 @@ export const editor = ac.newRole({
 export const viewer = ac.newRole({
 	field: ["read"],
 	pipeline: ["read"],
+	deal: ["read"],
 	contact: ["read"],
 	company: ["read"],
 	project: ["read"],

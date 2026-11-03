@@ -5,6 +5,7 @@ import {
 	company,
 	contact,
 	customer,
+	deal,
 	event,
 	fieldDefinition,
 	fieldGroup,
@@ -23,6 +24,8 @@ import {
 import { getWorkspaceSettings, nextDocumentNumber } from "#/lib/billing.server";
 import { assertWorkspaceRefs } from "#/lib/workspace-refs.server";
 import * as contacts from "#/modules/contacts/contacts.server";
+import * as deals from "#/modules/deals/deals.server";
+import * as pipelines from "#/modules/pipelines/pipelines.server";
 import * as records from "#/modules/records/records.server";
 import { applyTemplateToNewWorkspace } from "#/modules/templates/templates.server";
 import { cleanup, createWorkspace, type Workspace } from "./fixtures";
@@ -171,6 +174,20 @@ describe("database rules", () => {
 		const subject = { subjectType: "contact" as const, subjectId: ana.id };
 		await records.addTag(c.workspaceId, actor, { ...subject, name: "vip" });
 		await records.createNote(c.workspaceId, actor, { ...subject, body: "Hi" });
+		const [sales] = await pipelines.listPipelines(c.workspaceId, {
+			includeArchived: false,
+		});
+		await deals.createDeal(c.workspaceId, actor, {
+			name: "Deal",
+			pipelineId: sales.id,
+			stageId: sales.stages[0].id,
+			valueCents: 100,
+			expectedClose: "",
+			contactId: ana.id,
+			companyId: acme.id,
+			ownerId: "",
+			lostReason: "",
+		});
 
 		const phase1 = [
 			company,
@@ -184,6 +201,7 @@ describe("database rules", () => {
 			savedView,
 			pipeline,
 			pipelineStage,
+			deal,
 		];
 		for (const table of phase1) {
 			const [{ n }] = await db

@@ -136,7 +136,7 @@ export const idSchema = z.object({
 // Saved-view state in the URL: filters (all must match), visible columns, the
 // active view, and a sort that may be a custom field ("custom.<key>"). The
 // server checks all of it against the field definitions.
-function viewState(defaultSort: string) {
+export function viewState(defaultSort: string) {
 	return {
 		sort: z.string().max(60).catch(defaultSort).default(defaultSort),
 		filters: filtersSchema.catch([]).default([]),

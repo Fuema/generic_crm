@@ -34,6 +34,8 @@ import {
 	contactName,
 	type EmailConsent,
 } from "#/modules/contacts/schema";
+import { RelatedDeals } from "#/modules/deals/components/RelatedDeals";
+import { listRelatedDeals } from "#/modules/deals/deals";
 import {
 	CustomFieldsView,
 	customFieldLabels,
@@ -51,14 +53,16 @@ export const Route = createFileRoute("/_authed/contacts/$contactId")({
 				subjectType: "contact" as const,
 				subjectId: params.contactId,
 			};
-			const [detail, options, timeline, allTags, fields] = await Promise.all([
-				getContact({ data: { id: params.contactId } }),
-				getContactFormOptions(),
-				getTimeline({ data: subject }),
-				listWorkspaceTags(),
-				getRecordFields({ data: { objectKey: "contact" } }),
-			]);
-			return { ...detail, options, timeline, allTags, fields };
+			const [detail, options, timeline, allTags, fields, deals] =
+				await Promise.all([
+					getContact({ data: { id: params.contactId } }),
+					getContactFormOptions(),
+					getTimeline({ data: subject }),
+					listWorkspaceTags(),
+					getRecordFields({ data: { objectKey: "contact" } }),
+					listRelatedDeals({ data: { contactId: params.contactId } }),
+				]);
+			return { ...detail, options, timeline, allTags, fields, deals };
 		} catch (e) {
 			// Unknown, malformed or another workspace's id: the same "not found"
 			if (e instanceof Response && (e.status === 404 || e.status === 400))
@@ -85,13 +89,22 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 
 function ContactPage() {
 	const router = useRouter();
-	const { contact, company, ownerName, timeline, allTags, options, fields } =
-		Route.useLoaderData();
+	const {
+		contact,
+		company,
+		ownerName,
+		timeline,
+		allTags,
+		options,
+		fields,
+		deals,
+	} = Route.useLoaderData();
 	const { access, session } = Route.useRouteContext();
 	const can = {
 		update: roleCan(access?.role, { contact: ["update"] }),
 		archive: roleCan(access?.role, { contact: ["delete"] }),
 		merge: roleCan(access?.role, { contact: ["update", "delete"] }),
+		createDeal: roleCan(access?.role, { deal: ["create"] }),
 	};
 	const [open, setOpen] = useState(false);
 	const [merging, setMerging] = useState(false);
@@ -265,6 +278,14 @@ function ContactPage() {
 					</CardContent>
 				</Card>
 			</div>
+
+			<RelatedDeals
+				deals={deals}
+				currency={fields.currency}
+				contact={archived ? null : contact}
+				canCreate={can.createDeal && !archived}
+				options={options}
+			/>
 
 			<MergeContactDialog
 				open={merging}

@@ -36,6 +36,10 @@ const FIELD_LABELS: Record<string, () => string> = {
 	domain: m.company_domain,
 	city: m.common_city,
 	country: m.common_country,
+	valueCents: m.deals_col_value,
+	expectedCloseAt: m.deal_expected_close,
+	contactId: m.deal_contact,
+	lostReason: m.deal_lost_reason,
 };
 
 function describe(e: TimelineEvent, fieldLabels: Record<string, string>) {
@@ -45,6 +49,8 @@ function describe(e: TimelineEvent, fieldLabels: Record<string, string>) {
 		name?: string;
 		role?: "kept" | "duplicate";
 		otherName?: string;
+		toName?: string;
+		reason?: string | null;
 	};
 	switch (kind) {
 		case "created":
@@ -63,6 +69,16 @@ function describe(e: TimelineEvent, fieldLabels: Record<string, string>) {
 			return m.event_note_pinned();
 		case "note_unpinned":
 			return m.event_note_unpinned();
+		case "stage_changed":
+			return m.event_stage_changed({ stage: payload.toName ?? "" });
+		case "won":
+			return m.event_deal_won();
+		case "lost":
+			return payload.reason
+				? m.event_deal_lost_reason({ reason: payload.reason })
+				: m.event_deal_lost();
+		case "reopened":
+			return m.event_deal_reopened();
 		case "merged":
 			return payload.role === "duplicate"
 				? m.event_merged_into({ name: payload.otherName ?? "" })

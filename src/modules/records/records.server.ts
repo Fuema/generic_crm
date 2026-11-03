@@ -3,6 +3,7 @@ import { db } from "#/db/index";
 import {
 	company,
 	contact,
+	deal,
 	event,
 	note,
 	recordTag,
@@ -23,7 +24,7 @@ function clientError(status: number, message: string) {
 	return new Response(message, { status });
 }
 
-const SUBJECT_TABLES = { contact, company } as const;
+const SUBJECT_TABLES = { contact, company, deal } as const;
 
 // The record must exist in this workspace; writes also need it not archived
 async function assertSubject(
@@ -43,7 +44,9 @@ async function assertSubject(
 			404,
 			subjectType === "contact"
 				? m.error_contact_not_found()
-				: m.error_company_not_found(),
+				: subjectType === "company"
+					? m.error_company_not_found()
+					: m.error_deal_not_found(),
 		);
 	}
 	if (writable && row.archivedAt) {
