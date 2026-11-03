@@ -38,6 +38,10 @@ import {
 	OBJECT_KEYS,
 	type ObjectKey,
 } from "#/modules/fields/schema";
+import {
+	applyGenericTemplate,
+	getTemplateStatus,
+} from "#/modules/templates/templates";
 import { m } from "#/paraglide/messages.js";
 
 // Settings → Fields. Everyone can see the definitions; owners and admins change
@@ -48,7 +52,13 @@ export const Route = createFileRoute("/_authed/settings/fields")({
 		archived: z.boolean().catch(false).default(false),
 	}),
 	loaderDeps: ({ search }) => ({ object: search.object }),
-	loader: ({ deps }) => getFieldSettings({ data: { objectKey: deps.object } }),
+	loader: async ({ deps }) => {
+		const [settings, template] = await Promise.all([
+			getFieldSettings({ data: { objectKey: deps.object } }),
+			getTemplateStatus(),
+		]);
+		return { ...settings, template };
+	},
 	component: FieldsPage,
 });
 
@@ -59,7 +69,9 @@ function FieldsPage() {
 	const router = useRouter();
 	const navigate = Route.useNavigate();
 	const { object, archived: showArchived } = Route.useSearch();
-	const { groups, fields } = Route.useLoaderData();
+	const { groups, fields, template } = Route.useLoaderData();
+	const [applying, setApplying] = useState(false);
+	const templateMissing = template.fieldsMissing + template.viewsMissing;
 	const { access } = Route.useRouteContext();
 	const canManage = roleCan(access?.role, { field: ["update"] });
 	const [status, setStatus] = useState<Status>(null);
@@ -275,6 +287,36 @@ function FieldsPage() {
 				message={status?.message ?? null}
 				variant={status?.ok ? "success" : "destructive"}
 			/>
+
+			{canManage && templateMissing > 0 ? (
+				<Card>
+					<CardHeader>
+						<CardTitle className="text-base">{m.template_title()}</CardTitle>
+					</CardHeader>
+					<CardContent className="flex flex-wrap items-center gap-4">
+						<p className="flex-1 text-sm text-muted-foreground">
+							{m.template_missing({
+								fields: template.fieldsMissing,
+								views: template.viewsMissing,
+							})}
+						</p>
+						<Button
+							type="button"
+							disabled={applying}
+							onClick={async () => {
+								setApplying(true);
+								await run(async () => {
+									const added = await applyGenericTemplate();
+									setStatus({ ok: true, message: m.template_applied(added) });
+								});
+								setApplying(false);
+							}}
+						>
+							{applying ? m.template_applying() : m.template_apply()}
+						</Button>
+					</CardContent>
+				</Card>
+			) : null}
 
 			{fields.length === 0 && groups.length === 0 ? (
 				<p className="text-sm text-muted-foreground">{m.fields_empty()}</p>

@@ -1,0 +1,132 @@
+{
+	"key": "generic",
+	"version": 1,
+	"objects": {
+		"contact": {
+			"groups": [
+				{
+					"label": { "en": "Profile", "es": "Perfil" },
+					"fields": [
+						{
+							"key": "source",
+							"type": "single_choice",
+							"label": { "en": "Source", "es": "Origen" },
+							"help": {
+								"en": "How this person found you",
+								"es": "Cómo te conoció esta persona"
+							},
+							"options": [
+								{ "value": "website", "label": { "en": "Website", "es": "Sitio web" } },
+								{ "value": "referral", "label": { "en": "Referral", "es": "Recomendación" } },
+								{ "value": "event", "label": { "en": "Event", "es": "Evento" } },
+								{ "value": "social_media", "label": { "en": "Social media", "es": "Redes sociales" } },
+								{ "value": "advertising", "label": { "en": "Advertising", "es": "Publicidad" } },
+								{ "value": "other", "label": { "en": "Other", "es": "Otro" } }
+							]
+						},
+						{
+							"key": "preferred_contact",
+							"type": "single_choice",
+							"label": { "en": "Preferred contact method", "es": "Medio de contacto preferido" },
+							"options": [
+								{ "value": "email", "label": { "en": "Email", "es": "Correo electrónico" } },
+								{ "value": "phone", "label": { "en": "Phone", "es": "Teléfono" } },
+								{ "value": "whatsapp", "label": { "en": "WhatsApp", "es": "WhatsApp" } }
+							]
+						},
+						{
+							"key": "birthday",
+							"type": "date",
+							"label": { "en": "Birthday", "es": "Cumpleaños" }
+						},
+						{
+							"key": "linkedin",
+							"type": "url",
+							"label": { "en": "LinkedIn", "es": "LinkedIn" }
+						}
+					]
+				}
+			]
+		},
+		"company": {
+			"groups": [
+				{
+					"label": { "en": "Profile", "es": "Perfil" },
+					"fields": [
+						{
+							"key": "industry",
+							"type": "single_choice",
+							"label": { "en": "Industry", "es": "Sector" },
+							"options": [
+								{ "value": "retail", "label": { "en": "Retail", "es": "Comercio minorista" } },
+								{ "value": "services", "label": { "en": "Professional services", "es": "Servicios profesionales" } },
+								{ "value": "technology", "label": { "en": "Technology", "es": "Tecnología" } },
+								{ "value": "manufacturing", "label": { "en": "Manufacturing", "es": "Industria" } },
+								{ "value": "construction", "label": { "en": "Construction", "es": "Construcción" } },
+								{ "value": "health", "label": { "en": "Health", "es": "Salud" } },
+								{ "value": "education", "label": { "en": "Education", "es": "Educación" } },
+								{ "value": "hospitality", "label": { "en": "Hospitality and food", "es": "Hostelería y restauración" } },
+								{ "value": "finance", "label": { "en": "Finance and insurance", "es": "Finanzas y seguros" } },
+								{ "value": "real_estate", "label": { "en": "Real estate", "es": "Inmobiliaria" } },
+								{ "value": "transport", "label": { "en": "Transport and logistics", "es": "Transporte y logística" } },
+								{ "value": "nonprofit", "label": { "en": "Non-profit", "es": "Sin ánimo de lucro" } },
+								{ "value": "other", "label": { "en": "Other", "es": "Otro" } }
+							]
+						},
+						{
+							"key": "size",
+							"type": "single_choice",
+							"label": { "en": "Size", "es": "Tamaño" },
+							"options": [
+								{ "value": "s1_10", "label": { "en": "1–10 employees", "es": "1–10 empleados" } },
+								{ "value": "s11_50", "label": { "en": "11–50 employees", "es": "11–50 empleados" } },
+								{ "value": "s51_200", "label": { "en": "51–200 employees", "es": "51–200 empleados" } },
+								{ "value": "s201_1000", "label": { "en": "201–1000 employees", "es": "201–1000 empleados" } },
+								{ "value": "s1000_plus", "label": { "en": "More than 1000 employees", "es": "Más de 1000 empleados" } }
+							]
+						},
+						{
+							"key": "website",
+							"type": "url",
+							"label": { "en": "Website", "es": "Sitio web" }
+						},
+						{
+							"key": "annual_revenue",
+							"type": "money",
+							"label": { "en": "Annual revenue", "es": "Facturación anual" }
+						}
+					]
+				}
+			]
+		}
+	},
+	"views": [
+		{
+			"objectKey": "contact",
+			"name": { "en": "Customers", "es": "Clientes" },
+			"config": {
+				"filters": [{ "field": "lifecycleStage", "op": "any_of", "value": ["customer"] }],
+				"columns": ["email", "companyId", "custom.source", "tags", "ownerId", "createdAt"],
+				"sort": { "field": "name", "dir": "asc" }
+			}
+		},
+		{
+			"objectKey": "contact",
+			"name": { "en": "Leads to qualify", "es": "Prospectos por calificar" },
+			"config": {
+				"filters": [{ "field": "lifecycleStage", "op": "any_of", "value": ["lead", "qualified"] }],
+				"columns": ["email", "companyId", "lifecycleStage", "custom.source", "ownerId", "createdAt"],
+				"sort": { "field": "createdAt", "dir": "desc" }
+			}
+		},
+		{
+			"objectKey": "contact",
+			"name": { "en": "No company yet", "es": "Sin empresa" },
+			"config": {
+				"filters": [{ "field": "companyId", "op": "is_empty" }],
+				"columns": ["email", "phone", "lifecycleStage", "ownerId", "createdAt"],
+				"sort": { "field": "createdAt", "dir": "desc" }
+			}
+		}
+	]
+}

@@ -647,5 +647,10 @@
 	"columns_title": "Columnas",
 	"columns_hint": "Elige las columnas y su orden. El nombre siempre se muestra.",
 	"columns_reset": "Restablecer",
-	"columns_phone": "Teléfono"
+	"columns_phone": "Teléfono",
+	"template_title": "Plantilla genérica",
+	"template_missing": "{fields} campos y {views} vistas compartidas de la plantilla genérica aún no están en este espacio de trabajo. Añadirlos nunca cambia ni quita lo que ya tienes.",
+	"template_apply": "Añadirlos",
+	"template_applying": "Añadiendo...",
+	"template_applied": "Se añadieron {fields} campos, {groups} grupos y {views} vistas compartidas."
 }
