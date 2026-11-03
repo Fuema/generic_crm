@@ -129,6 +129,7 @@ describe("tags", () => {
 			sort: "createdAt" as const,
 			dir: "desc" as const,
 			show: "active" as const,
+			filters: [],
 			tag: tagId,
 		};
 		expect((await contacts.listContacts(b.workspaceId, search)).total).toBe(0);
