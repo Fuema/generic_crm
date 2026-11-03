@@ -6,13 +6,15 @@ first**: vision, decisions, data model, customization engine, portal, phases,
 conventions and pitfalls live there.
 
 ## Where things stand
-- **Phase 2 (Sales) in progress** (spec §16; phases 0–1 done). Steps 1–2, pipelines (#22)
-  and deals (#23), are merged; step 3, products, is built (migration `0008` applied to
-  dev); **next is step 4, quotes.** Spec §16.1 is the handoff: the 7-step phase 2 plan, what waits on the
+- **Phase 2 (Sales) in progress** (spec §16; phases 0–1 done). Steps 1–3, pipelines (#22),
+  deals (#23) and products (#24), are merged; step 4, quotes, is built (migration `0009`
+  applied to dev); **next is step 5, orders and invoices** (incl. "create
+  order from quote"). Spec §16.1 is the handoff: the 7-step phase 2 plan, what waits on the
   owner, how to resume.
 - Quotes/invoices are printable pages, not generated PDFs (Workers free-plan CPU, spec §3).
-- Modules that point to contacts must also move their rows in `mergeContacts` (deals do;
-  quotes, invoices, portal access… follow, spec §10).
+- Modules that point to contacts must also move their rows in `mergeContacts` (deals and
+  quotes do; orders, invoices, portal access… follow, spec §10).
+- Quote "expired" is worked out on read (no cron on the free plan), never stored (spec §17).
 - Deal writes that set or keep a stage take the pipelines' advisory lock and guard the stage
   in the batch (`lockPipelines`/`guard`, spec §10); reuse that for stage-bound records.
 - New modules live in `src/modules/` and `src/platform/` (spec §4); older code is still the

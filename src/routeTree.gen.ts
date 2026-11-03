@@ -38,6 +38,8 @@ import { Route as AuthedOrdersIndexRouteImport } from './routes/_authed/orders/i
 import { Route as AuthedOrdersOrderIdRouteImport } from './routes/_authed/orders/$orderId'
 import { Route as AuthedOrdersNewRouteImport } from './routes/_authed/orders/new'
 import { Route as AuthedProductsIndexRouteImport } from './routes/_authed/products/index'
+import { Route as AuthedQuotesIndexRouteImport } from './routes/_authed/quotes/index'
+import { Route as AuthedQuotesQuoteIdRouteImport } from './routes/_authed/quotes/$quoteId'
 import { Route as AuthedSettingsFieldsRouteImport } from './routes/_authed/settings/fields'
 import { Route as AuthedSettingsPipelinesRouteImport } from './routes/_authed/settings/pipelines'
 import { Route as AuthedWorkspaceMembersRouteImport } from './routes/_authed/workspace/members'
@@ -190,6 +192,16 @@ const AuthedProductsIndexRoute = AuthedProductsIndexRouteImport.update({
   path: '/products/',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedQuotesIndexRoute = AuthedQuotesIndexRouteImport.update({
+  id: '/quotes/',
+  path: '/quotes/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedQuotesQuoteIdRoute = AuthedQuotesQuoteIdRouteImport.update({
+  id: '/quotes/$quoteId',
+  path: '/quotes/$quoteId',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedSettingsFieldsRoute = AuthedSettingsFieldsRouteImport.update({
   id: '/settings/fields',
   path: '/settings/fields',
@@ -243,6 +255,7 @@ export interface FileRoutesByFullPath {
   '/invoices/$invoiceId': typeof AuthedInvoicesInvoiceIdRoute
   '/orders/$orderId': typeof AuthedOrdersOrderIdRoute
   '/orders/new': typeof AuthedOrdersNewRoute
+  '/quotes/$quoteId': typeof AuthedQuotesQuoteIdRoute
   '/settings/fields': typeof AuthedSettingsFieldsRoute
   '/settings/pipelines': typeof AuthedSettingsPipelinesRoute
   '/workspace/members': typeof AuthedWorkspaceMembersRoute
@@ -255,6 +268,7 @@ export interface FileRoutesByFullPath {
   '/invoices/': typeof AuthedInvoicesIndexRoute
   '/orders/': typeof AuthedOrdersIndexRoute
   '/products/': typeof AuthedProductsIndexRoute
+  '/quotes/': typeof AuthedQuotesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -278,6 +292,7 @@ export interface FileRoutesByTo {
   '/invoices/$invoiceId': typeof AuthedInvoicesInvoiceIdRoute
   '/orders/$orderId': typeof AuthedOrdersOrderIdRoute
   '/orders/new': typeof AuthedOrdersNewRoute
+  '/quotes/$quoteId': typeof AuthedQuotesQuoteIdRoute
   '/settings/fields': typeof AuthedSettingsFieldsRoute
   '/settings/pipelines': typeof AuthedSettingsPipelinesRoute
   '/workspace/members': typeof AuthedWorkspaceMembersRoute
@@ -290,6 +305,7 @@ export interface FileRoutesByTo {
   '/invoices': typeof AuthedInvoicesIndexRoute
   '/orders': typeof AuthedOrdersIndexRoute
   '/products': typeof AuthedProductsIndexRoute
+  '/quotes': typeof AuthedQuotesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -316,6 +332,7 @@ export interface FileRoutesById {
   '/_authed/invoices/$invoiceId': typeof AuthedInvoicesInvoiceIdRoute
   '/_authed/orders/$orderId': typeof AuthedOrdersOrderIdRoute
   '/_authed/orders/new': typeof AuthedOrdersNewRoute
+  '/_authed/quotes/$quoteId': typeof AuthedQuotesQuoteIdRoute
   '/_authed/settings/fields': typeof AuthedSettingsFieldsRoute
   '/_authed/settings/pipelines': typeof AuthedSettingsPipelinesRoute
   '/_authed/workspace/members': typeof AuthedWorkspaceMembersRoute
@@ -328,6 +345,7 @@ export interface FileRoutesById {
   '/_authed/invoices/': typeof AuthedInvoicesIndexRoute
   '/_authed/orders/': typeof AuthedOrdersIndexRoute
   '/_authed/products/': typeof AuthedProductsIndexRoute
+  '/_authed/quotes/': typeof AuthedQuotesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -353,6 +371,7 @@ export interface FileRouteTypes {
     | '/invoices/$invoiceId'
     | '/orders/$orderId'
     | '/orders/new'
+    | '/quotes/$quoteId'
     | '/settings/fields'
     | '/settings/pipelines'
     | '/workspace/members'
@@ -365,6 +384,7 @@ export interface FileRouteTypes {
     | '/invoices/'
     | '/orders/'
     | '/products/'
+    | '/quotes/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -388,6 +408,7 @@ export interface FileRouteTypes {
     | '/invoices/$invoiceId'
     | '/orders/$orderId'
     | '/orders/new'
+    | '/quotes/$quoteId'
     | '/settings/fields'
     | '/settings/pipelines'
     | '/workspace/members'
@@ -400,6 +421,7 @@ export interface FileRouteTypes {
     | '/invoices'
     | '/orders'
     | '/products'
+    | '/quotes'
   id:
     | '__root__'
     | '/'
@@ -425,6 +447,7 @@ export interface FileRouteTypes {
     | '/_authed/invoices/$invoiceId'
     | '/_authed/orders/$orderId'
     | '/_authed/orders/new'
+    | '/_authed/quotes/$quoteId'
     | '/_authed/settings/fields'
     | '/_authed/settings/pipelines'
     | '/_authed/workspace/members'
@@ -437,6 +460,7 @@ export interface FileRouteTypes {
     | '/_authed/invoices/'
     | '/_authed/orders/'
     | '/_authed/products/'
+    | '/_authed/quotes/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -652,6 +676,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedProductsIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/quotes/': {
+      id: '/_authed/quotes/'
+      path: '/quotes'
+      fullPath: '/quotes/'
+      preLoaderRoute: typeof AuthedQuotesIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/quotes/$quoteId': {
+      id: '/_authed/quotes/$quoteId'
+      path: '/quotes/$quoteId'
+      fullPath: '/quotes/$quoteId'
+      preLoaderRoute: typeof AuthedQuotesQuoteIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/settings/fields': {
       id: '/_authed/settings/fields'
       path: '/settings/fields'
@@ -712,6 +750,7 @@ interface AuthedRouteChildren {
   AuthedInvoicesInvoiceIdRoute: typeof AuthedInvoicesInvoiceIdRoute
   AuthedOrdersOrderIdRoute: typeof AuthedOrdersOrderIdRoute
   AuthedOrdersNewRoute: typeof AuthedOrdersNewRoute
+  AuthedQuotesQuoteIdRoute: typeof AuthedQuotesQuoteIdRoute
   AuthedSettingsFieldsRoute: typeof AuthedSettingsFieldsRoute
   AuthedSettingsPipelinesRoute: typeof AuthedSettingsPipelinesRoute
   AuthedWorkspaceMembersRoute: typeof AuthedWorkspaceMembersRoute
@@ -723,6 +762,7 @@ interface AuthedRouteChildren {
   AuthedInvoicesIndexRoute: typeof AuthedInvoicesIndexRoute
   AuthedOrdersIndexRoute: typeof AuthedOrdersIndexRoute
   AuthedProductsIndexRoute: typeof AuthedProductsIndexRoute
+  AuthedQuotesIndexRoute: typeof AuthedQuotesIndexRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
@@ -741,6 +781,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedInvoicesInvoiceIdRoute: AuthedInvoicesInvoiceIdRoute,
   AuthedOrdersOrderIdRoute: AuthedOrdersOrderIdRoute,
   AuthedOrdersNewRoute: AuthedOrdersNewRoute,
+  AuthedQuotesQuoteIdRoute: AuthedQuotesQuoteIdRoute,
   AuthedSettingsFieldsRoute: AuthedSettingsFieldsRoute,
   AuthedSettingsPipelinesRoute: AuthedSettingsPipelinesRoute,
   AuthedWorkspaceMembersRoute: AuthedWorkspaceMembersRoute,
@@ -752,6 +793,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedInvoicesIndexRoute: AuthedInvoicesIndexRoute,
   AuthedOrdersIndexRoute: AuthedOrdersIndexRoute,
   AuthedProductsIndexRoute: AuthedProductsIndexRoute,
+  AuthedQuotesIndexRoute: AuthedQuotesIndexRoute,
 }
 
 const AuthedRouteWithChildren =

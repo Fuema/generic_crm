@@ -12,6 +12,7 @@ const TABLE: Record<ObjectKey, string> = {
 	company: `"company"`,
 	deal: `"deal"`,
 	product: `"product"`,
+	quote: `"quote"`,
 };
 
 // Built-in columns by field id (raw, fixed names only)
@@ -46,6 +47,13 @@ const COLUMNS: Record<ObjectKey, Record<string, string>> = {
 		ownerId: `"deal"."owner_id"`,
 		expectedCloseAt: `"deal"."expected_close_at"`,
 		createdAt: `"deal"."created_at"`,
+	},
+	quote: {
+		status: `"quote"."status"`,
+		companyId: `"quote"."company_id"`,
+		ownerId: `"quote"."owner_id"`,
+		validUntil: `"quote"."valid_until"`,
+		createdAt: `"quote"."created_at"`,
 	},
 	product: {
 		name: `"product"."name"`,
@@ -92,7 +100,7 @@ function builtInFilter(objectKey: ObjectKey, f: Filter): SQL {
 			return sql`(${col} is null or ${col}::text = '')`;
 		case "not_empty":
 			return sql`(${col} is not null and ${col}::text <> '')`;
-		// Built-in dates (createdAt, expectedCloseAt): compare calendar days (UTC)
+		// Built-in dates (created, expected close, valid until): calendar days (UTC)
 		case "eq":
 			return sql`(${col} at time zone 'UTC')::date = ${v}::date`;
 		case "gt":

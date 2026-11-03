@@ -14,6 +14,7 @@ import {
 	pipeline,
 	pipelineStage,
 	product,
+	quote,
 	recordTag,
 	salesOrder,
 	savedView,
@@ -26,6 +27,7 @@ import { assertWorkspaceRefs } from "#/lib/workspace-refs.server";
 import * as contacts from "#/modules/contacts/contacts.server";
 import * as deals from "#/modules/deals/deals.server";
 import * as pipelines from "#/modules/pipelines/pipelines.server";
+import * as quotes from "#/modules/quotes/quotes.server";
 import * as records from "#/modules/records/records.server";
 import { applyTemplateToNewWorkspace } from "#/modules/templates/templates.server";
 import { cleanup, createWorkspace, type Workspace } from "./fixtures";
@@ -188,6 +190,7 @@ describe("database rules", () => {
 			ownerId: "",
 			lostReason: "",
 		});
+		await quotes.createQuote(c.workspaceId, actor, { contactId: ana.id });
 
 		const phase1 = [
 			company,
@@ -202,6 +205,7 @@ describe("database rules", () => {
 			pipeline,
 			pipelineStage,
 			deal,
+			quote,
 		];
 		for (const table of phase1) {
 			const [{ n }] = await db

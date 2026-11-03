@@ -19,6 +19,7 @@ import {
 	deal,
 	member,
 	note,
+	quote,
 	recordTag,
 	user,
 } from "#/db/schema";
@@ -612,6 +613,15 @@ export async function mergeContacts(
 					and(
 						eq(deal.workspaceId, workspaceId),
 						eq(deal.contactId, duplicateId),
+					),
+				),
+			db
+				.update(quote)
+				.set({ contactId: keepId, updatedAt: now })
+				.where(
+					and(
+						eq(quote.workspaceId, workspaceId),
+						eq(quote.contactId, duplicateId),
 					),
 				),
 			db

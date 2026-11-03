@@ -878,6 +878,84 @@ export const deal = pgTable(
 	],
 );
 
+// A quote to a contact (spec §6.2, §10). Numbered QUO-0001 per workspace when
+// created. Lines copy the product's name, SKU and price, so catalog changes
+// never alter a quote. Only drafts change; "expired" is a sent quote past its
+// valid-until day, worked out when read.
+export const quote = pgTable(
+	"quote",
+	{
+		id: text("id").primaryKey(),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
+		number: integer("number").notNull(),
+		// draft | sent | accepted | declined
+		status: text("status").notNull().default("draft"),
+		contactId: text("contact_id")
+			.notNull()
+			.references(() => contact.id),
+		companyId: text("company_id").references(() => company.id, {
+			onDelete: "set null",
+		}),
+		dealId: text("deal_id").references(() => deal.id, { onDelete: "set null" }),
+		ownerId: text("owner_id").references(() => user.id, {
+			onDelete: "set null",
+		}),
+		// The language the quote is written in (en | es)
+		locale: text("locale").notNull().default("en"),
+		currency: text("currency").notNull(),
+		taxRateBp: integer("tax_rate_bp").notNull().default(0),
+		subtotalCents: integer("subtotal_cents").notNull().default(0),
+		taxCents: integer("tax_cents").notNull().default(0),
+		totalCents: integer("total_cents").notNull().default(0),
+		// All-day date, stored at 12:00 UTC
+		validUntil: timestamp("valid_until"),
+		notes: text("notes"),
+		sentAt: timestamp("sent_at"),
+		acceptedAt: timestamp("accepted_at"),
+		declinedAt: timestamp("declined_at"),
+		declineReason: text("decline_reason"),
+		custom: jsonb("custom").$type<Record<string, Json>>().notNull().default({}),
+		archivedAt: timestamp("archived_at"),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+		updatedAt: timestamp("updated_at").notNull().defaultNow(),
+	},
+	(t) => [
+		uniqueIndex("quote_workspace_number_unique").on(t.workspaceId, t.number),
+		index("quote_workspace_status_idx").on(t.workspaceId, t.status),
+		index("quote_workspace_contact_idx").on(t.workspaceId, t.contactId),
+		index("quote_workspace_deal_idx").on(t.workspaceId, t.dealId),
+		index("quote_custom_gin_idx").using("gin", t.custom),
+	],
+);
+
+export const quoteLine = pgTable(
+	"quote_line",
+	{
+		id: text("id").primaryKey(),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
+		quoteId: text("quote_id")
+			.notNull()
+			.references(() => quote.id, { onDelete: "cascade" }),
+		position: integer("position").notNull(),
+		// The catalog product it was copied from, if any (free-text lines: null)
+		productId: text("product_id").references(() => product.id, {
+			onDelete: "set null",
+		}),
+		description: text("description").notNull(),
+		sku: text("sku"),
+		quantity: integer("quantity").notNull(),
+		unitPriceCents: integer("unit_price_cents").notNull(),
+		lineTotalCents: integer("line_total_cents").notNull(),
+	},
+	(t) => [
+		index("quote_line_quote_idx").on(t.workspaceId, t.quoteId, t.position),
+	],
+);
+
 // Personal display preferences, per user across workspaces and devices
 export const userPreference = pgTable("user_preference", {
 	userId: text("user_id")

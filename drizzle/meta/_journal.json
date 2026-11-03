@@ -64,6 +64,13 @@
       "when": 1793734223157,
       "tag": "0008_products_archive",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793736510191,
+      "tag": "0009_quotes",
+      "breakpoints": true
     }
   ]
 }

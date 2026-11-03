@@ -3,16 +3,17 @@ import { m } from "#/paraglide/messages.js";
 
 // Tags, notes and the timeline work on any record type listed here. Each maps to
 // the permission resource checked for it (spec §7.4).
-export const SUBJECT_TYPES = ["contact", "company", "deal"] as const;
+export const SUBJECT_TYPES = ["contact", "company", "deal", "quote"] as const;
 export type SubjectType = (typeof SUBJECT_TYPES)[number];
 
 export const SUBJECT_RESOURCE: Record<
 	SubjectType,
-	"contact" | "company" | "deal"
+	"contact" | "company" | "deal" | "quote"
 > = {
 	contact: "contact",
 	company: "company",
 	deal: "deal",
+	quote: "quote",
 };
 
 export const TAG_COLORS = [

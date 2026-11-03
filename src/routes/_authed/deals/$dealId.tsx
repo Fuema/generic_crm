@@ -31,6 +31,8 @@ import {
 import { getRecordFields } from "#/modules/fields/fields";
 import { localized } from "#/modules/fields/schema";
 import { listPipelines } from "#/modules/pipelines/pipelines";
+import { RelatedQuotes } from "#/modules/quotes/components/RelatedQuotes";
+import { listRelatedQuotes } from "#/modules/quotes/quotes";
 import { RecordTimeline } from "#/modules/records/components/RecordTimeline";
 import { TagEditor } from "#/modules/records/components/TagEditor";
 import { getTimeline, listWorkspaceTags } from "#/modules/records/records";
@@ -43,7 +45,7 @@ export const Route = createFileRoute("/_authed/deals/$dealId")({
 				subjectType: "deal" as const,
 				subjectId: params.dealId,
 			};
-			const [detail, pipelines, options, timeline, allTags, fields] =
+			const [detail, pipelines, options, timeline, allTags, fields, quotes] =
 				await Promise.all([
 					getDeal({ data: { id: params.dealId } }),
 					listPipelines({ data: { includeArchived: true } }),
@@ -51,8 +53,17 @@ export const Route = createFileRoute("/_authed/deals/$dealId")({
 					getTimeline({ data: subject }),
 					listWorkspaceTags(),
 					getRecordFields({ data: { objectKey: "deal" } }),
+					listRelatedQuotes({ data: { dealId: params.dealId } }),
 				]);
-			return { ...detail, pipelines, options, timeline, allTags, fields };
+			return {
+				...detail,
+				pipelines,
+				options,
+				timeline,
+				allTags,
+				fields,
+				quotes,
+			};
 		} catch (e) {
 			// Unknown, malformed or another workspace's id: the same "not found"
 			if (e instanceof Response && (e.status === 404 || e.status === 400))
@@ -80,12 +91,21 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 function DealPage() {
 	const router = useRouter();
 	const data = Route.useLoaderData();
-	const { deal, pipeline, pipelines, options, timeline, allTags, fields } =
-		data;
+	const {
+		deal,
+		pipeline,
+		pipelines,
+		options,
+		timeline,
+		allTags,
+		fields,
+		quotes,
+	} = data;
 	const { access, session } = Route.useRouteContext();
 	const can = {
 		update: roleCan(access?.role, { deal: ["update"] }),
 		archive: roleCan(access?.role, { deal: ["delete"] }),
+		createQuote: roleCan(access?.role, { quote: ["create"] }),
 	};
 	const [open, setOpen] = useState(false);
 	const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(
@@ -261,6 +281,12 @@ function DealPage() {
 					</CardContent>
 				</Card>
 			</div>
+
+			<RelatedQuotes
+				quotes={quotes}
+				from={archived ? null : { dealId: deal.id }}
+				canCreate={can.createQuote && !archived}
+			/>
 
 			{open ? (
 				<DealFormDialog
