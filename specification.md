@@ -9,10 +9,12 @@
 > built, 6b merging duplicate contacts next) · 2026-11-02 ·
 > repository `https://github.com/Fuema/generic_crm` (private).
 >
-> **Current code = a copy of the reference project** `my-tanstack-app`
-> (`https://github.com/Fuema/bun_tanstack_neon_cloudflare`, frozen; its
-> `specification.md` documents that code) with its starter leftovers removed.
-> Phase 0 (§5) is in progress and turns it into this design.
+> **Current code:** the rebuilt modules live in `src/modules/` (contacts and
+> companies, records, fields, views, templates, preferences, csv) and
+> `src/platform/` (§4). Everything else is still the reference project
+> `my-tanstack-app` (`https://github.com/Fuema/bun_tanstack_neon_cloudflare`,
+> frozen; its `specification.md` documents that code) until its phase
+> rebuilds it. **Resuming work? Read §16.1 first.**
 
 **Status labels used below:** `Planned` (designed, not started) · `Carried`
 (proven in `my-tanstack-app`, will be ported in phase 0) · `Built` (exists in
@@ -440,6 +442,48 @@ current pricing and terms before adopting one.
 | **9. AI** | Summaries, drafts, KB suggestions, usage limits | AI features respect permissions and limits; can be switched off |
 | **Later** | Online payments, social publishing, WhatsApp/SMS, more templates, custom roles, custom reports, e-signature | — |
 
+### 16.1 Where to resume (handoff, updated 2026-11-02)
+
+**Done:** phase 0; phase 1 steps 1–5 and 6a, all merged into `main` (last: #18 CSV import/export). Migrations `0000`–`0005` are applied to the Neon `main` branch (dev database); 6a needed none.
+
+**Next: phase 1 step 6b, merging duplicate contacts.** Present a plan to the owner and get it approved before coding. Draft to start from:
+- A "Merge with…" action on the contact page (needs `contact:update`; confirm with the owner whether `delete` should be required too). Pick the other contact with a search box (same workspace, active contacts only).
+- A side-by-side screen: for each built-in and custom field where both have different values, choose which one to keep. A field empty on one side takes the other's value automatically.
+- On confirm, in one `db.batch`:
+  - update the kept contact;
+  - move the duplicate's notes and tag links to it (skipping tags it already has; the 20-per-record limit applies);
+  - archive the duplicate;
+  - write a `contact.merged` event on both records (payload: the other id, the fields taken).
+- Unique custom values and the email unique index must still hold after the merge. The duplicate's events stay on its own timeline. Future records that point to contacts (deals, invoices, portal access) will need moving too: note this in the design.
+- Open points for the owner:
+  - whether to merge companies the same way;
+  - whether a merge can be undone (the duplicate is only archived);
+  - who may merge.
+- Then step 6 is done. Phase 1's acceptance criteria (§16 table) then need a final check before the owner decides on phase 2.
+
+**Waiting on the owner:**
+- the browser check of CSV import/export (EN/ES, skip and update, a `;` file);
+- confirming that archived records count as "existing" on import;
+- product name and domain (§19);
+- adding `TEST_DATABASE_URL` to `.env.local` if wanted. The value changes each time the `test` branch is recreated, so passing it inline as below works too.
+
+**How to resume:**
+1. `git checkout main && git pull`, then a new branch per change (`feat/phase1-merge-contacts`).
+2. `bun install`; `bun run i18n:compile` if the editor shows missing `m.*` functions (§17 pitfall 12).
+3. Checks:
+   - `bun run validate`;
+   - integration tests: `TEST_DATABASE_URL="$(neon connection-string test --project-id wandering-river-71683346)" bun run test:integration` (Neon project `wandering-river-71683346`; never print the URL);
+   - after a new migration, recreate the schema-only `test` branch (§17 pitfall 11).
+4. Signed-in checks without the owner's server:
+   - run a fresh `bunx vite dev --port 3100 --strictPort` and send `Origin: http://localhost:3000`;
+   - sign up a `phase0-test-…@example.com` user, mark it verified with SQL, and delete that user and its workspace afterwards (clear `rate_limit` if sign-up is throttled);
+   - keep the owner's 2 users and 2 workspaces;
+   - UI changes still need the owner's browser check.
+5. Before committing:
+   - `security-reviewer` for server, route, permission, auth or schema changes;
+   - the spec update in the same PR;
+   - ask before committing and again before pushing; give the PR link and description (`gh` isn't installed).
+
 ## 17. Conventions and pitfalls (inherited from `my-tanstack-app`)
 
 Conventions: tenant isolation and reference checks · `requirePermission` on
@@ -473,7 +517,7 @@ Pitfalls already paid for:
 - Branch per change from `main`; never commit to `main`; `commit-and-push` skill with two confirmations; PR link and description for the owner (`gh` not installed).
 - Definition of done: `bun run validate` (typecheck, Biome, build, bundle check, **tests**, **i18n keys**) + a browser check for UI changes.
 - Ask before applying migrations; update this specification in the same PR.
-- Subagents (`project-navigator`, `validator`, `resource-builder`, `migration-guard`, `security-reviewer`, `spec-keeper`) are copied from `my-tanstack-app` and updated for the module layout, `workspace_id`, custom fields, the portal's contact isolation and i18n.
+- Subagents (`project-navigator`, `validator`, `resource-builder`, `migration-guard`, `security-reviewer`, `spec-keeper`) are copied from `my-tanstack-app` and updated for the module layout (`src/modules/<module>/{schema.ts, <module>.server.ts, <module>.ts, components/}`), `workspace_id`, custom fields, events, i18n and the Workers free-plan limits.
 
 ## 19. Open questions
 
@@ -507,4 +551,5 @@ Pitfalls already paid for:
 | 2026-11-02 | Calendar "N days" view and task board "due within" filter, saved per person in `user_preference` (migration `0004`, applied) (#15) |
 | 2026-11-02 | Phase 1 step 4: saved views for contacts and companies (migration `0005`, applied): filters on built-in and custom fields, chosen columns, custom-field sort, private/shared views; 3 unit and 7 integration tests (#16) |
 | 2026-11-02 | Phase 1 step 5: Generic template (`templates/generic.json`) applied to new workspaces and addable from Settings → Fields; `resolveJsonModule` on; 2 unit and 2 integration tests (#17) |
-| 2026-11-02 | Phase 1 step 6a: CSV import and export for contacts and companies (`src/modules/csv`, no migration): export of all fields for the current search/filters (10,000 rows max, BOM, formula neutralizing); 3-step import with EN/ES column mapping, dry run, skip or update existing records (email/domain), 1,000 rows / 2 MB sent in batches of 100 rows (Workers free-plan subrequest limit), each batch one transaction, `;` detection; owner decisions: skip/update per import, 1,000-row limit, export of all fields; 5 unit and 9 integration tests (this PR) |
+| 2026-11-02 | Phase 1 step 6a: CSV import and export for contacts and companies (`src/modules/csv`, no migration): export of all fields for the current search/filters (10,000 rows max, BOM, formula neutralizing); 3-step import with EN/ES column mapping, dry run, skip or update existing records (email/domain), 1,000 rows / 2 MB sent in batches of 100 rows (Workers free-plan subrequest limit), each batch one transaction, `;` detection; owner decisions: skip/update per import, 1,000-row limit, export of all fields; 5 unit and 9 integration tests (#18) |
+| 2026-11-02 | Docs: handoff notes for the next session (§16.1, header), README status, `security-reviewer`/`resource-builder`/`validator` agents describe the module layout, events and Workers free-plan limits (this PR) |

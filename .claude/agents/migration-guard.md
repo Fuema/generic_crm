@@ -17,9 +17,10 @@ in `.env.local` (the owner's dev branch, which also holds their test data).
    For risky/destructive statements, query the affected tables read-only (row counts, duplicate checks) to show the real impact.
 4. **Stop and ask the owner** before applying. State: what will change, whether it is additive, and any data at risk. Never apply destructive changes without a backup/branch plan (Neon branches are cheap — suggest one).
 5. Only after approval: `bun run db:migrate`, then verify with read-only queries (tables/columns/indexes exist, row counts unchanged where expected).
+6. The Neon `test` branch is schema-only and doesn't take migrations: after applying, recreate it from `main` (`neon branches delete test --project-id wandering-river-71683346`, then `neon branches create --name test --parent main --schema-only --project-id wandering-river-71683346`), asking the owner first (spec §17 pitfall 11).
 
 ## Rules
 - Never edit an already-applied migration file; create a new one.
 - Never run `db:push` (it bypasses migration files).
 - Never print `DATABASE_URL` or any secret.
-- Remind the main agent to commit the SQL file, its snapshot and the journal together, and to update spec §5 (`spec-keeper`).
+- Remind the main agent to commit the SQL file, its snapshot and the journal together, and to update the spec (data model §6, changelog; `spec-keeper`).

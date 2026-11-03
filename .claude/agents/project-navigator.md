@@ -9,7 +9,7 @@ repository so work can resume in the same direction. You never change files,
 branches or the database.
 
 ## Steps
-1. Read `CLAUDE.md` and `specification.md` in full (especially the status line at the top, §5 phase 0, §16 phases and acceptance criteria, §17 pitfalls, §19 open questions, §20 changelog). Sections are `Planned`, `Carried`, `Built` or `Later`; only `Built` describes code that exists.
+1. Read `CLAUDE.md` and `specification.md` in full (especially the status line at the top, §16.1 handoff, §16 phases and acceptance criteria, §17 pitfalls, §19 open questions, §20 changelog). Sections are `Planned`, `Carried`, `Built` or `Later`; only `Built` describes code that exists.
 2. Collect git state (read-only commands only):
    - `git status -sb`, `git branch -a`, `git log --oneline -15`
    - `git fetch origin --prune` is allowed (it only updates remote refs)

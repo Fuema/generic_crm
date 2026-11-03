@@ -6,15 +6,23 @@ first**: vision, decisions, data model, customization engine, portal, phases,
 conventions and pitfalls live there.
 
 ## Where things stand
-- **Phase 1 in progress** (spec §16; phase 0 done). New modules live in `src/modules/` and
-  `src/platform/` (spec §4); older code is still the reference project `my-tanstack-app`
-  (frozen; GitHub `Fuema/bun_tanstack_neon_cloudflare`) until its module is rebuilt.
+- **Phase 1 in progress** (spec §16; phase 0 done). Steps 1–5 and 6a (CSV import/export,
+  #18) are merged; **next is step 6b, merging duplicate contacts: plan it with the owner
+  first.** Spec §16.1 is the handoff: the draft plan, what waits on the owner, how to resume.
+- New modules live in `src/modules/` and `src/platform/` (spec §4); older code is still the
+  reference project `my-tanstack-app` (frozen; GitHub `Fuema/bun_tanstack_neon_cloudflare`)
+  until its module is rebuilt.
 - **Production deploy waits until the end of the project** (owner decision, spec §3).
 - **Start a new phase only when the owner says so.** Documentation work is fine.
 - `bun run dev` needs this project's own `.env.local` (see `.env.example`).
 
 ## Starting a session
-- Use the `project-navigator` agent (or spec §16 phases and §20 changelog) to see where things stand.
+- Read spec §16.1 (handoff), or use the `project-navigator` agent (spec §16 phases and §20
+  changelog) to see where things stand.
+- Integration tests: `TEST_DATABASE_URL="$(neon connection-string test --project-id
+  wandering-river-71683346)" bun run test:integration` (never print the URL).
+- Workers free plan: each Neon HTTP query is one subrequest (50 per request): no per-row
+  query loops (spec §17 pitfall 15).
 - Ask the owner which phase or task is next; follow the phase order unless told otherwise.
 
 ## Rules that must never be broken (spec §12.1)
@@ -42,9 +50,9 @@ isolation rules also run `bun run test:integration` (Neon `test` branch, `TEST_D
 - Ask before applying migrations (`migration-guard` agent).
 
 ## Agents and skills
-- `.claude/agents/`: subagents for checks and reports. `project-navigator` and `spec-keeper`
-  are updated for this project; `validator`, `resource-builder`, `migration-guard` and
-  `security-reviewer` still describe the reference project's layout and are updated in phase 0.
+- `.claude/agents/`: subagents for checks and reports (`project-navigator`, `spec-keeper`,
+  `validator`, `resource-builder`, `migration-guard`, `security-reviewer`), updated for this
+  project's module layout, i18n and Workers free-plan limits.
 - `.claude/skills/`: `commit-and-push`, `setup-resend-email`, `setup-neon-db`, `setup-neon-auth`.
   **This repo is now their master copy**; copy them to `~/.claude/skills/` for other projects.
 - `AGENTS.md`: TanStack Intent skill loading.
