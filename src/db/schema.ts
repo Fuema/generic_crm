@@ -771,6 +771,57 @@ export const fieldDefinition = pgTable(
 	],
 );
 
+// Sales pipelines and their ordered stages (spec §6.2). Names are { en, es }.
+// Stages are archived, never deleted, because deals point to them.
+export const pipeline = pgTable(
+	"pipeline",
+	{
+		id: text("id").primaryKey(),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
+		// Immutable; lets templates add a pipeline only once ("sales")
+		key: text("key").notNull(),
+		name: jsonb("name").$type<{ en: string; es: string }>().notNull(),
+		position: integer("position").notNull().default(0),
+		archivedAt: timestamp("archived_at"),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+		updatedAt: timestamp("updated_at").notNull().defaultNow(),
+	},
+	(t) => [
+		uniqueIndex("pipeline_workspace_key_unique").on(t.workspaceId, t.key),
+	],
+);
+
+export const pipelineStage = pgTable(
+	"pipeline_stage",
+	{
+		id: text("id").primaryKey(),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
+		pipelineId: text("pipeline_id")
+			.notNull()
+			.references(() => pipeline.id, { onDelete: "cascade" }),
+		name: jsonb("name").$type<{ en: string; es: string }>().notNull(),
+		position: integer("position").notNull().default(0),
+		// Chance of winning, 0–100 (won = 100, lost = 0)
+		probability: integer("probability").notNull().default(0),
+		// open | won | lost; each pipeline has exactly one won and one lost stage
+		type: text("type").notNull().default("open"),
+		archivedAt: timestamp("archived_at"),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+		updatedAt: timestamp("updated_at").notNull().defaultNow(),
+	},
+	(t) => [
+		index("pipeline_stage_pipeline_idx").on(
+			t.workspaceId,
+			t.pipelineId,
+			t.position,
+		),
+	],
+);
+
 // Personal display preferences, per user across workspaces and devices
 export const userPreference = pgTable("user_preference", {
 	userId: text("user_id")

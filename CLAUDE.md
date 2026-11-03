@@ -6,9 +6,10 @@ first**: vision, decisions, data model, customization engine, portal, phases,
 conventions and pitfalls live there.
 
 ## Where things stand
-- **Phase 1 built** (spec §16; phase 0 done): steps 1–6 merged (6b merge, #20); the
-  acceptance check is met in code and tests. **Next: the owner decides on phase 2**, after
-  the pending browser checks. Spec §16.1 is the handoff: what waits on the owner, how to resume.
+- **Phase 2 (Sales) in progress** (spec §16; phases 0–1 done). Step 1, pipelines and stages,
+  is built (migration `0006` applied to dev); **next is step 2, deals.** Spec §16.1 is the
+  handoff: the 7-step phase 2 plan, what waits on the owner, how to resume.
+- Quotes/invoices are printable pages, not generated PDFs (Workers free-plan CPU, spec §3).
 - Modules that point to contacts (deals, invoices, portal access…) must also move their rows
   in `mergeContacts` (spec §10).
 - New modules live in `src/modules/` and `src/platform/` (spec §4); older code is still the

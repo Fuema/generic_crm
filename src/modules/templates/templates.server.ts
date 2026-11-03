@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "#/db/index";
-import { fieldDefinition, fieldGroup, savedView } from "#/db/schema";
+import { fieldDefinition, fieldGroup, pipeline, savedView } from "#/db/schema";
 import * as fields from "#/modules/fields/fields.server";
 import {
 	FIELD_TYPES,
@@ -9,12 +9,14 @@ import {
 	OBJECT_KEYS,
 	type ObjectKey,
 } from "#/modules/fields/schema";
+import { createPipeline } from "#/modules/pipelines/pipelines.server";
+import { STAGE_TYPES, stagesProblem } from "#/modules/pipelines/schema";
 import { viewConfigSchema } from "#/modules/views/schema";
 import { createView } from "#/modules/views/views.server";
 import generic from "../../../templates/generic.json";
 
 // Server-only. Industry templates are data files in templates/ (spec §7.5):
-// fields, groups and saved views today; pipelines and more as modules arrive.
+// fields, groups, saved views and pipelines today; more as modules arrive.
 // Applying adds only what's missing, so it is safe to run more than once, and
 // never changes or removes anything the workspace already has.
 
@@ -51,6 +53,23 @@ const templateSchema = z.object({
 			config: viewConfigSchema,
 		}),
 	),
+	pipelines: z
+		.array(
+			z.object({
+				key: z.string().regex(/^[a-z][a-z0-9_]{0,35}$/),
+				name: localizedSchema,
+				stages: z
+					.array(
+						z.object({
+							name: localizedSchema,
+							probability: z.number().int().min(0).max(100),
+							type: z.enum(STAGE_TYPES),
+						}),
+					)
+					.refine((stages) => !stagesProblem(stages)),
+			}),
+		)
+		.default([]),
 });
 export type Template = z.infer<typeof templateSchema>;
 
@@ -100,11 +119,24 @@ async function existing(workspaceId: string, objectKey: ObjectKey) {
 	};
 }
 
+// Pipeline keys this workspace already has (archived ones too)
+async function pipelineKeys(workspaceId: string) {
+	const rows = await db
+		.select({ key: pipeline.key })
+		.from(pipeline)
+		.where(eq(pipeline.workspaceId, workspaceId));
+	return new Set(rows.map((r) => r.key));
+}
+
 // What applying the template would still add to this workspace
 export async function templateStatus(
 	workspaceId: string,
 	template: Template = TEMPLATES.generic,
 ) {
+	const keys = await pipelineKeys(workspaceId);
+	const pipelinesMissing = template.pipelines.filter(
+		(p) => !keys.has(p.key),
+	).length;
 	let fieldsMissing = 0;
 	let viewsMissing = 0;
 	for (const objectKey of OBJECT_KEYS) {
@@ -121,18 +153,18 @@ export async function templateStatus(
 				!have.viewNames.has(v.name.es.toLowerCase()),
 		).length;
 	}
-	return { fieldsMissing, viewsMissing };
+	return { fieldsMissing, viewsMissing, pipelinesMissing };
 }
 
-// Adds the template's missing groups, fields and shared views. Views are named
-// in the language of the request and owned by the given member.
+// Adds the template's missing groups, fields, shared views and pipelines.
+// Views are named in the language of the request and owned by the given member.
 export async function applyTemplate(
 	workspaceId: string,
 	userId: string,
 	template: Template = TEMPLATES.generic,
 ) {
 	const actor = { type: "member" as const, id: userId };
-	const added = { groups: 0, fields: 0, views: 0 };
+	const added = { groups: 0, fields: 0, views: 0, pipelines: 0 };
 	for (const objectKey of OBJECT_KEYS) {
 		const have = await existing(workspaceId, objectKey);
 		for (const group of template.objects[objectKey]?.groups ?? []) {
@@ -189,6 +221,27 @@ export async function applyTemplate(
 			});
 			added.views += 1;
 		}
+	}
+	const keys = await pipelineKeys(workspaceId);
+	for (const p of template.pipelines.filter((p) => !keys.has(p.key))) {
+		// Applied twice at the same moment: the other run already added it
+		const created = await createPipeline(
+			workspaceId,
+			actor,
+			{ name: p.name, stages: p.stages.map((s) => ({ ...s, id: "" })) },
+			p.key,
+		).catch(async (error) => {
+			// Only "it already exists" is fine (another run added it); other
+			// refusals, such as the pipeline limit, are reported
+			if (
+				error instanceof Response &&
+				error.status === 409 &&
+				(await pipelineKeys(workspaceId)).has(p.key)
+			)
+				return null;
+			throw error;
+		});
+		if (created) added.pipelines += 1;
 	}
 	return added;
 }

@@ -71,7 +71,8 @@ function FieldsPage() {
 	const { object, archived: showArchived } = Route.useSearch();
 	const { groups, fields, template } = Route.useLoaderData();
 	const [applying, setApplying] = useState(false);
-	const templateMissing = template.fieldsMissing + template.viewsMissing;
+	const templateMissing =
+		template.fieldsMissing + template.viewsMissing + template.pipelinesMissing;
 	const { access } = Route.useRouteContext();
 	const canManage = roleCan(access?.role, { field: ["update"] });
 	const [status, setStatus] = useState<Status>(null);
@@ -298,6 +299,7 @@ function FieldsPage() {
 							{m.template_missing({
 								fields: template.fieldsMissing,
 								views: template.viewsMissing,
+								pipelines: template.pipelinesMissing,
 							})}
 						</p>
 						<Button
