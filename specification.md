@@ -5,8 +5,9 @@
 > before changing anything; update it in the same PR as any change it
 > describes** (`spec-keeper` agent).
 >
-> Status: **Phase 1 in progress** (phase 0 done; phase 1 steps 1–5 and 6a
-> built, 6b merging duplicate contacts next) · 2026-11-02 ·
+> Status: **Phase 1 in progress** (phase 0 done; phase 1 steps 1–6 built,
+> 6b merging duplicate contacts awaiting the owner's browser check; next the
+> final check of phase 1's acceptance criteria) · 2026-11-03 ·
 > repository `https://github.com/Fuema/generic_crm` (private).
 >
 > **Current code:** the rebuilt modules live in `src/modules/` (contacts and
@@ -81,6 +82,9 @@ workshop, a school — without hiring someone to configure it.
 | 2026-11-02 | **CSV import, existing records:** the person importing chooses per import whether rows matching an existing record (contacts by email, companies by domain) are **skipped or update** that record |
 | 2026-11-02 | **CSV import limit: 1,000 rows** per file (and 2 MB) |
 | 2026-11-02 | **CSV export includes all fields** (built-in, then created date, then every active custom field), not only the visible list columns |
+| 2026-11-03 | **Merging contacts needs `contact:update` and `contact:delete`** (the duplicate is archived) |
+| 2026-11-03 | **A merge can't be undone:** the duplicate is archived and the two `contact.merged` events are the audit trail; restoring the duplicate does not bring back its notes, tags or the unique values it gave up |
+| 2026-11-03 | **Merge contacts only for now;** merging companies is `Later` (§10) |
 
 ## 4. Stack and architecture `Carried`
 
@@ -189,7 +193,7 @@ Portal users = contacts invited to the portal
 
 | Table | Purpose | Key rules |
 |---|---|---|
-| `contact` `Built` | A person | Email unique per workspace (case-insensitive, nullable); `lifecycle_stage`; `owner_id`; `company_id` (one primary company in v1); `locale`; `email_consent` (status, source, date); `custom` |
+| `contact` `Built` | A person | Email unique per workspace (case-insensitive, nullable); `lifecycle_stage`; `owner_id`; `company_id` (one primary company in v1); `locale`; `email_consent` (status, source, date); `custom`; duplicates are merged into one contact (§10) |
 | `company` `Built` | An organization | Name; domain unique per workspace (nullable); owner; `custom` |
 | `tag`, `record_tag` `Built` | Free labels on any record | Per workspace; name unique case-insensitively; color from a fixed palette (picked from the name); limits: 20 per record, 500 per workspace; a tag removed from its last record is deleted (renaming and recoloring come with the settings pages) |
 | `note` `Built` | Free text on any record | Author, pinned flag; appears on the timeline; max 10,000 characters; deleting removes the text (the event log keeps only the fact) |
@@ -289,7 +293,7 @@ object: 15 · saved views per member: 50 · choice options per field: 100.
 
 | Module | First version | Later |
 |---|---|---|
-| **Contacts & companies** `Built` except merge duplicates | Contact-first records, optional company, lifecycle stage, owner, tags, notes, custom fields, timeline, merge duplicates (`Planned`, phase 1 step 6b), CSV import/export (`Built`, below) | Several companies per contact, enrichment |
+| **Contacts & companies** `Built` | Contact-first records, optional company, lifecycle stage, owner, tags, notes, custom fields, timeline, merge duplicate contacts (`Built`, below), CSV import/export (`Built`, below) | Several companies per contact, enrichment, merging duplicate companies (owner decision 2026-11-03) |
 | **Deals** | Several pipelines, board and list, value, expected close, won/lost with reason, link to contact/company/project | Forecasts, products on deals |
 | **Quotes** | From a deal or contact; catalog lines; tax; validity; PDF; send by email; accept/decline in the portal → order | E-signature (partner), versions |
 | **Orders & invoices** `Carried` | Rules from the old app; invoice created from order; numbering; PDF and send by email | Credit notes, recurring invoices |
@@ -324,6 +328,23 @@ object: 15 · saved views per member: 50 · choice options per field: 100.
 
 No migration. Tests: `tests/unit/csv.test.ts` (5: quoting, BOM and `;`, formula neutralizing, EN/ES headers and values) and `tests/integration/csv.test.ts` (9: dry run writes nothing, creates with company/tags/custom values/events, skip vs update, another workspace's records aren't matched, duplicates and companies/tags across batches, tag names and company permission, formula `'` stripped on re-import, unique custom values and an empty required cell on update, export content).
 
+### Merging duplicate contacts (`Built`)
+**Built:** `src/modules/contacts/merge.ts` (pure rules shared by the screen and the server: `MERGE_FIELDS`, `mergeConflicts`, `mergeSource`, `mergeValues`, `mergeTags`, input schemas), `searchMergeCandidates` and `mergeContacts` in `contacts.ts` / `contacts.server.ts`, `components/MergeContactDialog.tsx`, route `/contacts/merge?keep=&duplicate=` (`src/routes/_authed/contacts/merge.tsx`). Companies are not merged yet (`Later`, §3).
+
+| Topic | Rule |
+|---|---|
+| Permissions | Searching candidates needs `contact:read`; merging needs `contact:update` **and** `contact:delete`, because the duplicate is archived (owner decision, §3). The "Merge with…" button is hidden on archived contacts and for roles without both permissions |
+| Flow | "Merge with…" on the contact page opens a search dialog of other **active** contacts in the workspace (name, email or phone; 10 results) → side-by-side screen with a "Swap which is kept" button. The screen shows the notes and tags that will move and that the merge can't be undone; confirming asks once more |
+| Values | Built-in fields (`MERGE_FIELDS`: names, email, phone, job title, company, owner, stage, language, email consent) and every custom key on either contact. A field with different non-empty values on both sides needs a choice (default: the kept contact's); an empty side takes the other's value; text compares ignoring case and surrounding spaces; unknown email consent counts as empty, so a known consent is never lost; when both are known and differ, **revoked wins by default**, so an opt-out is never lost by one click. The consent's source and date (`emailConsentSource`, `emailConsentAt`) come from the same side as the consent. An owner taken from the duplicate who is no longer a member, or an archived company, falls back to the kept contact's value |
+| Trust | The browser sends only `{ keepId, duplicateId, choices }` (`choices`: field → `"keep"`/`"duplicate"`, at most 200). The server loads both contacts from the workspace (archived ones → 409), recomputes the values with the same rules and validates custom values with `prepareCustom`, which now takes several ids to skip in the unique check (the kept contact and the duplicate) |
+| Tags | The kept contact gains the duplicate's tags it lacks; if that goes over 20 per record, the merge is refused (409) |
+| Writes | One `db.batch`: (0) a guard that locks both rows (`SELECT … FOR UPDATE`) and divides by zero unless both are still active, so a concurrent merge or archive fails the whole batch → 409 "archived or merged meanwhile"; (1) the duplicate gives up the email and the unique custom values the kept contact takes (cleared on it) and is archived; (2) the kept contact is updated; (3) notes move to it; (4) tag links are added (existing ones skipped, `ON CONFLICT DO NOTHING`) and the duplicate's removed; (5) a `contact.merged` event on each (§11.1). Clearing the duplicate first keeps the email index and unique custom values valid. A unique violation from a concurrent write → 409 and nothing is saved. About 8 subrequests plus one per unique custom field (Workers limit 50) |
+| History | The duplicate's own events stay on its timeline; the timeline shows "Merged X into this contact" on the kept one and "Merged into X" on the duplicate |
+| Undo | None (owner decision, §3). Restoring the archived duplicate does not bring back its notes, tags or the unique values it gave up |
+| Later modules | Every module that points to contacts (deals, quotes, invoices, projects, tickets, portal access, …) must move its rows to the kept contact inside `mergeContacts`' batch when it is built |
+
+No migration. Tests: `tests/unit/merge.test.ts` (10: conflicts, unknown consent, revoked consent wins, empty sides, choices, ignored choices, empty values not stored, tag limit, same contact, choice values) and `tests/integration/merge.test.ts` (4: values, notes, tags, uniqueness and archiving; archived/self/tag-limit refusals; two opposite merges at once, exactly one wins; no merging or finding across workspaces).
+
 ### Navigation (staff app)
 Home · **Contacts** (Contacts, Companies, custom objects) · **Sales** (Deals,
 Quotes, Orders, Invoices, Payments, Products) · **Work** (Projects, Tasks,
@@ -335,7 +356,7 @@ Portal, Email, Limits). Modules switched off are hidden.
 ## 11. Events, timeline and workflows `Planned`
 
 ### 11.1 Event log (`Built` for contacts and companies)
-**Built:** `src/platform/events.server.ts`: `eventInsert(workspaceId, actor, …)` returns the insert to put in the same `db.batch` as the change; `changedFields(before, after)` produces `{ field: { from, to } }` for `*.updated` events (saving without changes writes no event). Types so far: `<record>.created|updated|archived|restored|tag_added|tag_removed|note_added|note_edited|note_pinned|note_unpinned|note_deleted` for contacts and companies; records created by a CSV import (§10) carry payload `{ source: "import" }` on their `*.created` event (and on the events of companies the import creates). **Known limits (security review, phase 1 step 1):** update events keep the old and new values of changed fields, including email and phone, so erasing a person (§12.4) must also scrub their events; an edit and an archive sent at the same moment can both pass their checks, so an update can land on a just-archived record (rare, harmless, revisit if workflows make it likely).
+**Built:** `src/platform/events.server.ts`: `eventInsert(workspaceId, actor, …)` returns the insert to put in the same `db.batch` as the change; `changedFields(before, after)` produces `{ field: { from, to } }` for `*.updated` events (saving without changes writes no event). Types so far: `<record>.created|updated|archived|restored|tag_added|tag_removed|note_added|note_edited|note_pinned|note_unpinned|note_deleted` for contacts and companies, plus `contact.merged` on both merged contacts (payload `role` `kept`/`duplicate`, `otherId`, `otherName`, `notesMoved`, `tagsMoved`; the kept one adds `taken` and `changes`, the duplicate `cleared`, the unique values it gave up; §10); records created by a CSV import (§10) carry payload `{ source: "import" }` on their `*.created` event (and on the events of companies the import creates). **Known limits (security review, phase 1 step 1):** update events keep the old and new values of changed fields, including email and phone, so erasing a person (§12.4) must also scrub their events; an edit and an archive sent at the same moment can both pass their checks, so an update can land on a just-archived record (rare, harmless, revisit if workflows make it likely).
 
 `event`: `workspace_id`, `type` (e.g. `contact.created`, `deal.stage_changed`,
 `invoice.payment_confirmed`, `ticket.closed`), `subject_type` + `subject_id`,
@@ -344,7 +365,7 @@ changed fields), `created_at`. Written in the same `db.batch` as the change, so
 the log never disagrees with the data. Append-only.
 
 ### 11.2 Timeline (`Built` for contacts and companies)
-**Built:** `src/modules/records` (tags, notes, timeline for any record type in `SUBJECT_TYPES`). The page shows tags, then notes and events newest first with pinned notes on top, filterable All / Notes / Changes. `*.note_added` and `*.note_edited` events stay in the log but aren't shown (the note itself is). Permissions: reading follows the record's `read`; tagging, adding notes and pinning need its `update`; only the author edits a note's text; authors or owners/admins (`delete`) delete notes. Checked inside each server function with `assertPermission` (`src/platform/permissions.server.ts`) under the `requireWorkspace` middleware, the pattern custom objects will reuse (§7.4).
+**Built:** `src/modules/records` (tags, notes, timeline for any record type in `SUBJECT_TYPES`). The page shows tags, then notes and events newest first with pinned notes on top, filterable All / Notes / Changes. `*.note_added` and `*.note_edited` events stay in the log but aren't shown (the note itself is). `contact.merged` reads "Merged X into this contact" or "Merged into X". Permissions: reading follows the record's `read`; tagging, adding notes and pinning need its `update`; only the author edits a note's text; authors or owners/admins (`delete`) delete notes. Checked inside each server function with `assertPermission` (`src/platform/permissions.server.ts`) under the `requireWorkspace` middleware, the pattern custom objects will reuse (§7.4).
 
 Every record page shows its events, notes, emails, tasks, activities, files and
 related records' key events, newest first, filterable by kind.
@@ -370,7 +391,7 @@ related records' key events, newest first, filterable by kind.
 Owner, admin, editor, viewer. Settings (fields, objects, pipelines, templates,
 workflows, portal, limits) are owner/admin only. Payments: confirming is
 admin+; editors can record. Custom roles: `Later`.
-**Built:** references are checked when set or changed: an unchanged owner who left the workspace, or an unchanged link to an archived company, doesn't block editing; new links need a current member and an active company. Custom field definitions (`field` permission): owner/admin create/update/delete, every role reads. Contacts and companies: owner/admin full; editor create, read, update; viewer read. Archiving and restoring need `delete` (owner/admin). CSV export needs `read`; CSV import needs `create`, plus `update` when it updates existing records (§10).
+**Built:** references are checked when set or changed: an unchanged owner who left the workspace, or an unchanged link to an archived company, doesn't block editing; new links need a current member and an active company. Custom field definitions (`field` permission): owner/admin create/update/delete, every role reads. Contacts and companies: owner/admin full; editor create, read, update; viewer read. Archiving and restoring need `delete` (owner/admin). CSV export needs `read`; CSV import needs `create`, plus `update` when it updates existing records (§10). Merging contacts needs `update` and `delete` (owner/admin); finding merge candidates needs `read` (§10).
 
 ### 12.3 Limits per workspace (initial defaults)
 | Resource | Default |
@@ -431,7 +452,7 @@ current pricing and terms before adopting one.
 | Phase | Content | Done when |
 |---|---|---|
 | **0. Foundation** `Built` | Port and clean up (§5), `workspace_id` everywhere, i18n, tests (deploy and email domain moved to the end, §3) | `validate` + tests pass; sign-in, 2FA, passkeys, invitations work in EN and ES |
-| **1. CRM core** (in progress: steps 1–5 and 6a (CSV import/export) `Built`; 6b, merging duplicate contacts, next) | Contacts & companies, custom fields + groups, saved views, event log + timeline, notes, tags, Generic template, import/export | A new workspace gets the template; a contact with custom fields can be created, filtered, imported, exported; isolation tests pass |
+| **1. CRM core** (in progress: steps 1–6 `Built`: 6a CSV import/export, 6b merging duplicate contacts; final acceptance check next) | Contacts & companies, custom fields + groups, saved views, event log + timeline, notes, tags, Generic template, import/export | A new workspace gets the template; a contact with custom fields can be created, filtered, imported, exported; isolation tests pass |
 | **2. Sales** | Pipelines & deals, quotes, orders, invoices, payments | Deal → quote → order → invoice → partial payments → paid, all on the timeline |
 | **3. Work** | Projects, tasks & calendar re-ported, files & folders (R2) | A won deal becomes a project with tasks and files; downloads are permission-checked |
 | **4. Customer portal** | Email-link sign-in, contact isolation, profile, quotes, invoices & payments, projects, files | A contact accepts a quote and reports a payment; contact-isolation tests prove one contact can't see another's data |
@@ -442,33 +463,23 @@ current pricing and terms before adopting one.
 | **9. AI** | Summaries, drafts, KB suggestions, usage limits | AI features respect permissions and limits; can be switched off |
 | **Later** | Online payments, social publishing, WhatsApp/SMS, more templates, custom roles, custom reports, e-signature | — |
 
-### 16.1 Where to resume (handoff, updated 2026-11-02)
+### 16.1 Where to resume (handoff, updated 2026-11-03)
 
-**Done:** phase 0; phase 1 steps 1–5 and 6a, all merged into `main` (last: #18 CSV import/export). Migrations `0000`–`0005` are applied to the Neon `main` branch (dev database); 6a needed none.
+**Done:** phase 0; phase 1 steps 1–5 and 6a merged into `main` (#18 CSV import/export); step 6b, merging duplicate contacts (§10), built on `feat/phase1-merge-contacts` (no migration). Migrations `0000`–`0005` are applied to the Neon `main` branch (dev database). Step 6 is done once the owner checks the merge screen in the browser.
 
-**Next: phase 1 step 6b, merging duplicate contacts.** Present a plan to the owner and get it approved before coding. Draft to start from:
-- A "Merge with…" action on the contact page (needs `contact:update`; confirm with the owner whether `delete` should be required too). Pick the other contact with a search box (same workspace, active contacts only).
-- A side-by-side screen: for each built-in and custom field where both have different values, choose which one to keep. A field empty on one side takes the other's value automatically.
-- On confirm, in one `db.batch`:
-  - update the kept contact;
-  - move the duplicate's notes and tag links to it (skipping tags it already has; the 20-per-record limit applies);
-  - archive the duplicate;
-  - write a `contact.merged` event on both records (payload: the other id, the fields taken).
-- Unique custom values and the email unique index must still hold after the merge. The duplicate's events stay on its own timeline. Future records that point to contacts (deals, invoices, portal access) will need moving too: note this in the design.
-- Open points for the owner:
-  - whether to merge companies the same way;
-  - whether a merge can be undone (the duplicate is only archived);
-  - who may merge.
-- Then step 6 is done. Phase 1's acceptance criteria (§16 table) then need a final check before the owner decides on phase 2.
+**Next: the final check of phase 1's acceptance criteria** (§16 table: a new workspace gets the template; a contact with custom fields can be created, filtered, imported, exported; isolation tests pass), then the owner decides whether phase 2 starts. Don't start phase 2 without the owner's go-ahead.
+
+**Later (agreed, not scheduled):** merging duplicate companies the same way (owner decision 2026-11-03, §3).
 
 **Waiting on the owner:**
+- the browser check of the merge screen in EN and ES ("Merge with…", search, swap, choices, confirm, both timelines);
 - the browser check of CSV import/export (EN/ES, skip and update, a `;` file);
 - confirming that archived records count as "existing" on import;
 - product name and domain (§19);
 - adding `TEST_DATABASE_URL` to `.env.local` if wanted. The value changes each time the `test` branch is recreated, so passing it inline as below works too.
 
 **How to resume:**
-1. `git checkout main && git pull`, then a new branch per change (`feat/phase1-merge-contacts`).
+1. `git checkout main && git pull`, then a new branch per change.
 2. `bun install`; `bun run i18n:compile` if the editor shows missing `m.*` functions (§17 pitfall 12).
 3. Checks:
    - `bun run validate`;
@@ -552,4 +563,5 @@ Pitfalls already paid for:
 | 2026-11-02 | Phase 1 step 4: saved views for contacts and companies (migration `0005`, applied): filters on built-in and custom fields, chosen columns, custom-field sort, private/shared views; 3 unit and 7 integration tests (#16) |
 | 2026-11-02 | Phase 1 step 5: Generic template (`templates/generic.json`) applied to new workspaces and addable from Settings → Fields; `resolveJsonModule` on; 2 unit and 2 integration tests (#17) |
 | 2026-11-02 | Phase 1 step 6a: CSV import and export for contacts and companies (`src/modules/csv`, no migration): export of all fields for the current search/filters (10,000 rows max, BOM, formula neutralizing); 3-step import with EN/ES column mapping, dry run, skip or update existing records (email/domain), 1,000 rows / 2 MB sent in batches of 100 rows (Workers free-plan subrequest limit), each batch one transaction, `;` detection; owner decisions: skip/update per import, 1,000-row limit, export of all fields; 5 unit and 9 integration tests (#18) |
-| 2026-11-02 | Docs: handoff notes for the next session (§16.1, header), README status, `security-reviewer`/`resource-builder`/`validator` agents describe the module layout, events and Workers free-plan limits (this PR) |
+| 2026-11-02 | Docs: handoff notes for the next session (§16.1, header), README status, `security-reviewer`/`resource-builder`/`validator` agents describe the module layout, events and Workers free-plan limits (#19) |
+| 2026-11-03 | Phase 1 step 6b: merging duplicate contacts (no migration): "Merge with…" search dialog, side-by-side screen with swap and per-field choices, server recomputes values from the stored records, one `db.batch` that clears and archives the duplicate, moves notes and tags (20-per-record limit) and writes `contact.merged` on both; `prepareCustom` skips several ids; owner decisions: `update` + `delete` required, no undo, contacts only (companies later); 9 unit and 3 integration tests (this PR) |

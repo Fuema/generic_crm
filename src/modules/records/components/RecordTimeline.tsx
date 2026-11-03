@@ -43,6 +43,8 @@ function describe(e: TimelineEvent, fieldLabels: Record<string, string>) {
 	const payload = e.payload as {
 		changes?: Record<string, unknown>;
 		name?: string;
+		role?: "kept" | "duplicate";
+		otherName?: string;
 	};
 	switch (kind) {
 		case "created":
@@ -61,6 +63,10 @@ function describe(e: TimelineEvent, fieldLabels: Record<string, string>) {
 			return m.event_note_pinned();
 		case "note_unpinned":
 			return m.event_note_unpinned();
+		case "merged":
+			return payload.role === "duplicate"
+				? m.event_merged_into({ name: payload.otherName ?? "" })
+				: m.event_merged_from({ name: payload.otherName ?? "" });
 		case "updated":
 			return m.event_updated({
 				fields: Object.keys(payload.changes ?? {})

@@ -4,6 +4,7 @@ import {
 	count,
 	eq,
 	ilike,
+	inArray,
 	isNotNull,
 	isNull,
 	ne,
@@ -12,13 +13,14 @@ import {
 	sql,
 } from "drizzle-orm";
 import { db } from "#/db/index";
-import { company, contact, member, user } from "#/db/schema";
+import { company, contact, member, note, recordTag, user } from "#/db/schema";
 import { assertWorkspaceRefs } from "#/lib/workspace-refs.server";
 import {
 	customChanges,
 	listFields,
 	prepareCustom,
 } from "#/modules/fields/fields.server";
+import { LIMITS as RECORD_LIMITS } from "#/modules/records/schema";
 import {
 	filterConditions,
 	sortExpression,
@@ -30,11 +32,14 @@ import {
 	eventInsert,
 } from "#/platform/events.server";
 import { uuidv7 } from "#/platform/ids";
-import type {
-	CompanyInput,
-	CompanySearch,
-	ContactInput,
-	ContactSearch,
+import type { Json } from "#/platform/json";
+import { type MergeContactsInput, mergeTags, mergeValues } from "./merge";
+import {
+	type CompanyInput,
+	type CompanySearch,
+	type ContactInput,
+	type ContactSearch,
+	contactName,
 } from "./schema";
 
 // Server-only data layer for contacts and companies. Every function takes the
@@ -356,6 +361,303 @@ export async function setContactArchived(
 		}),
 	]);
 	return { id };
+}
+
+// Active contacts to merge with: other than the one open, matching the search
+export async function searchMergeCandidates(
+	workspaceId: string,
+	excludeId: string,
+	q: string,
+) {
+	const filters: SQL[] = [
+		eq(contact.workspaceId, workspaceId),
+		isNull(contact.archivedAt),
+		ne(contact.id, excludeId),
+	];
+	if (q) {
+		const pattern = likePattern(q);
+		const match = or(
+			ilike(contact.firstName, pattern),
+			ilike(contact.lastName, pattern),
+			ilike(contact.email, pattern),
+			ilike(contact.phone, pattern),
+			sql`(${contact.firstName} || ' ' || coalesce(${contact.lastName}, '')) ilike ${pattern}`,
+		);
+		if (match) filters.push(match);
+	}
+	return db
+		.select({
+			id: contact.id,
+			firstName: contact.firstName,
+			lastName: contact.lastName,
+			email: contact.email,
+			phone: contact.phone,
+		})
+		.from(contact)
+		.where(and(...filters))
+		.orderBy(asc(contact.firstName), asc(contact.lastName))
+		.limit(10);
+}
+
+// Merges a duplicate into the contact kept (spec §6.2). Values come only from
+// the two stored records; the browser sends just which side wins each field.
+// One db.batch: the duplicate first gives up the unique values (email, unique
+// custom fields) the kept contact takes, so the indexes and checks still hold;
+// then the kept contact is updated, notes and tags move, the duplicate is
+// archived and both get a contact.merged event. The duplicate's own events stay
+// on its timeline. Later modules that point to contacts (deals, invoices,
+// portal access) must move their rows here too.
+export async function mergeContacts(
+	workspaceId: string,
+	actor: Actor,
+	input: MergeContactsInput,
+) {
+	const { keepId, duplicateId, choices } = input;
+	if (keepId === duplicateId) throw clientError(400, m.merge_same_contact());
+	const [keep, duplicate] = await Promise.all([
+		findContact(workspaceId, keepId),
+		findContact(workspaceId, duplicateId),
+	]);
+	if (keep.archivedAt || duplicate.archivedAt)
+		throw clientError(409, m.error_record_archived());
+
+	const merged = mergeValues(keep, duplicate, choices);
+	const values = { ...merged.builtIn };
+	const taken = new Set(merged.taken);
+	// An owner or company taken from the duplicate must still be valid: a member
+	// of this workspace, an active company. Otherwise the kept contact's stays.
+	const [ownerOk, companyOk] = await Promise.all([
+		taken.has("ownerId") && values.ownerId
+			? db
+					.select({ id: member.id })
+					.from(member)
+					.where(
+						and(
+							eq(member.organizationId, workspaceId),
+							eq(member.userId, values.ownerId),
+						),
+					)
+					.limit(1)
+					.then((r) => r.length > 0)
+			: true,
+		taken.has("companyId") && values.companyId
+			? db
+					.select({ id: company.id })
+					.from(company)
+					.where(
+						and(
+							eq(company.id, values.companyId),
+							eq(company.workspaceId, workspaceId),
+							isNull(company.archivedAt),
+						),
+					)
+					.limit(1)
+					.then((r) => r.length > 0)
+			: true,
+	]);
+	if (!ownerOk) {
+		values.ownerId = keep.ownerId;
+		taken.delete("ownerId");
+	}
+	if (!companyOk) {
+		values.companyId = keep.companyId;
+		taken.delete("companyId");
+	}
+	// Consent evidence travels with the consent it belongs to
+	const consentFrom = taken.has("emailConsent") ? duplicate : keep;
+	const consent = {
+		emailConsentSource: consentFrom.emailConsentSource,
+		emailConsentAt: consentFrom.emailConsentAt,
+	};
+	const custom = await prepareCustom(
+		workspaceId,
+		"contact",
+		merged.custom,
+		merged.custom as Record<string, Json>,
+		[keepId, duplicateId],
+	);
+
+	// Tags: the kept contact gains the duplicate's, within the per-record limit
+	const links = await db
+		.select({ tagId: recordTag.tagId, subjectId: recordTag.subjectId })
+		.from(recordTag)
+		.where(
+			and(
+				eq(recordTag.workspaceId, workspaceId),
+				eq(recordTag.subjectType, "contact"),
+				inArray(recordTag.subjectId, [keepId, duplicateId]),
+			),
+		);
+	const tags = mergeTags(
+		links.filter((l) => l.subjectId === keepId).map((l) => l.tagId),
+		links.filter((l) => l.subjectId === duplicateId).map((l) => l.tagId),
+		RECORD_LIMITS.tagsPerRecord,
+	);
+	if (!tags.ok)
+		throw clientError(
+			409,
+			m.error_tag_record_limit({ max: RECORD_LIMITS.tagsPerRecord }),
+		);
+
+	// Unique values the kept contact takes from the duplicate are cleared there
+	const takesEmail =
+		Boolean(merged.builtIn.email) &&
+		merged.builtIn.email?.toLowerCase() === duplicate.email?.toLowerCase();
+	const { fields } = await listFields(workspaceId, "contact", {
+		includeArchived: true,
+	});
+	const uniqueKeys = new Set(fields.filter((f) => f.unique).map((f) => f.key));
+	const cleared: string[] = takesEmail ? ["email"] : [];
+	const duplicateCustom = { ...duplicate.custom };
+	for (const key of Object.keys(duplicateCustom)) {
+		const value = duplicateCustom[key];
+		if (
+			uniqueKeys.has(key) &&
+			typeof value === "string" &&
+			typeof custom[key] === "string" &&
+			value.toLowerCase() === (custom[key] as string).toLowerCase()
+		) {
+			delete duplicateCustom[key];
+			cleared.push(`custom.${key}`);
+		}
+	}
+
+	const changes = {
+		...changedFields(keep, values),
+		...customChanges(keep.custom, custom),
+	};
+	const now = new Date();
+	const [{ notes }] = await db
+		.select({ notes: count() })
+		.from(note)
+		.where(
+			and(
+				eq(note.workspaceId, workspaceId),
+				eq(note.subjectType, "contact"),
+				eq(note.subjectId, duplicateId),
+			),
+		);
+	const summary = { notesMoved: notes, tagsMoved: tags.added.length };
+	try {
+		await db.batch([
+			// Locks both rows and fails the whole batch (division by zero) unless
+			// both are still active: a concurrent merge or archive wins cleanly
+			db
+				.select({
+					ok: sql<number>`1 / (case when count(*) = 2 then 1 else 0 end)`,
+				})
+				.from(
+					db
+						.select({ id: contact.id })
+						.from(contact)
+						.where(
+							and(
+								eq(contact.workspaceId, workspaceId),
+								inArray(contact.id, [keepId, duplicateId]),
+								isNull(contact.archivedAt),
+							),
+						)
+						.for("update")
+						.as("locked"),
+				),
+			db
+				.update(contact)
+				.set({
+					email: takesEmail ? null : duplicate.email,
+					custom: duplicateCustom,
+					archivedAt: now,
+					updatedAt: now,
+				})
+				.where(
+					and(
+						eq(contact.id, duplicateId),
+						eq(contact.workspaceId, workspaceId),
+						isNull(contact.archivedAt),
+					),
+				),
+			db
+				.update(contact)
+				.set({ ...values, ...consent, custom, updatedAt: now })
+				.where(
+					and(
+						eq(contact.id, keepId),
+						eq(contact.workspaceId, workspaceId),
+						isNull(contact.archivedAt),
+					),
+				),
+			db
+				.update(note)
+				.set({ subjectId: keepId })
+				.where(
+					and(
+						eq(note.workspaceId, workspaceId),
+						eq(note.subjectType, "contact"),
+						eq(note.subjectId, duplicateId),
+					),
+				),
+			...(tags.added.length
+				? [
+						db
+							.insert(recordTag)
+							.values(
+								tags.added.map((tagId) => ({
+									workspaceId,
+									tagId,
+									subjectType: "contact",
+									subjectId: keepId,
+									createdById: actor.type === "member" ? actor.id : null,
+								})),
+							)
+							.onConflictDoNothing(),
+					]
+				: []),
+			db
+				.delete(recordTag)
+				.where(
+					and(
+						eq(recordTag.workspaceId, workspaceId),
+						eq(recordTag.subjectType, "contact"),
+						eq(recordTag.subjectId, duplicateId),
+					),
+				),
+			eventInsert(workspaceId, actor, {
+				type: "contact.merged",
+				subjectType: "contact",
+				subjectId: keepId,
+				payload: {
+					role: "kept",
+					otherId: duplicateId,
+					otherName: contactName(duplicate),
+					taken: [...taken],
+					changes,
+					...summary,
+				},
+			}),
+			eventInsert(workspaceId, actor, {
+				type: "contact.merged",
+				subjectType: "contact",
+				subjectId: duplicateId,
+				payload: {
+					role: "duplicate",
+					otherId: keepId,
+					otherName: contactName({
+						firstName: values.firstName,
+						lastName: values.lastName,
+					}),
+					cleared,
+					...summary,
+				},
+			}),
+		]);
+	} catch (error) {
+		const e = error as { code?: string; cause?: { code?: string } };
+		if (e?.code === "22012" || e?.cause?.code === "22012")
+			throw clientError(409, m.merge_conflict());
+		if (isUniqueViolation(error))
+			throw clientError(409, m.error_contact_email_taken());
+		throw error;
+	}
+	return { id: keepId, ...summary };
 }
 
 // Choices for the owner and company pickers
