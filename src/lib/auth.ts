@@ -5,6 +5,7 @@ import { APIError, createAuthMiddleware } from "better-auth/api";
 import { haveIBeenPwned, organization, twoFactor } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { and, asc, desc, eq } from "drizzle-orm";
+import { applyTemplateToNewWorkspace } from "#/modules/templates/templates.server";
 import { db } from "../db/index"; // Points to your Neon-HTTP database file (not the legacy src/db.ts)
 import * as schema from "../db/schema";
 import {
@@ -88,6 +89,8 @@ export async function ensureWorkspace(userId: string) {
 			createdAt: now,
 		}),
 	]);
+	// New workspaces start with the Generic template (spec §7.5)
+	await applyTemplateToNewWorkspace(organizationId, userId);
 	return organizationId;
 }
 
@@ -270,6 +273,12 @@ export const auth = betterAuth({
 			ac,
 			roles,
 			creatorRole: "owner",
+			// Workspaces created from "New workspace" start with the Generic template
+			organizationHooks: {
+				afterCreateOrganization: async ({ organization, user }) => {
+					await applyTemplateToNewWorkspace(organization.id, user.id);
+				},
+			},
 			organizationLimit: 10,
 			membershipLimit: 100,
 			invitationLimit: 50,

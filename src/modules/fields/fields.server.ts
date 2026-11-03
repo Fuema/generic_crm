@@ -135,10 +135,12 @@ const nullIfEmpty = (l: Localized) => (l.en || l.es ? l : null);
 
 // ------------------------------------------------------------- fields
 
+// `fixedKey` is for templates (server-side only): their views refer to fields by key
 export async function createField(
 	workspaceId: string,
 	actor: Actor,
 	input: CreateFieldInput,
+	fixedKey?: string,
 ) {
 	const { objectKey } = input;
 	await assertGroup(workspaceId, objectKey, input.groupId);
@@ -166,7 +168,7 @@ export async function createField(
 	}
 	// A readable, unique key: membership_level, membership_level_2, …
 	const taken = new Set(existing.map((f) => f.key));
-	const base = keyFromLabel(input.label);
+	const base = fixedKey ?? keyFromLabel(input.label);
 	let key = base;
 	for (let i = 2; taken.has(key); i++) key = `${base}_${i}`;
 

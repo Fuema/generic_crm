@@ -647,5 +647,10 @@
 	"columns_title": "Columns",
 	"columns_hint": "Choose the columns and their order. Name is always shown.",
 	"columns_reset": "Reset",
-	"columns_phone": "Phone"
+	"columns_phone": "Phone",
+	"template_title": "Generic template",
+	"template_missing": "{fields} fields and {views} shared views from the Generic template aren't in this workspace yet. Adding them never changes or removes what you already have.",
+	"template_apply": "Add them",
+	"template_applying": "Adding...",
+	"template_applied": "Added {fields} fields, {groups} groups and {views} shared views."
 }
