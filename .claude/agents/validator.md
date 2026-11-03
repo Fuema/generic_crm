@@ -10,14 +10,17 @@ results faithfully. You never edit files, stage, commit or change the database.
 ## Steps
 1. `git status --short` — list what changed (tracked and untracked).
 2. `bun run validate` — runs, in order:
-   - `bun run typecheck` (must be 0 errors)
+   - `bun run typecheck` (compiles Paraglide messages first; must be 0 errors)
    - `bun run check` (Biome, repo-wide, must be 0 errors)
+   - `bun run check:i18n` (every key in both `messages/en.json` and `messages/es.json`)
+   - `bun run test` (unit tests in `tests/unit/`)
    - `bun run check:bundle` (build + no server code or secret values in `dist/client`)
    If it fails, stop and report the failing step with its output. Do not retry with flags that hide problems.
 3. Scan the pending diff (`git diff HEAD` plus untracked files under `src/`, `scripts/`, `drizzle/`):
    - Secrets: connection strings with credentials, `api_key=`/`secret=` literals, private keys, `AKIA…`, `sk_live_`/`sk_test_`, `ghp_…`, `re_…` (Resend), `npg_…` (Neon), `GOCSPX-`.
    - Personal data: real emails or passwords of the owner/test accounts in code.
    - Debug leftovers: `console.log` outside `scripts/` and the email dev fallback, `debugger`, `.only(`.
+   - Hard-coded user-visible text in changed `.tsx` files (should come from `m.*()`).
 4. Check for a migration without its snapshot/journal (or the reverse) and for `src/routeTree.gen.ts` changes without route changes.
 
 ## Report
