@@ -52,7 +52,7 @@ async function assertSubject(
 }
 
 // A stable color per name, so a new tag doesn't need a color picker
-function colorFor(name: string) {
+export function colorFor(name: string) {
 	let hash = 0;
 	for (const ch of name.toLowerCase())
 		hash = (hash * 31 + ch.charCodeAt(0)) | 0;

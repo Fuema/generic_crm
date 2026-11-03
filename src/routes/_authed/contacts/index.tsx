@@ -44,6 +44,7 @@ import {
 	LIFECYCLE_STAGES,
 	STAGE_LABELS,
 } from "#/modules/contacts/schema";
+import { CsvActions } from "#/modules/csv/components/CsvActions";
 import { getRecordFields } from "#/modules/fields/fields";
 import { formatValue } from "#/modules/fields/values";
 import { TagPill } from "#/modules/records/components/TagEditor";
@@ -83,6 +84,7 @@ function ContactsPage() {
 	const { access } = Route.useRouteContext();
 	const can = {
 		create: roleCan(access?.role, { contact: ["create"] }),
+		update: roleCan(access?.role, { contact: ["update"] }),
 		archive: roleCan(access?.role, { contact: ["delete"] }),
 	};
 	const [open, setOpen] = useState(false);
@@ -214,16 +216,27 @@ function ContactsPage() {
 						})}
 					</p>
 				</div>
-				{can.create ? (
-					<Button type="button" onClick={() => setOpen(true)}>
-						<Plus /> {m.contacts_new()}
-					</Button>
-				) : (
-					<p className="flex items-center gap-2 text-sm text-muted-foreground">
-						<Lock className="size-4" aria-hidden="true" />{" "}
-						{m.common_view_only()}
-					</p>
-				)}
+				<div className="flex flex-wrap items-center gap-2">
+					<CsvActions
+						objectKey="contact"
+						search={search}
+						defs={fields.fields}
+						canImport={can.create}
+						canUpdate={can.update}
+						onImported={() => router.invalidate()}
+						onStatus={setStatus}
+					/>
+					{can.create ? (
+						<Button type="button" onClick={() => setOpen(true)}>
+							<Plus /> {m.contacts_new()}
+						</Button>
+					) : (
+						<p className="flex items-center gap-2 text-sm text-muted-foreground">
+							<Lock className="size-4" aria-hidden="true" />{" "}
+							{m.common_view_only()}
+						</p>
+					)}
+				</div>
 			</div>
 
 			<FormAlert
