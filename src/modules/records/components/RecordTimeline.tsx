@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { History, Pencil, Pin, PinOff, StickyNote, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { FormAlert } from "#/components/Auth/FormParts";
@@ -6,6 +7,8 @@ import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import { Label } from "#/components/ui/label";
 import { Textarea } from "#/components/ui/textarea";
+import { orderNumberLabel, quoteNumberLabel } from "#/lib/money";
+import { invoiceLabel } from "#/modules/invoices/schema";
 import { m } from "#/paraglide/messages.js";
 import { getLocale } from "#/paraglide/runtime.js";
 import {
@@ -134,6 +137,64 @@ function describe(e: TimelineEvent, fieldLabels: Record<string, string>) {
 
 const when = (value: Date | string) =>
 	new Date(value).toLocaleString(getLocale());
+
+// For an event of a related record (a contact's deal, quote, order or
+// invoice): a link to it, before the description
+function RelatedLink({ event: e }: { event: TimelineEvent }) {
+	const className = "mr-1 font-medium hover:underline";
+	switch (e.subjectType) {
+		case "deal":
+			return (
+				<Link
+					to="/deals/$dealId"
+					params={{ dealId: e.subjectId }}
+					className={className}
+				>
+					{e.relatedName ?? m.deal_name()}:
+				</Link>
+			);
+		case "quote":
+			return (
+				<Link
+					to="/quotes/$quoteId"
+					params={{ quoteId: e.subjectId }}
+					className={className}
+				>
+					{e.relatedNumber
+						? quoteNumberLabel(e.relatedNumber)
+						: m.quotes_title()}
+					:
+				</Link>
+			);
+		case "order":
+			return (
+				<Link
+					to="/orders/$orderId"
+					params={{ orderId: e.subjectId }}
+					className={className}
+				>
+					{e.relatedNumber
+						? orderNumberLabel(e.relatedNumber)
+						: m.orders_title()}
+					:
+				</Link>
+			);
+		case "invoice":
+			return (
+				<Link
+					to="/invoices/$invoiceId"
+					params={{ invoiceId: e.subjectId }}
+					className={className}
+				>
+					{invoiceLabel(e.relatedYear, e.relatedNumber) ||
+						m.invoice_doc_draft()}
+					:
+				</Link>
+			);
+		default:
+			return null;
+	}
+}
 
 function actorName(e: TimelineEvent) {
 	return e.actorType === "system"
@@ -273,7 +334,12 @@ export function RecordTimeline({
 									aria-hidden="true"
 								/>
 								<div>
-									<p>{describe(item.event, fieldLabels)}</p>
+									<p>
+										{item.event.subjectId !== subjectId ? (
+											<RelatedLink event={item.event} />
+										) : null}
+										{describe(item.event, fieldLabels)}
+									</p>
 									<p className="text-xs text-muted-foreground">
 										{when(item.event.createdAt)} ·{" "}
 										{m.common_by({ name: actorName(item.event) })}

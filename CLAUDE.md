@@ -6,12 +6,13 @@ first**: vision, decisions, data model, customization engine, portal, phases,
 conventions and pitfalls live there.
 
 ## Where things stand
-- **Phase 2 (Sales) in progress** (spec §16; phases 0–1 done). Steps 1–5, pipelines (#22),
-  deals (#23), products (#24), quotes (#25) and orders and invoices (#26), are merged; step 6,
-  payments, is built, but migration `0012` is applied to dev; **next is
-  step 7, the end-to-end acceptance test (deal → quote → order → invoice → partial payments
-  → paid), then the phase 2 acceptance check**. Spec §16.1 is the handoff: the 7-step
-  phase 2 plan, what waits on the owner, how to resume.
+- **Phase 2 (Sales) code complete** (spec §16; phases 0–1 done). Steps 1–6 are merged
+  (#22–#27); step 7, the timeline across the sales chain and the acceptance test
+  (`tests/integration/sales-chain.test.ts`), is built. **Next: the owner's browser checks of
+  phase 2 in EN/ES, then the owner decides whether to start phase 3.** Spec §16.1 is the
+  handoff: what waits on the owner, how to resume.
+- Contact and deal timelines also show related records' milestones (not `*.updated`,
+  `*.tag_*`, `*.note_*`); every subquery there filters by the session's workspace (spec §11.2).
 - Payments change an invoice only inside one `db.batch` that locks the invoice row, guards
   the totals and recomputes `paid_cents` and the status (spec §10, Payments).
 - Quotes, orders and invoices share lines, totals, email and components in

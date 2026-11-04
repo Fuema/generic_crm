@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, or, type SQL, sql } from "drizzle-orm";
 import { db } from "#/db/index";
 import {
 	company,
@@ -353,6 +353,33 @@ export async function deleteNote(
 // Everything shown on a record page: its tags, notes (pinned first) and events,
 // newest first. Note text lives in the notes; the timeline hides the events
 // that only announce a note being added or edited.
+// The timeline across the sales chain (spec §11.2): a contact's timeline also
+// shows the milestones of its deals, quotes, orders and invoices; a deal's,
+// those of its quotes, orders and invoices. Routine edits, tags and notes of
+// those records stay on their own pages.
+// "_" is a LIKE wildcard, so it is escaped: ".tag_" and ".note_" match only
+// themselves. Every role that reads contacts also reads deals, quotes, orders
+// and invoices today; a future role without one of them (custom roles) must
+// have those related events filtered out here.
+const MILESTONE = sql`${event.type} not like '%.updated' and ${event.type} not like '%.tag\\_%' and ${event.type} not like '%.note\\_%'`;
+
+function relatedEvents(
+	workspaceId: string,
+	subjectType: SubjectType,
+	subjectId: string,
+): SQL | undefined {
+	// = any(array(…)) is computed once (an InitPlan), so each branch can use
+	// the event (workspace_id, subject_type, subject_id) index; a plain IN
+	// subquery under OR would be re-checked against every event instead
+	const of = (type: string, table: string, column: string) =>
+		sql`(${event.subjectType} = ${type} and ${event.subjectId} = any(array(select r."id" from ${sql.raw(`"${table}"`)} r where r."workspace_id" = ${workspaceId} and r.${sql.raw(`"${column}"`)} = ${subjectId})))`;
+	if (subjectType === "contact")
+		return sql`(${MILESTONE} and (${of("deal", "deal", "contact_id")} or ${of("quote", "quote", "contact_id")} or ${of("order", "sales_order", "contact_id")} or ${of("invoice", "invoice", "contact_id")}))`;
+	if (subjectType === "deal")
+		return sql`(${MILESTONE} and (${of("quote", "quote", "deal_id")} or ${of("order", "sales_order", "deal_id")} or ${of("invoice", "invoice", "deal_id")}))`;
+	return undefined;
+}
+
 export async function getTimeline(
 	workspaceId: string,
 	subjectType: SubjectType,
@@ -390,14 +417,31 @@ export async function getTimeline(
 				actorType: event.actorType,
 				actorName: user.name,
 				createdAt: event.createdAt,
+				subjectType: event.subjectType,
+				subjectId: event.subjectId,
+				// For events of a related record: what to call it
+				relatedName: sql<
+					string | null
+				>`(case when ${event.subjectType} = 'deal' then (select d."name" from "deal" d where d."id" = ${event.subjectId} and d."workspace_id" = ${workspaceId}) end)`,
+				relatedNumber: sql<
+					number | null
+				>`(case ${event.subjectType} when 'quote' then (select q."number" from "quote" q where q."id" = ${event.subjectId} and q."workspace_id" = ${workspaceId}) when 'order' then (select o."number" from "sales_order" o where o."id" = ${event.subjectId} and o."workspace_id" = ${workspaceId}) when 'invoice' then (select i."number" from "invoice" i where i."id" = ${event.subjectId} and i."workspace_id" = ${workspaceId}) end)`,
+				relatedYear: sql<
+					number | null
+				>`(case when ${event.subjectType} = 'invoice' then (select i."year" from "invoice" i where i."id" = ${event.subjectId} and i."workspace_id" = ${workspaceId}) end)`,
 			})
 			.from(event)
 			.leftJoin(user, eq(user.id, event.actorId))
 			.where(
 				and(
 					eq(event.workspaceId, workspaceId),
-					eq(event.subjectType, subjectType),
-					eq(event.subjectId, subjectId),
+					or(
+						and(
+							eq(event.subjectType, subjectType),
+							eq(event.subjectId, subjectId),
+						),
+						relatedEvents(workspaceId, subjectType, subjectId),
+					),
 					sql`${event.type} not like '%.note_added' and ${event.type} not like '%.note_edited'`,
 				),
 			)

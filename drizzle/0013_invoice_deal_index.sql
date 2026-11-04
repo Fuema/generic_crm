@@ -1,0 +1,1 @@
+CREATE INDEX "invoice_workspace_deal_idx" ON "invoice" USING btree ("workspace_id","deal_id");
