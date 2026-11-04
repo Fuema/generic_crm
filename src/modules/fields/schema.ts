@@ -53,6 +53,19 @@ export type Localized = { en: string; es: string };
 export type FieldOption = { value: string; label: Localized };
 
 // What forms and the server need to know about a field
+// What the customer portal shows of a field (spec §8): nothing, the value,
+// or the value to edit (contact profile)
+export const PORTAL_VISIBILITIES = ["hidden", "read_only", "editable"] as const;
+export type PortalVisibility = (typeof PORTAL_VISIBILITIES)[number];
+export const PORTAL_VISIBILITY_LABELS: Record<
+	PortalVisibility,
+	typeof m.field_portal_hidden
+> = {
+	hidden: m.field_portal_hidden,
+	read_only: m.field_portal_read_only,
+	editable: m.field_portal_editable,
+};
+
 export type FieldDef = {
 	id: string;
 	key: string;
@@ -64,6 +77,8 @@ export type FieldDef = {
 	unique: boolean;
 	groupId: string | null;
 	position: number;
+	// hidden | read_only | editable; always set when read from the database
+	portalVisibility?: string;
 	archivedAt: Date | string | null;
 };
 
@@ -114,6 +129,8 @@ const fieldSettings = {
 		z.literal(""),
 		z.uuid({ error: () => m.validation_invalid_id() }),
 	]),
+	// Left out (templates, older callers): hidden on create, unchanged on edit
+	portalVisibility: z.enum(PORTAL_VISIBILITIES).optional(),
 };
 
 // Rules that depend on the type: options only (and at least one) for choices,

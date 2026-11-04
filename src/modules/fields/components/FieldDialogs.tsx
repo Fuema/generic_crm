@@ -27,6 +27,9 @@ import {
 	keyFromLabel,
 	localized,
 	type ObjectKey,
+	PORTAL_VISIBILITIES,
+	PORTAL_VISIBILITY_LABELS,
+	type PortalVisibility,
 	UNIQUE_TYPES,
 	updateFieldSchema,
 } from "../schema";
@@ -153,6 +156,9 @@ function FieldForm({
 	const [groupId, setGroupId] = useState(field?.groupId ?? "");
 	const [required, setRequired] = useState(field?.required ?? false);
 	const [unique, setUnique] = useState(field?.unique ?? false);
+	const [portalVisibility, setPortalVisibility] = useState<PortalVisibility>(
+		(field?.portalVisibility as PortalVisibility | undefined) ?? "hidden",
+	);
 	const [options, setOptions] = useState<OptionDraft[]>(
 		field?.options.map((o) => ({ value: o.value, ...o.label })) ?? [],
 	);
@@ -170,6 +176,12 @@ function FieldForm({
 			required,
 			unique: canBeUnique && unique,
 			groupId,
+			// A unique or non-contact field is shown read only at most
+			portalVisibility:
+				portalVisibility === "editable" &&
+				(objectKey !== "contact" || (canBeUnique && unique))
+					? ("read_only" as const)
+					: portalVisibility,
 		};
 		const parsed = field
 			? updateFieldSchema.safeParse({ id: field.id, ...common })
@@ -251,6 +263,29 @@ function FieldForm({
 						label: localized(g.label),
 					}))}
 				/>
+				<div className="space-y-1">
+					<OptionSelect
+						id="field-portal"
+						label={m.field_portal()}
+						value={portalVisibility}
+						onChange={(v) =>
+							setPortalVisibility((v || "hidden") as PortalVisibility)
+						}
+						options={PORTAL_VISIBILITIES.filter(
+							(v) =>
+								v !== "editable" ||
+								(objectKey === "contact" && !(canBeUnique && unique)),
+						).map((v) => ({
+							value: v,
+							label: PORTAL_VISIBILITY_LABELS[v](),
+						}))}
+					/>
+					<p className="text-xs text-muted-foreground">
+						{objectKey === "contact"
+							? m.field_portal_hint_contact()
+							: m.field_portal_hint_other()}
+					</p>
+				</div>
 			</div>
 			<div className="flex flex-wrap gap-6">
 				<div className="flex items-center gap-2">

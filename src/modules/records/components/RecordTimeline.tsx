@@ -261,9 +261,10 @@ function RelatedLink({ event: e }: { event: TimelineEvent }) {
 }
 
 function actorName(e: TimelineEvent) {
-	return e.actorType === "system"
-		? m.common_system()
-		: (e.actorName ?? m.common_someone());
+	if (e.actorType === "system") return m.common_system();
+	// A customer, changing their own details in the portal
+	if (e.actorType === "contact") return m.event_by_contact_portal();
+	return e.actorName ?? m.common_someone();
 }
 
 // A record's notes and events, newest first with pinned notes on top (spec §11.2)

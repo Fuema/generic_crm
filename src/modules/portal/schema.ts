@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { emailSchema } from "#/lib/schema";
+import { contactInputSchema } from "#/modules/contacts/schema";
 import { m } from "#/paraglide/messages.js";
 
 // Customer portal (spec §8), phase 4. Owner decisions 2026-11-04: staff invite
@@ -40,6 +41,27 @@ export const requestLinkSchema = z.object({
 });
 export const signInSchema = z.object({ slug: slugSchema, token: tokenSchema });
 export const portalSlugSchema = z.object({ slug: slugSchema });
+
+// The portal profile (owner decisions 2026-11-04): name, phone, job title and
+// language are the contact's to change, saved at once; the email stays with
+// staff (it is how they sign in); marketing consent is theirs too; custom
+// fields only where staff marked them editable (checked on the server)
+export const portalProfileSchema = contactInputSchema
+	.pick({ firstName: true, lastName: true, phone: true, jobTitle: true })
+	.extend({
+		// "" = keep what is stored (unset follows the workspace default)
+		locale: z.enum(["", "en", "es"]),
+		marketing: z.boolean(),
+		custom: z
+			.record(z.string().max(40), z.unknown())
+			.refine((r) => Object.keys(r).length <= 100),
+	});
+export type PortalProfileInput = z.infer<typeof portalProfileSchema>;
+
+export const updatePortalProfileSchema = z.object({
+	slug: slugSchema,
+	profile: portalProfileSchema,
+});
 
 const id = z.uuid({ error: () => m.validation_invalid_id() });
 export const contactPortalSchema = z.object({ contactId: id });

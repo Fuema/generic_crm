@@ -16,6 +16,7 @@ import {
 	portalSlugSchema,
 	requestLinkSchema,
 	signInSchema,
+	updatePortalProfileSchema,
 } from "./schema";
 
 // Server functions for the customer portal (spec §8).
@@ -160,5 +161,32 @@ export const getPortalHome = createServerFn({ method: "GET" })
 		};
 	});
 
+function portalHeader(scope: data.PortalScope) {
+	return {
+		workspaceName: scope.workspaceName,
+		firstName: scope.firstName,
+		lastName: scope.lastName,
+		companyContact: scope.companyId !== null,
+	};
+}
+
+export const getPortalProfile = createServerFn({ method: "GET" })
+	.validator(portalSlugSchema)
+	.handler(async ({ data: { slug } }) => {
+		const scope = await requirePortal(slug);
+		return {
+			portal: portalHeader(scope),
+			profile: await data.portalProfile(scope),
+		};
+	});
+
+export const updatePortalProfile = createServerFn({ method: "POST" })
+	.validator(updatePortalProfileSchema)
+	.handler(async ({ data: { slug, profile } }) => {
+		const scope = await requirePortal(slug);
+		return data.updatePortalProfile(scope, profile);
+	});
+
 export type PortalHome = Awaited<ReturnType<typeof getPortalHome>>;
+export type PortalProfile = Awaited<ReturnType<typeof getPortalProfile>>;
 export type ContactPortal = Awaited<ReturnType<typeof getContactPortal>>;
