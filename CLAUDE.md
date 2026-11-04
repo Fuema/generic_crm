@@ -6,11 +6,12 @@ first**: vision, decisions, data model, customization engine, portal, phases,
 conventions and pitfalls live there.
 
 ## Where things stand
-- **Phase 2 (Sales) code complete** (spec §16; phases 0–1 done). Steps 1–6 are merged
-  (#22–#27); step 7, the timeline across the sales chain and the acceptance test
-  (`tests/integration/sales-chain.test.ts`), is built. **Next: the owner's browser checks of
-  phase 2 in EN/ES, then the owner decides whether to start phase 3.** Spec §16.1 is the
-  handoff: what waits on the owner, how to resume.
+- **Phase 3 (Work) in progress** (spec §16; phases 0–2 done, #1–#28; browser checks of
+  phases 1–2 pending). Step 1, projects, is built on `feat/phase3-projects`; its migration
+  `0014` is applied to dev. **Next: step 2, tasks and activities rebuilt.**
+  Spec §16.1 is the handoff: the phase 3 plan, what waits on the owner, how to resume.
+- Files (step 4) go to R2 in production and a git-ignored local-disk stand-in in dev, behind
+  one interface; file rights follow the record (spec §3, §9).
 - Contact and deal timelines also show related records' milestones (not `*.updated`,
   `*.tag_*`, `*.note_*`); every subquery there filters by the session's workspace (spec §11.2).
 - Payments change an invoice only inside one `db.batch` that locks the invoice row, guards
@@ -18,7 +19,7 @@ conventions and pitfalls live there.
 - Quotes, orders and invoices share lines, totals, email and components in
   `src/modules/documents`; they are printable pages, not generated PDFs (Workers CPU, spec §3).
 - Modules that point to contacts must also move their rows in `mergeContacts` (deals,
-  quotes, orders and invoices do; projects, tickets, portal access… follow, spec §10).
+  quotes, orders, invoices and projects do; tickets, portal access… follow, spec §10).
 - Quote "expired" and invoice "overdue" are worked out on read (no cron on the free plan),
   never stored (spec §17).
 - Deal writes that set or keep a stage take the pipelines' advisory lock and guard the stage

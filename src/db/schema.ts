@@ -185,13 +185,39 @@ export const project = pgTable(
 			.references(() => organization.id, { onDelete: "cascade" }),
 		name: text("name").notNull(),
 		description: text("description"),
+		// planned | active | on_hold | completed | cancelled
+		status: text("status").notNull().default("planned"),
+		// All-day dates, stored at 12:00 UTC
+		startDate: timestamp("start_date"),
+		dueDate: timestamp("due_date"),
+		ownerId: text("owner_id").references(() => user.id, {
+			onDelete: "set null",
+		}),
+		// Who it's for (optional); the deal it came from
+		contactId: text("contact_id").references(() => contact.id),
+		companyId: text("company_id").references(() => company.id, {
+			onDelete: "set null",
+		}),
+		dealId: text("deal_id").references(() => deal.id, { onDelete: "set null" }),
+		custom: jsonb("custom").$type<Record<string, Json>>().notNull().default({}),
+		archivedAt: timestamp("archived_at"),
 		createdById: text("created_by_id").references(() => user.id, {
 			onDelete: "set null",
 		}),
 		createdAt: timestamp("created_at").notNull().defaultNow(),
 		updatedAt: timestamp("updated_at").notNull().defaultNow(),
 	},
-	(t) => [index("project_workspace_id_idx").on(t.workspaceId)],
+	(t) => [
+		index("project_workspace_id_idx").on(t.workspaceId),
+		index("project_workspace_status_idx").on(t.workspaceId, t.status),
+		index("project_workspace_contact_idx").on(t.workspaceId, t.contactId),
+		index("project_workspace_deal_idx").on(t.workspaceId, t.dealId),
+		// One active project per deal, whatever path creates or restores it
+		uniqueIndex("project_workspace_deal_active_unique")
+			.on(t.workspaceId, t.dealId)
+			.where(sql`${t.dealId} is not null and ${t.archivedAt} is null`),
+		index("project_custom_gin_idx").using("gin", t.custom),
+	],
 );
 
 // Customers. The workspace is a Better Auth organization: every query filters by

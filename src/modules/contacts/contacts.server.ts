@@ -20,6 +20,7 @@ import {
 	invoice,
 	member,
 	note,
+	project,
 	quote,
 	recordTag,
 	salesOrder,
@@ -624,6 +625,15 @@ export async function mergeContacts(
 					and(
 						eq(salesOrder.workspaceId, workspaceId),
 						eq(salesOrder.contactId, duplicateId),
+					),
+				),
+			db
+				.update(project)
+				.set({ contactId: keepId, updatedAt: now })
+				.where(
+					and(
+						eq(project.workspaceId, workspaceId),
+						eq(project.contactId, duplicateId),
 					),
 				),
 			db

@@ -9,6 +9,10 @@ import { Label } from "#/components/ui/label";
 import { Textarea } from "#/components/ui/textarea";
 import { orderNumberLabel, quoteNumberLabel } from "#/lib/money";
 import { invoiceLabel } from "#/modules/invoices/schema";
+import {
+	PROJECT_STATUS_LABELS,
+	type ProjectStatus,
+} from "#/modules/projects/schema";
 import { m } from "#/paraglide/messages.js";
 import { getLocale } from "#/paraglide/runtime.js";
 import {
@@ -74,6 +78,13 @@ function describe(e: TimelineEvent, fieldLabels: Record<string, string>) {
 			return m.event_note_pinned();
 		case "note_unpinned":
 			return m.event_note_unpinned();
+		case "status_changed":
+			return m.event_project_status({
+				status:
+					PROJECT_STATUS_LABELS[
+						(payload as { to?: string }).to as ProjectStatus
+					]?.() ?? "",
+			});
 		case "stage_changed":
 			return m.event_stage_changed({ stage: payload.toName ?? "" });
 		case "won":
@@ -143,6 +154,16 @@ const when = (value: Date | string) =>
 function RelatedLink({ event: e }: { event: TimelineEvent }) {
 	const className = "mr-1 font-medium hover:underline";
 	switch (e.subjectType) {
+		case "project":
+			return (
+				<Link
+					to="/projects/$projectId"
+					params={{ projectId: e.subjectId }}
+					className={className}
+				>
+					{e.relatedName ?? m.projects_title()}:
+				</Link>
+			);
 		case "deal":
 			return (
 				<Link

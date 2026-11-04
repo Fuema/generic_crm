@@ -17,6 +17,7 @@ import {
 	pipeline,
 	pipelineStage,
 	product,
+	project,
 	quote,
 	recordTag,
 	salesOrder,
@@ -33,6 +34,7 @@ import * as invoices from "#/modules/invoices/invoices.server";
 import * as orders from "#/modules/orders/orders.server";
 import * as payments from "#/modules/payments/payments.server";
 import * as pipelines from "#/modules/pipelines/pipelines.server";
+import * as projectsData from "#/modules/projects/projects.server";
 import * as quotes from "#/modules/quotes/quotes.server";
 import * as records from "#/modules/records/records.server";
 import { applyTemplateToNewWorkspace } from "#/modules/templates/templates.server";
@@ -197,6 +199,16 @@ describe("database rules", () => {
 			lostReason: "",
 		});
 		await quotes.createQuote(c.workspaceId, actor, { contactId: ana.id });
+		await projectsData.createProject(c.workspaceId, actor, {
+			name: "Project",
+			description: "",
+			status: "planned",
+			startDate: "",
+			dueDate: "",
+			ownerId: "",
+			contactId: ana.id,
+			companyId: "",
+		});
 		const order = await orders.createOrder(c.workspaceId, actor, {
 			contactId: ana.id,
 		});
@@ -272,6 +284,7 @@ describe("database rules", () => {
 			invoice,
 			orderLine,
 			payment,
+			project,
 		];
 		for (const table of phase1) {
 			const [{ n }] = await db
