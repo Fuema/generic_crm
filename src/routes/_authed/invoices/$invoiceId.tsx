@@ -26,6 +26,8 @@ import { DocumentView } from "#/modules/documents/components/DocumentView";
 import { DraftEditor } from "#/modules/documents/components/DraftEditor";
 import { customFieldLabels } from "#/modules/fields/components/CustomFields";
 import { getRecordFields } from "#/modules/fields/fields";
+import { RecordFiles } from "#/modules/files/components/FileBits";
+import { listRecordFiles } from "#/modules/files/files";
 import {
 	invoiceStatus,
 	invoiceTitle,
@@ -57,22 +59,32 @@ export const Route = createFileRoute("/_authed/invoices/$invoiceId")({
 				subjectType: "invoice" as const,
 				subjectId: params.invoiceId,
 			};
-			const [detail, options, timeline, allTags, fields, payments, work] =
-				await Promise.all([
-					getInvoice({ data: { id: params.invoiceId } }),
-					getContactFormOptions(),
-					getTimeline({ data: subject }),
-					listWorkspaceTags(),
-					getRecordFields({ data: { objectKey: "invoice" } }),
-					listPayments({ data: { invoiceId: params.invoiceId } }),
-					listRecordWork({ data: subject }),
-				]);
+			const [
+				detail,
+				options,
+				timeline,
+				allTags,
+				fields,
+				payments,
+				work,
+				recordFiles,
+			] = await Promise.all([
+				getInvoice({ data: { id: params.invoiceId } }),
+				getContactFormOptions(),
+				getTimeline({ data: subject }),
+				listWorkspaceTags(),
+				getRecordFields({ data: { objectKey: "invoice" } }),
+				listPayments({ data: { invoiceId: params.invoiceId } }),
+				listRecordWork({ data: subject }),
+				listRecordFiles({ data: subject }),
+			]);
 			const products =
 				detail.invoice.status === "draft" && !detail.invoice.archivedAt
 					? await pickProducts({ data: { q: "" } })
 					: [];
 			return {
 				work,
+				recordFiles,
 				detail,
 				options,
 				timeline,
@@ -99,7 +111,7 @@ function InvoicePage() {
 	const router = useRouter();
 	const { detail, options, timeline, allTags, fields, products, payments } =
 		Route.useLoaderData();
-	const { work } = Route.useLoaderData();
+	const { work, recordFiles } = Route.useLoaderData();
 	const { access, session } = Route.useRouteContext();
 	const can = {
 		update: roleCan(access?.role, { invoice: ["update"] }),
@@ -349,6 +361,12 @@ function InvoicePage() {
 					payments={payments}
 					canRecord={can.update && !archived}
 					canDecide={can.pay && !archived}
+					receipts={recordFiles.filter((f) => f.paymentId)}
+					canAttach={can.update && !archived}
+					canDeleteReceipt={(f) =>
+						can.archive ||
+						(can.update && !archived && f.uploadedById === session.user.id)
+					}
 					onChanged={async (message) => {
 						setNotice({ ok: true, message });
 						await router.invalidate();
@@ -376,14 +394,6 @@ function InvoicePage() {
 					<CardHeader>
 						<CardTitle>{m.timeline_title()}</CardTitle>
 					</CardHeader>
-					<RecordWork
-						subjectType="invoice"
-						subjectId={inv.id}
-						label={title}
-						work={work}
-						role={access?.role}
-						archived={archived}
-					/>
 					<CardContent>
 						<RecordTimeline
 							subjectType="invoice"
@@ -397,6 +407,24 @@ function InvoicePage() {
 						/>
 					</CardContent>
 				</Card>
+				<RecordWork
+					className="lg:col-span-3"
+					subjectType="invoice"
+					subjectId={inv.id}
+					label={title}
+					work={work}
+					role={access?.role}
+					archived={archived}
+				/>
+				<RecordFiles
+					className="lg:col-span-3"
+					subjectType="invoice"
+					subjectId={inv.id}
+					files={recordFiles}
+					role={access?.role}
+					userId={session.user.id}
+					archived={archived}
+				/>
 			</div>
 		</div>
 	);

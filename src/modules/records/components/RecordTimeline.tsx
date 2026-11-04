@@ -64,6 +64,7 @@ function describe(e: TimelineEvent, fieldLabels: Record<string, string>) {
 		reason?: string | null;
 		fields?: string[];
 		email?: boolean;
+		paymentId?: string;
 	};
 	// Tasks and activities about the record: shown under their own name
 	if (e.type === "task.created") return m.event_task_added();
@@ -77,6 +78,16 @@ function describe(e: TimelineEvent, fieldLabels: Record<string, string>) {
 		});
 	if (e.type === "activity.completed") return m.event_activity_completed();
 	switch (kind) {
+		case "file_added":
+			return payload.paymentId
+				? m.event_receipt_added({ name: payload.name ?? "" })
+				: m.event_file_added({ name: payload.name ?? "" });
+		case "file_deleted":
+			return m.event_file_deleted({ name: payload.name ?? "" });
+		case "file_shared":
+			return m.event_file_shared({ name: payload.name ?? "" });
+		case "file_unshared":
+			return m.event_file_unshared({ name: payload.name ?? "" });
 		case "created":
 			return m.event_created();
 		case "archived":

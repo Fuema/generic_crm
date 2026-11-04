@@ -38,6 +38,8 @@ import { getContactFormOptions } from "#/modules/contacts/contacts";
 import { moveDeal } from "#/modules/deals/deals";
 import { customFieldLabels } from "#/modules/fields/components/CustomFields";
 import { getRecordFields } from "#/modules/fields/fields";
+import { RecordFiles } from "#/modules/files/components/FileBits";
+import { listRecordFiles } from "#/modules/files/files";
 import { createOrder, listRelatedOrders } from "#/modules/orders/orders";
 import { listPipelines } from "#/modules/pipelines/pipelines";
 import { pickProducts } from "#/modules/products/products";
@@ -67,16 +69,25 @@ export const Route = createFileRoute("/_authed/quotes/$quoteId")({
 				subjectType: "quote" as const,
 				subjectId: params.quoteId,
 			};
-			const [detail, options, timeline, allTags, fields, orders, work] =
-				await Promise.all([
-					getQuote({ data: { id: params.quoteId } }),
-					getContactFormOptions(),
-					getTimeline({ data: subject }),
-					listWorkspaceTags(),
-					getRecordFields({ data: { objectKey: "quote" } }),
-					listRelatedOrders({ data: { quoteId: params.quoteId } }),
-					listRecordWork({ data: subject }),
-				]);
+			const [
+				detail,
+				options,
+				timeline,
+				allTags,
+				fields,
+				orders,
+				work,
+				recordFiles,
+			] = await Promise.all([
+				getQuote({ data: { id: params.quoteId } }),
+				getContactFormOptions(),
+				getTimeline({ data: subject }),
+				listWorkspaceTags(),
+				getRecordFields({ data: { objectKey: "quote" } }),
+				listRelatedOrders({ data: { quoteId: params.quoteId } }),
+				listRecordWork({ data: subject }),
+				listRecordFiles({ data: subject }),
+			]);
 			// The catalog only matters while the quote can be edited
 			const products =
 				detail.quote.status === "draft" && !detail.quote.archivedAt
@@ -84,6 +95,7 @@ export const Route = createFileRoute("/_authed/quotes/$quoteId")({
 					: [];
 			return {
 				work,
+				recordFiles,
 				detail,
 				options,
 				timeline,
@@ -110,7 +122,7 @@ function QuotePage() {
 	const router = useRouter();
 	const { detail, options, timeline, allTags, fields, products, orders } =
 		Route.useLoaderData();
-	const { work } = Route.useLoaderData();
+	const { work, recordFiles } = Route.useLoaderData();
 	const navigate = useNavigate();
 	const order = orders[0] ?? null;
 	const { access, session } = Route.useRouteContext();
@@ -389,14 +401,6 @@ function QuotePage() {
 					<CardHeader>
 						<CardTitle>{m.timeline_title()}</CardTitle>
 					</CardHeader>
-					<RecordWork
-						subjectType="quote"
-						subjectId={q.id}
-						label={number}
-						work={work}
-						role={access?.role}
-						archived={archived}
-					/>
 					<CardContent>
 						<RecordTimeline
 							subjectType="quote"
@@ -410,6 +414,24 @@ function QuotePage() {
 						/>
 					</CardContent>
 				</Card>
+				<RecordWork
+					className="lg:col-span-3"
+					subjectType="quote"
+					subjectId={q.id}
+					label={number}
+					work={work}
+					role={access?.role}
+					archived={archived}
+				/>
+				<RecordFiles
+					className="lg:col-span-3"
+					subjectType="quote"
+					subjectId={q.id}
+					files={recordFiles}
+					role={access?.role}
+					userId={session.user.id}
+					archived={archived}
+				/>
 			</div>
 
 			<Dialog open={sending} onOpenChange={setSending}>

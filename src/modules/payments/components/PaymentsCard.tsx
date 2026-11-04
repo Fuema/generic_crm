@@ -19,6 +19,12 @@ import { centsToInput, formatMoney, parseMoneyToCents } from "#/lib/money";
 import { OptionSelect } from "#/modules/contacts/components/fields";
 import { formatDay } from "#/modules/deals/components/DealBits";
 import { DocumentStatusBadge } from "#/modules/documents/components/DocumentBits";
+import {
+	FileList,
+	type Notice,
+	UploadButton,
+} from "#/modules/files/components/FileBits";
+import type { FileItem } from "#/modules/files/files";
 import { m } from "#/paraglide/messages.js";
 import { decidePayment, type PaymentRow, recordPayment } from "../payments";
 import {
@@ -54,6 +60,9 @@ export function PaymentsCard({
 	payments,
 	canRecord,
 	canDecide,
+	receipts = [],
+	canAttach = false,
+	canDeleteReceipt = () => false,
 	onChanged,
 }: {
 	invoiceId: string;
@@ -63,6 +72,10 @@ export function PaymentsCard({
 	payments: PaymentRow[];
 	canRecord: boolean;
 	canDecide: boolean;
+	// Receipt files (on the invoice, each pointing to its payment)
+	receipts?: FileItem[];
+	canAttach?: boolean;
+	canDeleteReceipt?: (file: FileItem) => boolean;
 	onChanged: (message: string) => Promise<void>;
 }) {
 	const money = (cents: number) => formatMoney(cents, currency);
@@ -78,6 +91,14 @@ export function PaymentsCard({
 	const [reference, setReference] = useState("");
 	const [note, setNote] = useState("");
 	const [rejecting, setRejecting] = useState<PaymentRow | null>(null);
+	const [receiptError, setReceiptError] = useState<string | null>(null);
+	const receiptDone = async (n: Notice) => {
+		if (!n) return;
+		if (n.ok) {
+			setReceiptError(null);
+			await onChanged(n.message);
+		} else setReceiptError(n.message);
+	};
 	const [reason, setReason] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
@@ -144,6 +165,11 @@ export function PaymentsCard({
 				</dl>
 				{payments.length ? (
 					<ul className="divide-y">
+						{receiptError ? (
+							<li className="py-2">
+								<FormAlert message={receiptError} />
+							</li>
+						) : null}
 						{payments.map((p) => (
 							<li
 								key={p.id}
@@ -213,6 +239,28 @@ export function PaymentsCard({
 										{[p.note, p.rejectReason].filter(Boolean).join(" · ")}
 									</p>
 								) : null}
+								<div className="w-full space-y-1 pl-2">
+									{receipts.some((r) => r.paymentId === p.id) ? (
+										<FileList
+											files={receipts.filter((r) => r.paymentId === p.id)}
+											canShare={canAttach}
+											canDelete={canDeleteReceipt}
+											onChanged={receiptDone}
+										/>
+									) : null}
+									{canAttach ? (
+										<UploadButton
+											label={m.payments_attach_receipt()}
+											target={{
+												kind: "record",
+												subjectType: "invoice",
+												subjectId: invoiceId,
+												paymentId: p.id,
+											}}
+											onDone={receiptDone}
+										/>
+									) : null}
+								</div>
 							</li>
 						))}
 					</ul>

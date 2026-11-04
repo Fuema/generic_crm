@@ -30,6 +30,8 @@ import { DocumentView } from "#/modules/documents/components/DocumentView";
 import { DraftEditor } from "#/modules/documents/components/DraftEditor";
 import { customFieldLabels } from "#/modules/fields/components/CustomFields";
 import { getRecordFields } from "#/modules/fields/fields";
+import { RecordFiles } from "#/modules/files/components/FileBits";
+import { listRecordFiles } from "#/modules/files/files";
 import { createInvoice } from "#/modules/invoices/invoices";
 import { orderStatus } from "#/modules/orders/components/orderBits";
 import {
@@ -55,7 +57,7 @@ export const Route = createFileRoute("/_authed/orders/$orderId")({
 				subjectType: "order" as const,
 				subjectId: params.orderId,
 			};
-			const [detail, options, timeline, allTags, fields, work] =
+			const [detail, options, timeline, allTags, fields, work, recordFiles] =
 				await Promise.all([
 					getOrder({ data: { id: params.orderId } }),
 					getContactFormOptions(),
@@ -63,12 +65,22 @@ export const Route = createFileRoute("/_authed/orders/$orderId")({
 					listWorkspaceTags(),
 					getRecordFields({ data: { objectKey: "order" } }),
 					listRecordWork({ data: subject }),
+					listRecordFiles({ data: subject }),
 				]);
 			const products =
 				detail.order.status === "draft" && !detail.order.archivedAt
 					? await pickProducts({ data: { q: "" } })
 					: [];
-			return { work, detail, options, timeline, allTags, fields, products };
+			return {
+				work,
+				recordFiles,
+				detail,
+				options,
+				timeline,
+				allTags,
+				fields,
+				products,
+			};
 		} catch (e) {
 			if (e instanceof Response && (e.status === 404 || e.status === 400))
 				throw notFound();
@@ -88,7 +100,7 @@ function OrderPage() {
 	const navigate = useNavigate();
 	const { detail, options, timeline, allTags, fields, products } =
 		Route.useLoaderData();
-	const { work } = Route.useLoaderData();
+	const { work, recordFiles } = Route.useLoaderData();
 	const { access, session } = Route.useRouteContext();
 	const can = {
 		update: roleCan(access?.role, { order: ["update"] }),
@@ -376,14 +388,6 @@ function OrderPage() {
 					<CardHeader>
 						<CardTitle>{m.timeline_title()}</CardTitle>
 					</CardHeader>
-					<RecordWork
-						subjectType="order"
-						subjectId={o.id}
-						label={number}
-						work={work}
-						role={access?.role}
-						archived={archived}
-					/>
 					<CardContent>
 						<RecordTimeline
 							subjectType="order"
@@ -397,6 +401,24 @@ function OrderPage() {
 						/>
 					</CardContent>
 				</Card>
+				<RecordWork
+					className="lg:col-span-3"
+					subjectType="order"
+					subjectId={o.id}
+					label={number}
+					work={work}
+					role={access?.role}
+					archived={archived}
+				/>
+				<RecordFiles
+					className="lg:col-span-3"
+					subjectType="order"
+					subjectId={o.id}
+					files={recordFiles}
+					role={access?.role}
+					userId={session.user.id}
+					archived={archived}
+				/>
 			</div>
 		</div>
 	);

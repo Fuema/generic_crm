@@ -15,6 +15,7 @@ import { Route as GuestRouteImport } from './routes/_guest'
 import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as AuthedCalendarRouteImport } from './routes/_authed/calendar'
 import { Route as AuthedDashboardRouteImport } from './routes/_authed/dashboard'
+import { Route as AuthedFilesRouteImport } from './routes/_authed/files'
 import { Route as AuthedTasksRouteImport } from './routes/_authed/tasks'
 import { Route as GuestForgotPasswordRouteImport } from './routes/_guest/forgot-password'
 import { Route as GuestLoginRouteImport } from './routes/_guest/login'
@@ -45,6 +46,8 @@ import { Route as AuthedWorkspaceMembersRouteImport } from './routes/_authed/wor
 import { Route as AuthedWorkspaceNewRouteImport } from './routes/_authed/workspace/new'
 import { Route as AuthedWorkspaceSettingsRouteImport } from './routes/_authed/workspace/settings'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiFilesIndexRouteImport } from './routes/api/files/index'
+import { Route as ApiFilesFileIdRouteImport } from './routes/api/files/$fileId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -72,6 +75,11 @@ const AuthedCalendarRoute = AuthedCalendarRouteImport.update({
 const AuthedDashboardRoute = AuthedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedFilesRoute = AuthedFilesRouteImport.update({
+  id: '/files',
+  path: '/files',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedTasksRoute = AuthedTasksRouteImport.update({
@@ -226,12 +234,23 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiFilesIndexRoute = ApiFilesIndexRouteImport.update({
+  id: '/api/files/',
+  path: '/api/files/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFilesFileIdRoute = ApiFilesFileIdRouteImport.update({
+  id: '/api/files/$fileId',
+  path: '/api/files/$fileId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/verify-email': typeof VerifyEmailRoute
   '/calendar': typeof AuthedCalendarRoute
   '/dashboard': typeof AuthedDashboardRoute
+  '/files': typeof AuthedFilesRoute
   '/tasks': typeof AuthedTasksRoute
   '/forgot-password': typeof GuestForgotPasswordRoute
   '/login': typeof GuestLoginRoute
@@ -254,6 +273,7 @@ export interface FileRoutesByFullPath {
   '/workspace/new': typeof AuthedWorkspaceNewRoute
   '/workspace/settings': typeof AuthedWorkspaceSettingsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/files/$fileId': typeof ApiFilesFileIdRoute
   '/companies/': typeof AuthedCompaniesIndexRoute
   '/contacts/': typeof AuthedContactsIndexRoute
   '/deals/': typeof AuthedDealsIndexRoute
@@ -262,12 +282,14 @@ export interface FileRoutesByFullPath {
   '/products/': typeof AuthedProductsIndexRoute
   '/projects/': typeof AuthedProjectsIndexRoute
   '/quotes/': typeof AuthedQuotesIndexRoute
+  '/api/files/': typeof ApiFilesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/verify-email': typeof VerifyEmailRoute
   '/calendar': typeof AuthedCalendarRoute
   '/dashboard': typeof AuthedDashboardRoute
+  '/files': typeof AuthedFilesRoute
   '/tasks': typeof AuthedTasksRoute
   '/forgot-password': typeof GuestForgotPasswordRoute
   '/login': typeof GuestLoginRoute
@@ -290,6 +312,7 @@ export interface FileRoutesByTo {
   '/workspace/new': typeof AuthedWorkspaceNewRoute
   '/workspace/settings': typeof AuthedWorkspaceSettingsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/files/$fileId': typeof ApiFilesFileIdRoute
   '/companies': typeof AuthedCompaniesIndexRoute
   '/contacts': typeof AuthedContactsIndexRoute
   '/deals': typeof AuthedDealsIndexRoute
@@ -298,6 +321,7 @@ export interface FileRoutesByTo {
   '/products': typeof AuthedProductsIndexRoute
   '/projects': typeof AuthedProjectsIndexRoute
   '/quotes': typeof AuthedQuotesIndexRoute
+  '/api/files': typeof ApiFilesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -307,6 +331,7 @@ export interface FileRoutesById {
   '/verify-email': typeof VerifyEmailRoute
   '/_authed/calendar': typeof AuthedCalendarRoute
   '/_authed/dashboard': typeof AuthedDashboardRoute
+  '/_authed/files': typeof AuthedFilesRoute
   '/_authed/tasks': typeof AuthedTasksRoute
   '/_guest/forgot-password': typeof GuestForgotPasswordRoute
   '/_guest/login': typeof GuestLoginRoute
@@ -329,6 +354,7 @@ export interface FileRoutesById {
   '/_authed/workspace/new': typeof AuthedWorkspaceNewRoute
   '/_authed/workspace/settings': typeof AuthedWorkspaceSettingsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/files/$fileId': typeof ApiFilesFileIdRoute
   '/_authed/companies/': typeof AuthedCompaniesIndexRoute
   '/_authed/contacts/': typeof AuthedContactsIndexRoute
   '/_authed/deals/': typeof AuthedDealsIndexRoute
@@ -337,6 +363,7 @@ export interface FileRoutesById {
   '/_authed/products/': typeof AuthedProductsIndexRoute
   '/_authed/projects/': typeof AuthedProjectsIndexRoute
   '/_authed/quotes/': typeof AuthedQuotesIndexRoute
+  '/api/files/': typeof ApiFilesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -345,6 +372,7 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/calendar'
     | '/dashboard'
+    | '/files'
     | '/tasks'
     | '/forgot-password'
     | '/login'
@@ -367,6 +395,7 @@ export interface FileRouteTypes {
     | '/workspace/new'
     | '/workspace/settings'
     | '/api/auth/$'
+    | '/api/files/$fileId'
     | '/companies/'
     | '/contacts/'
     | '/deals/'
@@ -375,12 +404,14 @@ export interface FileRouteTypes {
     | '/products/'
     | '/projects/'
     | '/quotes/'
+    | '/api/files/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/verify-email'
     | '/calendar'
     | '/dashboard'
+    | '/files'
     | '/tasks'
     | '/forgot-password'
     | '/login'
@@ -403,6 +434,7 @@ export interface FileRouteTypes {
     | '/workspace/new'
     | '/workspace/settings'
     | '/api/auth/$'
+    | '/api/files/$fileId'
     | '/companies'
     | '/contacts'
     | '/deals'
@@ -411,6 +443,7 @@ export interface FileRouteTypes {
     | '/products'
     | '/projects'
     | '/quotes'
+    | '/api/files'
   id:
     | '__root__'
     | '/'
@@ -419,6 +452,7 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/_authed/calendar'
     | '/_authed/dashboard'
+    | '/_authed/files'
     | '/_authed/tasks'
     | '/_guest/forgot-password'
     | '/_guest/login'
@@ -441,6 +475,7 @@ export interface FileRouteTypes {
     | '/_authed/workspace/new'
     | '/_authed/workspace/settings'
     | '/api/auth/$'
+    | '/api/files/$fileId'
     | '/_authed/companies/'
     | '/_authed/contacts/'
     | '/_authed/deals/'
@@ -449,6 +484,7 @@ export interface FileRouteTypes {
     | '/_authed/products/'
     | '/_authed/projects/'
     | '/_authed/quotes/'
+    | '/api/files/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -457,6 +493,8 @@ export interface RootRouteChildren {
   GuestRoute: typeof GuestRouteWithChildren
   VerifyEmailRoute: typeof VerifyEmailRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiFilesFileIdRoute: typeof ApiFilesFileIdRoute
+  ApiFilesIndexRoute: typeof ApiFilesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -501,6 +539,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthedDashboardRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/files': {
+      id: '/_authed/files'
+      path: '/files'
+      fullPath: '/files'
+      preLoaderRoute: typeof AuthedFilesRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/tasks': {
@@ -713,12 +758,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/files/': {
+      id: '/api/files/'
+      path: '/api/files'
+      fullPath: '/api/files/'
+      preLoaderRoute: typeof ApiFilesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/files/$fileId': {
+      id: '/api/files/$fileId'
+      path: '/api/files/$fileId'
+      fullPath: '/api/files/$fileId'
+      preLoaderRoute: typeof ApiFilesFileIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface AuthedRouteChildren {
   AuthedCalendarRoute: typeof AuthedCalendarRoute
   AuthedDashboardRoute: typeof AuthedDashboardRoute
+  AuthedFilesRoute: typeof AuthedFilesRoute
   AuthedTasksRoute: typeof AuthedTasksRoute
   AuthedAcceptInvitationInvitationIdRoute: typeof AuthedAcceptInvitationInvitationIdRoute
   AuthedAccountSecurityRoute: typeof AuthedAccountSecurityRoute
@@ -748,6 +808,7 @@ interface AuthedRouteChildren {
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedCalendarRoute: AuthedCalendarRoute,
   AuthedDashboardRoute: AuthedDashboardRoute,
+  AuthedFilesRoute: AuthedFilesRoute,
   AuthedTasksRoute: AuthedTasksRoute,
   AuthedAcceptInvitationInvitationIdRoute:
     AuthedAcceptInvitationInvitationIdRoute,
@@ -802,6 +863,8 @@ const rootRouteChildren: RootRouteChildren = {
   GuestRoute: GuestRouteWithChildren,
   VerifyEmailRoute: VerifyEmailRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiFilesFileIdRoute: ApiFilesFileIdRoute,
+  ApiFilesIndexRoute: ApiFilesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

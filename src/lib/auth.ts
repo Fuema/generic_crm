@@ -6,6 +6,7 @@ import { haveIBeenPwned, organization, twoFactor } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { applyTemplateToNewWorkspace } from "#/modules/templates/templates.server";
+import { deleteWorkspaceObjects } from "#/platform/storage.server";
 import { db } from "../db/index"; // Points to your Neon-HTTP database file (not the legacy src/db.ts)
 import * as schema from "../db/schema";
 import {
@@ -277,6 +278,13 @@ export const auth = betterAuth({
 			organizationHooks: {
 				afterCreateOrganization: async ({ organization, user }) => {
 					await applyTemplateToNewWorkspace(organization.id, user.id);
+				},
+				// The database rows go with the workspace (cascade); its stored
+				// files are removed here, so nothing outlives the deletion
+				afterDeleteOrganization: async ({ organization }) => {
+					await deleteWorkspaceObjects(organization.id).catch((error) => {
+						console.error("Couldn't delete the workspace's files", error);
+					});
 				},
 			},
 			organizationLimit: 10,

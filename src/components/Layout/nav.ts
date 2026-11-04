@@ -5,6 +5,7 @@ import {
 	FileSignature,
 	FileText,
 	FolderKanban,
+	FolderOpen,
 	Handshake,
 	Kanban,
 	KanbanSquare,
@@ -63,7 +64,10 @@ export const NAV_GROUPS: {
 	{
 		id: "work",
 		label: m.nav_work,
-		items: [{ title: m.nav_projects, to: "/projects", icon: FolderKanban }],
+		items: [
+			{ title: m.nav_projects, to: "/projects", icon: FolderKanban },
+			{ title: m.nav_files, to: "/files", icon: FolderOpen },
+		],
 	},
 	{
 		id: "workspace",

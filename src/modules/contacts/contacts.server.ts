@@ -18,6 +18,7 @@ import {
 	company,
 	contact,
 	deal,
+	file,
 	invoice,
 	member,
 	note,
@@ -636,6 +637,16 @@ export async function mergeContacts(
 					and(
 						eq(project.workspaceId, workspaceId),
 						eq(project.contactId, duplicateId),
+					),
+				),
+			db
+				.update(file)
+				.set({ subjectId: keepId })
+				.where(
+					and(
+						eq(file.workspaceId, workspaceId),
+						eq(file.subjectType, "contact"),
+						eq(file.subjectId, duplicateId),
 					),
 				),
 			db
