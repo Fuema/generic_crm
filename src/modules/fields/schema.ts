@@ -12,6 +12,8 @@ export const OBJECT_KEYS = [
 	"deal",
 	"product",
 	"quote",
+	"order",
+	"invoice",
 ] as const;
 export type ObjectKey = (typeof OBJECT_KEYS)[number];
 

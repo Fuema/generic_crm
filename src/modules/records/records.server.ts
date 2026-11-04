@@ -5,9 +5,11 @@ import {
 	contact,
 	deal,
 	event,
+	invoice,
 	note,
 	quote,
 	recordTag,
+	salesOrder,
 	tag,
 	user,
 } from "#/db/schema";
@@ -25,7 +27,14 @@ function clientError(status: number, message: string) {
 	return new Response(message, { status });
 }
 
-const SUBJECT_TABLES = { contact, company, deal, quote } as const;
+const SUBJECT_TABLES = {
+	contact,
+	company,
+	deal,
+	quote,
+	order: salesOrder,
+	invoice,
+} as const;
 
 // The record must exist in this workspace; writes also need it not archived
 async function assertSubject(
@@ -49,7 +58,11 @@ async function assertSubject(
 					? m.error_company_not_found()
 					: subjectType === "deal"
 						? m.error_deal_not_found()
-						: m.error_quote_not_found(),
+						: subjectType === "quote"
+							? m.error_quote_not_found()
+							: subjectType === "order"
+								? m.error_order_not_found()
+								: m.error_invoice_not_found(),
 		);
 	}
 	if (writable && row.archivedAt) {

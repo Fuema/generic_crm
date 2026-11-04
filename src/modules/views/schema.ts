@@ -110,6 +110,23 @@ export const BUILT_IN_FIELDS: Record<
 		validUntil: { kind: "date", label: m.quote_valid_until },
 		createdAt: { kind: "date", label: m.contacts_col_added },
 	},
+	order: {
+		status: { kind: "choice", label: m.quote_status },
+		companyId: { kind: "ref", label: m.contact_company },
+		ownerId: { kind: "ref", label: m.common_owner },
+		tag: { kind: "ref", label: m.tags_label },
+		orderDate: { kind: "date", label: m.order_date },
+		createdAt: { kind: "date", label: m.contacts_col_added },
+	},
+	invoice: {
+		status: { kind: "choice", label: m.quote_status },
+		companyId: { kind: "ref", label: m.contact_company },
+		ownerId: { kind: "ref", label: m.common_owner },
+		tag: { kind: "ref", label: m.tags_label },
+		issueDate: { kind: "date", label: m.invoice_issue_date },
+		dueDate: { kind: "date", label: m.invoice_due_date },
+		createdAt: { kind: "date", label: m.contacts_col_added },
+	},
 	product: {
 		name: { kind: "text", label: m.product_name },
 		sku: { kind: "text", label: m.product_sku },
@@ -161,6 +178,25 @@ export const BUILT_IN_COLUMNS: Record<ObjectKey, string[]> = {
 		"validUntil",
 		"createdAt",
 	],
+	order: [
+		"status",
+		"contactId",
+		"companyId",
+		"dealId",
+		"orderDate",
+		"totalCents",
+		"createdAt",
+	],
+	invoice: [
+		"status",
+		"contactId",
+		"companyId",
+		"orderId",
+		"issueDate",
+		"dueDate",
+		"totalCents",
+		"createdAt",
+	],
 };
 export const DEFAULT_COLUMNS: Record<ObjectKey, string[]> = {
 	contact: [
@@ -182,6 +218,8 @@ export const DEFAULT_COLUMNS: Record<ObjectKey, string[]> = {
 	deal: ["valueCents", "stageId", "contactId", "expectedCloseAt", "ownerId"],
 	product: ["sku", "unitPriceCents", "description"],
 	quote: ["status", "contactId", "dealId", "totalCents", "validUntil"],
+	order: ["status", "contactId", "orderDate", "totalCents"],
+	invoice: ["status", "contactId", "issueDate", "dueDate", "totalCents"],
 };
 export const DEFAULT_SORT: Record<
 	ObjectKey,
@@ -192,6 +230,8 @@ export const DEFAULT_SORT: Record<
 	deal: { field: "createdAt", dir: "desc" },
 	product: { field: "name", dir: "asc" },
 	quote: { field: "number", dir: "desc" },
+	order: { field: "number", dir: "desc" },
+	invoice: { field: "createdAt", dir: "desc" },
 };
 // Built-in columns the server can sort by
 export const BUILT_IN_SORT: Record<ObjectKey, string[]> = {
@@ -200,6 +240,8 @@ export const BUILT_IN_SORT: Record<ObjectKey, string[]> = {
 	deal: ["name", "valueCents", "expectedCloseAt", "createdAt"],
 	product: ["name", "sku", "unitPriceCents", "createdAt"],
 	quote: ["number", "totalCents", "validUntil", "createdAt"],
+	order: ["number", "orderDate", "totalCents", "createdAt"],
+	invoice: ["number", "issueDate", "dueDate", "totalCents", "createdAt"],
 };
 
 const filterValue = z.union([

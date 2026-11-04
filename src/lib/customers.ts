@@ -13,7 +13,7 @@ import {
 } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "#/db/index";
-import { customer, salesOrder } from "#/db/schema";
+import { customer } from "#/db/schema";
 import { requirePermission } from "#/lib/authz";
 import { COUNTRY_CODES } from "#/lib/countries";
 import {
@@ -162,23 +162,6 @@ export const deleteCustomer = createServerFn({ method: "POST" })
 	.middleware([requirePermission({ customer: ["delete"] })])
 	.validator(z.object({ id: z.uuid("Invalid customer id") }))
 	.handler(async ({ data, context }) => {
-		// Orders reference their customer (ON DELETE RESTRICT): explain instead of failing
-		const [hasOrders] = await db
-			.select({ id: salesOrder.id })
-			.from(salesOrder)
-			.where(
-				and(
-					eq(salesOrder.customerId, data.id),
-					eq(salesOrder.workspaceId, context.workspaceId),
-				),
-			)
-			.limit(1);
-		if (hasOrders) {
-			throw clientError(
-				409,
-				"This customer has orders and is kept for the record. Set the status to Inactive instead.",
-			);
-		}
 		const [deleted] = await db
 			.delete(customer)
 			.where(

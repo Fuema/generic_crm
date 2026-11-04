@@ -2,6 +2,7 @@ import {
 	createFileRoute,
 	Link,
 	notFound,
+	useNavigate,
 	useRouter,
 } from "@tanstack/react-router";
 import { Archive, ArchiveRestore, ArrowLeft, Pencil } from "lucide-react";
@@ -24,12 +25,20 @@ import {
 	updateDeal,
 } from "#/modules/deals/deals";
 import { type DealStatus, storedToDay } from "#/modules/deals/schema";
+import { RelatedDocuments } from "#/modules/documents/components/DocumentBits";
 import {
 	CustomFieldsView,
 	customFieldLabels,
 } from "#/modules/fields/components/CustomFields";
 import { getRecordFields } from "#/modules/fields/fields";
 import { localized } from "#/modules/fields/schema";
+import { invoiceRow } from "#/modules/invoices/components/invoiceBits";
+import {
+	createInvoice,
+	listRelatedInvoices,
+} from "#/modules/invoices/invoices";
+import { orderRow } from "#/modules/orders/components/orderBits";
+import { createOrder, listRelatedOrders } from "#/modules/orders/orders";
 import { listPipelines } from "#/modules/pipelines/pipelines";
 import { RelatedQuotes } from "#/modules/quotes/components/RelatedQuotes";
 import { listRelatedQuotes } from "#/modules/quotes/quotes";
@@ -45,16 +54,27 @@ export const Route = createFileRoute("/_authed/deals/$dealId")({
 				subjectType: "deal" as const,
 				subjectId: params.dealId,
 			};
-			const [detail, pipelines, options, timeline, allTags, fields, quotes] =
-				await Promise.all([
-					getDeal({ data: { id: params.dealId } }),
-					listPipelines({ data: { includeArchived: true } }),
-					getContactFormOptions(),
-					getTimeline({ data: subject }),
-					listWorkspaceTags(),
-					getRecordFields({ data: { objectKey: "deal" } }),
-					listRelatedQuotes({ data: { dealId: params.dealId } }),
-				]);
+			const [
+				detail,
+				pipelines,
+				options,
+				timeline,
+				allTags,
+				fields,
+				quotes,
+				orders,
+				invoices,
+			] = await Promise.all([
+				getDeal({ data: { id: params.dealId } }),
+				listPipelines({ data: { includeArchived: true } }),
+				getContactFormOptions(),
+				getTimeline({ data: subject }),
+				listWorkspaceTags(),
+				getRecordFields({ data: { objectKey: "deal" } }),
+				listRelatedQuotes({ data: { dealId: params.dealId } }),
+				listRelatedOrders({ data: { dealId: params.dealId } }),
+				listRelatedInvoices({ data: { dealId: params.dealId } }),
+			]);
 			return {
 				...detail,
 				pipelines,
@@ -63,6 +83,8 @@ export const Route = createFileRoute("/_authed/deals/$dealId")({
 				allTags,
 				fields,
 				quotes,
+				orders,
+				invoices,
 			};
 		} catch (e) {
 			// Unknown, malformed or another workspace's id: the same "not found"
@@ -100,7 +122,10 @@ function DealPage() {
 		allTags,
 		fields,
 		quotes,
+		orders,
+		invoices,
 	} = data;
+	const navigate = useNavigate();
 	const { access, session } = Route.useRouteContext();
 	const can = {
 		update: roleCan(access?.role, { deal: ["update"] }),
@@ -286,6 +311,45 @@ function DealPage() {
 				quotes={quotes}
 				from={archived ? null : { dealId: deal.id }}
 				canCreate={can.createQuote && !archived}
+			/>
+
+			<RelatedDocuments
+				title={m.orders_title()}
+				empty={m.orders_none_here()}
+				newLabel={m.orders_new()}
+				rows={orders.map(orderRow)}
+				to="/orders/$orderId"
+				onCreate={
+					roleCan(access?.role, { order: ["create"] }) && !archived
+						? async () => {
+								const { id } = await createOrder({ data: { dealId: deal.id } });
+								void navigate({
+									to: "/orders/$orderId",
+									params: { orderId: id },
+								});
+							}
+						: undefined
+				}
+			/>
+			<RelatedDocuments
+				title={m.invoices_title()}
+				empty={m.invoices_none_here()}
+				newLabel={m.invoices_new()}
+				rows={invoices.map(invoiceRow)}
+				to="/invoices/$invoiceId"
+				onCreate={
+					roleCan(access?.role, { invoice: ["create"] }) && !archived
+						? async () => {
+								const { id } = await createInvoice({
+									data: { dealId: deal.id },
+								});
+								void navigate({
+									to: "/invoices/$invoiceId",
+									params: { invoiceId: id },
+								});
+							}
+						: undefined
+				}
 			/>
 
 			{open ? (

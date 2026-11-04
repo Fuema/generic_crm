@@ -9,7 +9,9 @@ import {
 	event,
 	fieldDefinition,
 	fieldGroup,
+	invoice,
 	note,
+	orderLine,
 	organization,
 	pipeline,
 	pipelineStage,
@@ -26,6 +28,8 @@ import { getWorkspaceSettings, nextDocumentNumber } from "#/lib/billing.server";
 import { assertWorkspaceRefs } from "#/lib/workspace-refs.server";
 import * as contacts from "#/modules/contacts/contacts.server";
 import * as deals from "#/modules/deals/deals.server";
+import * as invoices from "#/modules/invoices/invoices.server";
+import * as orders from "#/modules/orders/orders.server";
 import * as pipelines from "#/modules/pipelines/pipelines.server";
 import * as quotes from "#/modules/quotes/quotes.server";
 import * as records from "#/modules/records/records.server";
@@ -191,6 +195,29 @@ describe("database rules", () => {
 			lostReason: "",
 		});
 		await quotes.createQuote(c.workspaceId, actor, { contactId: ana.id });
+		const order = await orders.createOrder(c.workspaceId, actor, {
+			contactId: ana.id,
+		});
+		await orders.updateOrder(c.workspaceId, actor, {
+			id: order.id,
+			contactId: ana.id,
+			companyId: "",
+			ownerId: "",
+			locale: "en",
+			taxRateBp: 0,
+			orderDate: "",
+			notes: "",
+			lines: [
+				{
+					productId: "",
+					description: "Line",
+					sku: "",
+					quantity: 1,
+					unitPriceCents: 1,
+				},
+			],
+		});
+		await invoices.createInvoice(c.workspaceId, actor, { contactId: ana.id });
 
 		const phase1 = [
 			company,
@@ -206,6 +233,8 @@ describe("database rules", () => {
 			pipelineStage,
 			deal,
 			quote,
+			invoice,
+			orderLine,
 		];
 		for (const table of phase1) {
 			const [{ n }] = await db
@@ -236,5 +265,5 @@ describe("database rules", () => {
 			.from(customer)
 			.where(eq(customer.workspaceId, a.workspaceId));
 		expect(survivors).toHaveLength(1);
-	});
+	}, 30_000); // creates a full workspace through many requests
 });

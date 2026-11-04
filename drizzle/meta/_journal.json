@@ -71,6 +71,20 @@
       "when": 1793736510191,
       "tag": "0009_quotes",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793746495035,
+      "tag": "0010_orders_invoices_on_contacts",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793746501986,
+      "tag": "0011_drop_customer_from_orders",
+      "breakpoints": true
     }
   ]
 }

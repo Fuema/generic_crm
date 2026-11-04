@@ -1,330 +1,353 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, Printer } from "lucide-react";
+import {
+	createFileRoute,
+	Link,
+	notFound,
+	useRouter,
+} from "@tanstack/react-router";
+import {
+	Archive,
+	ArchiveRestore,
+	ArrowLeft,
+	Ban,
+	Mail,
+	Printer,
+	Stamp,
+} from "lucide-react";
 import { useState } from "react";
 import { FormAlert } from "#/components/Auth/FormParts";
-import { serverErrorMessage } from "#/components/Customers/CustomerFormDialog";
-import {
-	DocStatusBadge,
-	formatDate,
-	invoiceDisplayStatus,
-} from "#/components/data/ListControls";
+import { serverErrorMessage } from "#/components/data/serverError";
 import { Button } from "#/components/ui/button";
-import { Label } from "#/components/ui/label";
-import { Textarea } from "#/components/ui/textarea";
-import { countryName } from "#/lib/countries";
+import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
+import { orderNumberLabel } from "#/lib/money";
+import { roleCan } from "#/lib/permissions";
+import { getContactFormOptions } from "#/modules/contacts/contacts";
+import { DocumentStatusBadge } from "#/modules/documents/components/DocumentBits";
+import { DocumentView } from "#/modules/documents/components/DocumentView";
+import { DraftEditor } from "#/modules/documents/components/DraftEditor";
+import { customFieldLabels } from "#/modules/fields/components/CustomFields";
+import { getRecordFields } from "#/modules/fields/fields";
 import {
-	deleteInvoice,
+	invoiceStatus,
+	invoiceTitle,
+} from "#/modules/invoices/components/invoiceBits";
+import {
+	archiveInvoice,
 	getInvoice,
 	issueInvoice,
-	markInvoicePaid,
-	updateInvoiceNotes,
+	restoreInvoice,
+	sendInvoice,
+	updateInvoice,
 	voidInvoice,
-} from "#/lib/invoices";
-import {
-	bpToPercent,
-	formatMoney,
-	invoiceNumberLabel,
-	orderNumberLabel,
-} from "#/lib/money";
-import { roleCan } from "#/lib/permissions";
+} from "#/modules/invoices/invoices";
+import { invoiceLabel } from "#/modules/invoices/schema";
+import { pickProducts } from "#/modules/products/products";
+import { RecordTimeline } from "#/modules/records/components/RecordTimeline";
+import { TagEditor } from "#/modules/records/components/TagEditor";
+import { getTimeline, listWorkspaceTags } from "#/modules/records/records";
+import { m } from "#/paraglide/messages.js";
 
 export const Route = createFileRoute("/_authed/invoices/$invoiceId")({
-	loader: ({ params }) => getInvoice({ data: { id: params.invoiceId } }),
+	loader: async ({ params }) => {
+		try {
+			const subject = {
+				subjectType: "invoice" as const,
+				subjectId: params.invoiceId,
+			};
+			const [detail, options, timeline, allTags, fields] = await Promise.all([
+				getInvoice({ data: { id: params.invoiceId } }),
+				getContactFormOptions(),
+				getTimeline({ data: subject }),
+				listWorkspaceTags(),
+				getRecordFields({ data: { objectKey: "invoice" } }),
+			]);
+			const products =
+				detail.invoice.status === "draft" && !detail.invoice.archivedAt
+					? await pickProducts({ data: { q: "" } })
+					: [];
+			return { detail, options, timeline, allTags, fields, products };
+		} catch (e) {
+			if (e instanceof Response && (e.status === 404 || e.status === 400))
+				throw notFound();
+			throw e;
+		}
+	},
 	component: InvoicePage,
+	notFoundComponent: () => (
+		<p className="p-6 text-sm text-muted-foreground">
+			{m.error_invoice_not_found()}
+		</p>
+	),
 });
 
 function InvoicePage() {
 	const router = useRouter();
-	const {
-		invoice: inv,
-		customer,
-		lines,
-		order,
-		seller,
-	} = Route.useLoaderData();
-	const { access } = Route.useRouteContext();
-	const role = access?.role;
-	const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(
+	const { detail, options, timeline, allTags, fields, products } =
+		Route.useLoaderData();
+	const { access, session } = Route.useRouteContext();
+	const can = {
+		update: roleCan(access?.role, { invoice: ["update"] }),
+		issue: roleCan(access?.role, { invoice: ["issue"] }),
+		void: roleCan(access?.role, { invoice: ["void"] }),
+		archive: roleCan(access?.role, { invoice: ["delete"] }),
+	};
+	const inv = detail.invoice;
+	const title = invoiceTitle(inv.year, inv.number);
+	const archived = Boolean(inv.archivedAt);
+	const locale = inv.locale === "es" ? "es" : "en";
+	const [notice, setNotice] = useState<{ ok: boolean; message: string } | null>(
 		null,
 	);
 	const [busy, setBusy] = useState(false);
-	const [notes, setNotes] = useState(inv.notes ?? "");
 
-	const label = invoiceNumberLabel(inv.year, inv.number);
-	const display = invoiceDisplayStatus(inv.status, inv.dueDate);
-	const can = {
-		update: roleCan(role, { invoice: ["update"] }),
-		issue: roleCan(role, { invoice: ["issue"] }),
-		pay: roleCan(role, { invoice: ["pay"] }),
-		void: roleCan(role, { invoice: ["void"] }),
-		delete: roleCan(role, { invoice: ["delete"] }),
-	};
-
-	const run = async (action: () => Promise<unknown>, success: string) => {
+	const run = async (action: () => Promise<unknown>, message: string) => {
 		setBusy(true);
-		setStatus(null);
+		setNotice(null);
 		try {
 			await action();
-			setStatus({ ok: true, message: success });
-			await router.invalidate();
+			setNotice({ ok: true, message });
 		} catch (e) {
-			setStatus({ ok: false, message: await serverErrorMessage(e) });
+			setNotice({ ok: false, message: await serverErrorMessage(e) });
 		} finally {
 			setBusy(false);
+			await router.invalidate();
 		}
 	};
-	const id = { data: { id: inv.id } };
+
+	const contactName = [detail.contactFirstName, detail.contactLastName]
+		.filter(Boolean)
+		.join(" ");
+	const day = (value: Date | null) =>
+		value
+			? new Date(value).toLocaleDateString(locale, { timeZone: "UTC" })
+			: "";
+	const docNumber = invoiceLabel(inv.year, inv.number);
 
 	return (
-		<div className="mx-auto max-w-4xl space-y-4 p-6 print:max-w-none print:p-0">
-			<div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
+		<div className="mx-auto max-w-5xl space-y-6 p-6 print:max-w-none print:p-0">
+			<div className="space-y-4 print:hidden">
 				<Link
 					to="/invoices"
 					className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:underline"
 				>
-					<ArrowLeft className="size-4" /> Invoices
+					<ArrowLeft className="size-4" /> {m.invoice_back()}
 				</Link>
-				<div className="flex flex-wrap gap-2">
-					{can.issue && inv.status === "draft" ? (
-						<Button
-							type="button"
-							disabled={busy}
-							onClick={() => {
-								if (
-									window.confirm(
-										"Issue this invoice? It gets its final number and can no longer be edited.",
-									)
-								)
-									void run(() => issueInvoice(id), "Invoice issued.");
-							}}
-						>
-							Issue invoice
-						</Button>
-					) : null}
-					{can.pay && inv.status === "issued" ? (
-						<Button
-							type="button"
-							disabled={busy}
-							onClick={() =>
-								run(() => markInvoicePaid(id), "Payment recorded.")
-							}
-						>
-							Mark as paid
-						</Button>
-					) : null}
-					<Button
-						type="button"
-						variant="outline"
-						onClick={() => window.print()}
-					>
-						<Printer /> Print / Save as PDF
-					</Button>
-					{can.void && (inv.status === "draft" || inv.status === "issued") ? (
-						<Button
-							type="button"
-							variant="outline"
-							disabled={busy}
-							onClick={() => {
-								if (
-									window.confirm(
-										`Void ${label}? It stays on record but no longer counts as owed.`,
-									)
-								)
-									void run(() => voidInvoice(id), "Invoice voided.");
-							}}
-						>
-							Void
-						</Button>
-					) : null}
-					{can.delete && inv.status === "draft" ? (
-						<Button
-							type="button"
-							variant="destructive"
-							disabled={busy}
-							onClick={() => {
-								if (!window.confirm("Delete this draft invoice?")) return;
-								void run(async () => {
-									await deleteInvoice(id);
-									await router.navigate({
-										to: "/orders/$orderId",
-										params: { orderId: order.id },
-									});
-								}, "Draft deleted.");
-							}}
-						>
-							Delete draft
-						</Button>
-					) : null}
-				</div>
-			</div>
-
-			<div className="print:hidden">
-				<FormAlert
-					message={status?.message ?? null}
-					variant={status?.ok ? "success" : "destructive"}
-				/>
-				{inv.status === "draft" && !can.issue ? (
-					<p className="mt-2 text-sm text-muted-foreground">
-						An owner or admin needs to issue this draft.
-					</p>
-				) : null}
-			</div>
-
-			{/* The document itself: what prints */}
-			<article className="relative space-y-8 rounded-lg border bg-card p-8 print:border-0 print:p-0">
-				{display === "void" || display === "draft" ? (
-					<p
-						className="pointer-events-none absolute inset-0 flex items-center justify-center text-7xl font-bold tracking-widest text-muted-foreground/15 uppercase select-none"
-						aria-hidden="true"
-					>
-						{display}
-					</p>
-				) : null}
-				<header className="flex flex-wrap items-start justify-between gap-6">
-					<div>
-						<p className="text-sm text-muted-foreground">From</p>
-						<p className="text-lg font-semibold">{seller?.name}</p>
-					</div>
-					<div className="text-right">
-						<h1 className="text-2xl font-bold">Invoice {label}</h1>
-						<div className="mt-1 flex justify-end print:hidden">
-							<DocStatusBadge status={display} />
-						</div>
-					</div>
-				</header>
-
-				<div className="grid gap-6 sm:grid-cols-2">
-					<div>
-						<p className="text-sm text-muted-foreground">Bill to</p>
-						<p className="font-medium">{customer.name}</p>
-						{customer.company ? <p>{customer.company}</p> : null}
-						<p>{customer.email}</p>
-						{customer.city || customer.country ? (
-							<p>
-								{[customer.city, countryName(customer.country)]
-									.filter(Boolean)
-									.join(", ")}
-							</p>
-						) : null}
-					</div>
-					<dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:justify-self-end">
-						<dt className="text-muted-foreground">Issue date</dt>
-						<dd>{formatDate(inv.issueDate)}</dd>
-						<dt className="text-muted-foreground">Due date</dt>
-						<dd>{formatDate(inv.dueDate)}</dd>
-						<dt className="text-muted-foreground">Order</dt>
-						<dd>
+				<div className="flex flex-wrap items-start justify-between gap-4">
+					<div className="space-y-1">
+						<h1 className="text-2xl font-bold">{title}</h1>
+						<div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+							<DocumentStatusBadge {...invoiceStatus(inv.displayStatus)} />
 							<Link
-								to="/orders/$orderId"
-								params={{ orderId: order.id }}
+								to="/contacts/$contactId"
+								params={{ contactId: inv.contactId }}
 								className="hover:underline"
 							>
-								{orderNumberLabel(order.number)}
+								{contactName}
 							</Link>
-						</dd>
-						{inv.paidAt ? (
-							<>
-								<dt className="text-muted-foreground">Paid</dt>
-								<dd>{formatDate(inv.paidAt)}</dd>
-							</>
-						) : null}
-					</dl>
-				</div>
-
-				<table className="w-full text-sm">
-					<thead className="border-b text-left text-muted-foreground">
-						<tr>
-							<th className="py-2 font-medium">Item</th>
-							<th className="py-2 text-right font-medium">Qty</th>
-							<th className="py-2 text-right font-medium">Unit price</th>
-							<th className="py-2 text-right font-medium">Amount</th>
-						</tr>
-					</thead>
-					<tbody className="tabular-nums">
-						{lines.map((l) => (
-							<tr key={l.id} className="border-b">
-								<td className="py-2">
-									{l.description}
-									{l.sku ? (
-										<span className="ml-2 font-mono text-xs text-muted-foreground">
-											{l.sku}
-										</span>
-									) : null}
-								</td>
-								<td className="py-2 text-right">{l.quantity}</td>
-								<td className="py-2 text-right">
-									{formatMoney(l.unitPriceCents, inv.currency)}
-								</td>
-								<td className="py-2 text-right">
-									{formatMoney(l.lineTotalCents, inv.currency)}
-								</td>
-							</tr>
-						))}
-					</tbody>
-				</table>
-
-				<dl className="ml-auto max-w-xs space-y-1 text-sm tabular-nums">
-					<div className="flex justify-between">
-						<dt className="text-muted-foreground">Subtotal</dt>
-						<dd>{formatMoney(inv.subtotalCents, inv.currency)}</dd>
+							{inv.orderId && detail.orderNumber ? (
+								<Link
+									to="/orders/$orderId"
+									params={{ orderId: inv.orderId }}
+									className="hover:underline"
+								>
+									{orderNumberLabel(detail.orderNumber)}
+								</Link>
+							) : null}
+						</div>
 					</div>
-					<div className="flex justify-between">
-						<dt className="text-muted-foreground">
-							Tax ({bpToPercent(inv.taxRateBp)}%)
-						</dt>
-						<dd>{formatMoney(inv.taxCents, inv.currency)}</dd>
-					</div>
-					<div className="flex justify-between border-t pt-1 text-lg font-semibold">
-						<dt>Total due</dt>
-						<dd>
-							{formatMoney(
-								inv.status === "paid" || inv.status === "void"
-									? 0
-									: inv.totalCents,
-								inv.currency,
-							)}
-						</dd>
-					</div>
-					{inv.status === "paid" ? (
-						<p className="text-right text-xs text-muted-foreground">
-							Paid in full: {formatMoney(inv.totalCents, inv.currency)}
-						</p>
-					) : null}
-				</dl>
-
-				{inv.status === "draft" && can.update ? (
-					<div className="space-y-2 print:hidden">
-						<Label htmlFor="invoice-notes">
-							Notes (printed on the invoice)
-						</Label>
-						<Textarea
-							id="invoice-notes"
-							value={notes}
-							onChange={(e) => setNotes(e.target.value)}
-							maxLength={1000}
-							rows={3}
-						/>
+					<div className="flex flex-wrap gap-2">
 						<Button
 							type="button"
 							variant="outline"
-							size="sm"
-							disabled={busy || notes === (inv.notes ?? "")}
-							onClick={() =>
-								run(
-									() => updateInvoiceNotes({ data: { id: inv.id, notes } }),
-									"Notes saved.",
-								)
-							}
+							onClick={() => window.print()}
 						>
-							Save notes
+							<Printer /> {m.quote_print()}
 						</Button>
+						{can.issue && !archived && inv.status === "draft" ? (
+							<Button
+								type="button"
+								disabled={busy}
+								onClick={() => {
+									if (window.confirm(m.invoice_issue_confirm()))
+										void run(
+											() => issueInvoice({ data: { id: inv.id } }),
+											m.invoice_issued_notice(),
+										);
+								}}
+							>
+								<Stamp /> {m.invoice_issue()}
+							</Button>
+						) : null}
+						{can.issue && !archived && inv.status === "issued" ? (
+							<Button
+								type="button"
+								variant="outline"
+								disabled={busy || !detail.contactEmail}
+								title={
+									detail.contactEmail ? undefined : m.quote_send_no_email()
+								}
+								onClick={() =>
+									run(
+										() => sendInvoice({ data: { id: inv.id } }),
+										m.invoice_emailed_notice({
+											email: detail.contactEmail ?? "",
+										}),
+									)
+								}
+							>
+								<Mail /> {m.quote_send_email()}
+							</Button>
+						) : null}
+						{can.void && !archived && inv.status !== "void" ? (
+							<Button
+								type="button"
+								variant="outline"
+								disabled={busy}
+								onClick={() => {
+									if (window.confirm(m.invoice_void_confirm()))
+										void run(
+											() => voidInvoice({ data: { id: inv.id } }),
+											m.invoice_voided_notice(),
+										);
+								}}
+							>
+								<Ban /> {m.invoice_void()}
+							</Button>
+						) : null}
+						{can.archive && (archived || inv.status !== "issued") ? (
+							<Button
+								type="button"
+								variant="outline"
+								disabled={busy}
+								onClick={() =>
+									run(
+										() =>
+											(archived ? restoreInvoice : archiveInvoice)({
+												data: { id: inv.id },
+											}),
+										archived
+											? m.quote_restored_notice({ number: title })
+											: m.quote_archived_notice({ number: title }),
+									)
+								}
+							>
+								{archived ? <ArchiveRestore /> : <Archive />}
+								{archived ? m.common_restore() : m.common_archive()}
+							</Button>
+						) : null}
 					</div>
-				) : inv.notes ? (
-					<p className="text-sm whitespace-pre-line text-muted-foreground">
-						{inv.notes}
-					</p>
+				</div>
+				<FormAlert
+					message={notice?.message ?? null}
+					variant={notice?.ok ? "success" : "destructive"}
+				/>
+				{archived ? <FormAlert message={m.common_archived_banner()} /> : null}
+				{inv.displayStatus === "overdue" ? (
+					<FormAlert message={m.invoice_overdue_banner()} />
 				) : null}
-			</article>
+			</div>
+
+			{can.update && !archived && inv.status === "draft" ? (
+				<DraftEditor
+					key={inv.id + inv.updatedAt.toString()}
+					title={m.invoice_edit_title()}
+					draft={{
+						contactId: inv.contactId,
+						contactName,
+						companyId: inv.companyId,
+						ownerId: inv.ownerId,
+						locale: inv.locale,
+						taxRateBp: inv.taxRateBp,
+						notes: inv.notes,
+						currency: inv.currency,
+						custom: inv.custom,
+					}}
+					lines={detail.lines}
+					products={products}
+					options={options}
+					fields={fields}
+					onSave={async (v) => {
+						await updateInvoice({
+							data: {
+								id: inv.id,
+								contactId: v.contactId,
+								companyId: v.companyId,
+								ownerId: v.ownerId,
+								locale: v.locale,
+								taxRateBp: v.taxRateBp,
+								notes: v.notes,
+								lines: v.lines,
+								custom: v.custom,
+							},
+						});
+						await router.invalidate();
+					}}
+				/>
+			) : null}
+
+			<DocumentView
+				locale={locale}
+				title={
+					docNumber
+						? m.invoice_doc_title({ number: docNumber }, { locale })
+						: m.invoice_doc_draft({}, { locale })
+				}
+				workspaceName={detail.workspaceName}
+				meta={[
+					inv.issueDate
+						? m.invoice_issued_text({ date: day(inv.issueDate) }, { locale })
+						: "",
+					inv.dueDate
+						? m.invoice_due_text({ date: day(inv.dueDate) }, { locale })
+						: "",
+				]}
+				party={{
+					name: contactName,
+					company: detail.companyName,
+					email: detail.contactEmail,
+				}}
+				lines={detail.lines}
+				currency={inv.currency}
+				taxRateBp={inv.taxRateBp}
+				subtotalCents={inv.subtotalCents}
+				taxCents={inv.taxCents}
+				totalCents={inv.totalCents}
+				notes={inv.notes}
+			/>
+
+			<div className="grid gap-6 lg:grid-cols-3 print:hidden">
+				<Card className="lg:col-span-1">
+					<CardHeader>
+						<CardTitle>{m.tags_label()}</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<TagEditor
+							subjectType="invoice"
+							subjectId={inv.id}
+							tags={timeline.tags}
+							allTags={allTags}
+							canEdit={can.update && !archived}
+							onChanged={() => router.invalidate()}
+						/>
+					</CardContent>
+				</Card>
+				<Card className="lg:col-span-2">
+					<CardHeader>
+						<CardTitle>{m.timeline_title()}</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<RecordTimeline
+							subjectType="invoice"
+							subjectId={inv.id}
+							timeline={timeline}
+							canWrite={can.update && !archived}
+							canDeleteAny={can.archive}
+							currentUserId={session.user.id}
+							fieldLabels={customFieldLabels(fields)}
+							onChanged={() => router.invalidate()}
+						/>
+					</CardContent>
+				</Card>
+			</div>
 		</div>
 	);
 }

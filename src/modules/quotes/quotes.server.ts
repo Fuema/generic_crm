@@ -4,7 +4,6 @@ import {
 	count,
 	desc,
 	eq,
-	inArray,
 	isNotNull,
 	isNull,
 	or,
@@ -19,12 +18,12 @@ import {
 	deal,
 	event,
 	organization,
-	product,
 	quote,
 	quoteLine,
 } from "#/db/schema";
 import { getWorkspaceSettings, nextDocumentNumber } from "#/lib/billing.server";
 import { assertWorkspaceRefs } from "#/lib/workspace-refs.server";
+import { assertLineProducts } from "#/modules/documents/lines.server";
 import {
 	customChanges,
 	listFields,
@@ -397,42 +396,25 @@ export async function updateQuote(
 	const ownerId = input.ownerId || null;
 	if (ownerId && ownerId !== before.ownerId)
 		checks.push(assertWorkspaceRefs(workspaceId, { userId: ownerId }));
-	// Catalog lines point to this workspace's products; a product newly added
-	// to the quote must be active
-	const productIds = [
-		...new Set(input.lines.map((l) => l.productId).filter(Boolean)),
-	];
-	if (productIds.length)
-		checks.push(
-			Promise.all([
-				db
-					.select({ id: product.id, archivedAt: product.archivedAt })
-					.from(product)
-					.where(
-						and(
-							eq(product.workspaceId, workspaceId),
-							inArray(product.id, productIds),
-						),
-					),
-				db
-					.select({ productId: quoteLine.productId })
-					.from(quoteLine)
-					.where(
-						and(
-							eq(quoteLine.workspaceId, workspaceId),
-							eq(quoteLine.quoteId, input.id),
-						),
-					),
-			]).then(([found, existing]) => {
-				const had = new Set(existing.map((l) => l.productId));
-				const byId = new Map(found.map((p) => [p.id, p]));
-				for (const pid of productIds) {
-					const p = byId.get(pid);
-					if (!p || (p.archivedAt && !had.has(pid)))
-						throw clientError(400, m.error_choose_product());
-				}
-			}),
-		);
+	// Catalog lines: this workspace's products, active when newly added
+	checks.push(
+		db
+			.select({ productId: quoteLine.productId })
+			.from(quoteLine)
+			.where(
+				and(
+					eq(quoteLine.workspaceId, workspaceId),
+					eq(quoteLine.quoteId, input.id),
+				),
+			)
+			.then((existing) =>
+				assertLineProducts(
+					workspaceId,
+					input.lines,
+					existing.map((l) => l.productId),
+				),
+			),
+	);
 	await Promise.all(checks);
 	const custom =
 		input.custom === undefined

@@ -2,6 +2,7 @@ import {
 	createFileRoute,
 	Link,
 	notFound,
+	useNavigate,
 	useRouter,
 } from "@tanstack/react-router";
 import {
@@ -36,11 +37,19 @@ import {
 } from "#/modules/contacts/schema";
 import { RelatedDeals } from "#/modules/deals/components/RelatedDeals";
 import { listRelatedDeals } from "#/modules/deals/deals";
+import { RelatedDocuments } from "#/modules/documents/components/DocumentBits";
 import {
 	CustomFieldsView,
 	customFieldLabels,
 } from "#/modules/fields/components/CustomFields";
 import { getRecordFields } from "#/modules/fields/fields";
+import { invoiceRow } from "#/modules/invoices/components/invoiceBits";
+import {
+	createInvoice,
+	listRelatedInvoices,
+} from "#/modules/invoices/invoices";
+import { orderRow } from "#/modules/orders/components/orderBits";
+import { createOrder, listRelatedOrders } from "#/modules/orders/orders";
 import { RelatedQuotes } from "#/modules/quotes/components/RelatedQuotes";
 import { listRelatedQuotes } from "#/modules/quotes/quotes";
 import { RecordTimeline } from "#/modules/records/components/RecordTimeline";
@@ -55,17 +64,38 @@ export const Route = createFileRoute("/_authed/contacts/$contactId")({
 				subjectType: "contact" as const,
 				subjectId: params.contactId,
 			};
-			const [detail, options, timeline, allTags, fields, deals, quotes] =
-				await Promise.all([
-					getContact({ data: { id: params.contactId } }),
-					getContactFormOptions(),
-					getTimeline({ data: subject }),
-					listWorkspaceTags(),
-					getRecordFields({ data: { objectKey: "contact" } }),
-					listRelatedDeals({ data: { contactId: params.contactId } }),
-					listRelatedQuotes({ data: { contactId: params.contactId } }),
-				]);
-			return { ...detail, options, timeline, allTags, fields, deals, quotes };
+			const [
+				detail,
+				options,
+				timeline,
+				allTags,
+				fields,
+				deals,
+				quotes,
+				orders,
+				invoices,
+			] = await Promise.all([
+				getContact({ data: { id: params.contactId } }),
+				getContactFormOptions(),
+				getTimeline({ data: subject }),
+				listWorkspaceTags(),
+				getRecordFields({ data: { objectKey: "contact" } }),
+				listRelatedDeals({ data: { contactId: params.contactId } }),
+				listRelatedQuotes({ data: { contactId: params.contactId } }),
+				listRelatedOrders({ data: { contactId: params.contactId } }),
+				listRelatedInvoices({ data: { contactId: params.contactId } }),
+			]);
+			return {
+				...detail,
+				options,
+				timeline,
+				allTags,
+				fields,
+				deals,
+				quotes,
+				orders,
+				invoices,
+			};
 		} catch (e) {
 			// Unknown, malformed or another workspace's id: the same "not found"
 			if (e instanceof Response && (e.status === 404 || e.status === 400))
@@ -102,7 +132,10 @@ function ContactPage() {
 		fields,
 		deals,
 		quotes,
+		orders,
+		invoices,
 	} = Route.useLoaderData();
+	const navigate = useNavigate();
 	const { access, session } = Route.useRouteContext();
 	const can = {
 		update: roleCan(access?.role, { contact: ["update"] }),
@@ -296,6 +329,47 @@ function ContactPage() {
 				quotes={quotes}
 				from={archived ? null : { contactId: contact.id }}
 				canCreate={can.createQuote && !archived}
+			/>
+
+			<RelatedDocuments
+				title={m.orders_title()}
+				empty={m.orders_none_here()}
+				newLabel={m.orders_new()}
+				rows={orders.map(orderRow)}
+				to="/orders/$orderId"
+				onCreate={
+					roleCan(access?.role, { order: ["create"] }) && !archived
+						? async () => {
+								const { id } = await createOrder({
+									data: { contactId: contact.id },
+								});
+								void navigate({
+									to: "/orders/$orderId",
+									params: { orderId: id },
+								});
+							}
+						: undefined
+				}
+			/>
+			<RelatedDocuments
+				title={m.invoices_title()}
+				empty={m.invoices_none_here()}
+				newLabel={m.invoices_new()}
+				rows={invoices.map(invoiceRow)}
+				to="/invoices/$invoiceId"
+				onCreate={
+					roleCan(access?.role, { invoice: ["create"] }) && !archived
+						? async () => {
+								const { id } = await createInvoice({
+									data: { contactId: contact.id },
+								});
+								void navigate({
+									to: "/invoices/$invoiceId",
+									params: { invoiceId: id },
+								});
+							}
+						: undefined
+				}
 			/>
 
 			<MergeContactDialog

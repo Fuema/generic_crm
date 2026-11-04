@@ -1,6 +1,7 @@
 import { inArray } from "drizzle-orm";
 import { db } from "#/db/index";
 import {
+	contact,
 	customer,
 	member,
 	organization,
@@ -16,7 +17,8 @@ const created = { workspaces: [] as string[], users: [] as string[] };
 
 export type Workspace = Awaited<ReturnType<typeof createWorkspace>>;
 
-// A workspace with one owner, one customer, one product and one order
+// A workspace with one owner, one customer (old model, still used by tasks),
+// one contact, one product and one order for that contact
 export async function createWorkspace(label: string) {
 	const now = new Date();
 	const workspaceId = crypto.randomUUID();
@@ -24,6 +26,7 @@ export async function createWorkspace(label: string) {
 	const customerId = crypto.randomUUID();
 	const productId = crypto.randomUUID();
 	const orderId = crypto.randomUUID();
+	const contactId = crypto.randomUUID();
 	created.workspaces.push(workspaceId);
 	created.users.push(userId);
 
@@ -62,16 +65,26 @@ export async function createWorkspace(label: string) {
 			sku: "SKU-1",
 			unitPriceCents: 1000,
 		}),
+		// Archived, so lists, filters and imports in other tests don't count it;
+		// it exists only so the sample order has a contact
+		db.insert(contact).values({
+			id: contactId,
+			workspaceId,
+			firstName: `Contact ${label}`,
+			archivedAt: now,
+		}),
 		db.insert(salesOrder).values({
 			id: orderId,
 			workspaceId,
-			number: 1,
-			customerId,
+			// 0 is never handed out by the counter (it starts at 1), so the
+			// sample order can't clash with orders the tests create
+			number: 0,
+			contactId,
 			currency: "USD",
 		}),
 	]);
 
-	return { workspaceId, userId, customerId, productId, orderId };
+	return { workspaceId, userId, customerId, contactId, productId, orderId };
 }
 
 // Deleting a workspace cascades to all of its data

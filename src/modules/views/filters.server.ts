@@ -13,6 +13,8 @@ const TABLE: Record<ObjectKey, string> = {
 	deal: `"deal"`,
 	product: `"product"`,
 	quote: `"quote"`,
+	order: `"sales_order"`,
+	invoice: `"invoice"`,
 };
 
 // Built-in columns by field id (raw, fixed names only)
@@ -54,6 +56,21 @@ const COLUMNS: Record<ObjectKey, Record<string, string>> = {
 		ownerId: `"quote"."owner_id"`,
 		validUntil: `"quote"."valid_until"`,
 		createdAt: `"quote"."created_at"`,
+	},
+	order: {
+		status: `"sales_order"."status"`,
+		companyId: `"sales_order"."company_id"`,
+		ownerId: `"sales_order"."owner_id"`,
+		orderDate: `"sales_order"."order_date"`,
+		createdAt: `"sales_order"."created_at"`,
+	},
+	invoice: {
+		status: `"invoice"."status"`,
+		companyId: `"invoice"."company_id"`,
+		ownerId: `"invoice"."owner_id"`,
+		issueDate: `"invoice"."issue_date"`,
+		dueDate: `"invoice"."due_date"`,
+		createdAt: `"invoice"."created_at"`,
 	},
 	product: {
 		name: `"product"."name"`,

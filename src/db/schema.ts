@@ -294,7 +294,9 @@ export const product = pgTable(
 	],
 );
 
-// "order" is a reserved word in SQL, hence sales_order
+// "order" is a reserved word in SQL, hence sales_order. An order is for a
+// contact (company, deal and the quote it came from are optional). Lines copy
+// the product's name, SKU and price. Only drafts change (spec §10).
 export const salesOrder = pgTable(
 	"sales_order",
 	{
@@ -304,12 +306,24 @@ export const salesOrder = pgTable(
 			.references(() => organization.id, { onDelete: "cascade" }),
 		// Shown as ORD-0001
 		number: integer("number").notNull(),
-		// A customer with orders can't be deleted
-		customerId: text("customer_id")
+		contactId: text("contact_id")
 			.notNull()
-			.references(() => customer.id, { onDelete: "restrict" }),
+			.references(() => contact.id),
+		companyId: text("company_id").references(() => company.id, {
+			onDelete: "set null",
+		}),
+		dealId: text("deal_id").references(() => deal.id, { onDelete: "set null" }),
+		// The accepted quote it was created from; one order per quote
+		quoteId: text("quote_id").references(() => quote.id, {
+			onDelete: "set null",
+		}),
+		ownerId: text("owner_id").references(() => user.id, {
+			onDelete: "set null",
+		}),
 		// draft | confirmed | fulfilled | cancelled
 		status: text("status").notNull().default("draft"),
+		// The language its documents are written in (en | es)
+		locale: text("locale").notNull().default("en"),
 		orderDate: timestamp("order_date").notNull().defaultNow(),
 		currency: text("currency").notNull(),
 		taxRateBp: integer("tax_rate_bp").notNull().default(0),
@@ -317,6 +331,8 @@ export const salesOrder = pgTable(
 		taxCents: integer("tax_cents").notNull().default(0),
 		totalCents: integer("total_cents").notNull().default(0),
 		notes: text("notes"),
+		custom: jsonb("custom").$type<Record<string, Json>>().notNull().default({}),
+		archivedAt: timestamp("archived_at"),
 		createdById: text("created_by_id").references(() => user.id, {
 			onDelete: "set null",
 		}),
@@ -328,8 +344,13 @@ export const salesOrder = pgTable(
 			t.workspaceId,
 			t.number,
 		),
+		uniqueIndex("sales_order_workspace_quote_unique")
+			.on(t.workspaceId, t.quoteId)
+			.where(sql`${t.quoteId} is not null`),
 		index("sales_order_workspace_status_idx").on(t.workspaceId, t.status),
-		index("sales_order_customer_idx").on(t.customerId),
+		index("sales_order_workspace_contact_idx").on(t.workspaceId, t.contactId),
+		index("sales_order_workspace_deal_idx").on(t.workspaceId, t.dealId),
+		index("sales_order_custom_gin_idx").using("gin", t.custom),
 	],
 );
 
@@ -337,6 +358,9 @@ export const orderLine = pgTable(
 	"order_line",
 	{
 		id: text("id").primaryKey(),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
 		orderId: text("order_id")
 			.notNull()
 			.references(() => salesOrder.id, { onDelete: "cascade" }),
@@ -351,9 +375,14 @@ export const orderLine = pgTable(
 		unitPriceCents: integer("unit_price_cents").notNull(),
 		lineTotalCents: integer("line_total_cents").notNull(),
 	},
-	(t) => [index("order_line_order_idx").on(t.orderId)],
+	(t) => [
+		index("order_line_order_idx").on(t.workspaceId, t.orderId, t.position),
+	],
 );
 
+// An invoice for a contact: from an order (one invoice per order that isn't
+// void) or direct. Numbered INV-2026-0001 when issued, so drafts leave no gaps;
+// an issued invoice never changes, it can only be voided. Payments: step 6.
 export const invoice = pgTable(
 	"invoice",
 	{
@@ -361,21 +390,27 @@ export const invoice = pgTable(
 		workspaceId: text("workspace_id")
 			.notNull()
 			.references(() => organization.id, { onDelete: "cascade" }),
-		// One invoice per order; an order with an invoice can't be deleted
-		orderId: text("order_id")
+		orderId: text("order_id").references(() => salesOrder.id, {
+			onDelete: "restrict",
+		}),
+		contactId: text("contact_id")
 			.notNull()
-			.unique()
-			.references(() => salesOrder.id, { onDelete: "restrict" }),
-		customerId: text("customer_id")
-			.notNull()
-			.references(() => customer.id, { onDelete: "restrict" }),
-		// Shown as INV-2026-0001; numbered when issued, so drafts leave no gaps
+			.references(() => contact.id),
+		companyId: text("company_id").references(() => company.id, {
+			onDelete: "set null",
+		}),
+		dealId: text("deal_id").references(() => deal.id, { onDelete: "set null" }),
+		ownerId: text("owner_id").references(() => user.id, {
+			onDelete: "set null",
+		}),
 		year: integer("year"),
 		number: integer("number"),
-		// draft | issued | paid | void
+		// draft | issued | void (paid and partially_paid arrive with payments)
 		status: text("status").notNull().default("draft"),
+		locale: text("locale").notNull().default("en"),
 		issueDate: timestamp("issue_date"),
 		dueDate: timestamp("due_date"),
+		sentAt: timestamp("sent_at"),
 		paidAt: timestamp("paid_at"),
 		voidedAt: timestamp("voided_at"),
 		currency: text("currency").notNull(),
@@ -384,6 +419,8 @@ export const invoice = pgTable(
 		taxCents: integer("tax_cents").notNull(),
 		totalCents: integer("total_cents").notNull(),
 		notes: text("notes"),
+		custom: jsonb("custom").$type<Record<string, Json>>().notNull().default({}),
+		archivedAt: timestamp("archived_at"),
 		createdById: text("created_by_id").references(() => user.id, {
 			onDelete: "set null",
 		}),
@@ -396,7 +433,13 @@ export const invoice = pgTable(
 			t.year,
 			t.number,
 		),
+		// One invoice per order; a voided one frees the order
+		uniqueIndex("invoice_workspace_order_unique")
+			.on(t.workspaceId, t.orderId)
+			.where(sql`${t.orderId} is not null and ${t.status} <> 'void'`),
 		index("invoice_workspace_status_idx").on(t.workspaceId, t.status),
+		index("invoice_workspace_contact_idx").on(t.workspaceId, t.contactId),
+		index("invoice_custom_gin_idx").using("gin", t.custom),
 	],
 );
 
@@ -404,17 +447,29 @@ export const invoiceLine = pgTable(
 	"invoice_line",
 	{
 		id: text("id").primaryKey(),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
 		invoiceId: text("invoice_id")
 			.notNull()
 			.references(() => invoice.id, { onDelete: "cascade" }),
 		position: integer("position").notNull(),
+		productId: text("product_id").references(() => product.id, {
+			onDelete: "set null",
+		}),
 		description: text("description").notNull(),
 		sku: text("sku"),
 		quantity: integer("quantity").notNull(),
 		unitPriceCents: integer("unit_price_cents").notNull(),
 		lineTotalCents: integer("line_total_cents").notNull(),
 	},
-	(t) => [index("invoice_line_invoice_idx").on(t.invoiceId)],
+	(t) => [
+		index("invoice_line_invoice_idx").on(
+			t.workspaceId,
+			t.invoiceId,
+			t.position,
+		),
+	],
 );
 
 // ---------------------------------------------------------------------------
