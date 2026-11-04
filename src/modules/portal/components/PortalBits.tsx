@@ -102,6 +102,13 @@ export function PortalShell({
 								{m.portal_nav_home()}
 							</Link>
 							<Link
+								to="/p/$slug/quotes"
+								params={{ slug }}
+								className="text-muted-foreground hover:text-foreground data-[status=active]:font-medium data-[status=active]:text-foreground"
+							>
+								{m.portal_nav_quotes()}
+							</Link>
+							<Link
 								to="/p/$slug/profile"
 								params={{ slug }}
 								className="text-muted-foreground hover:text-foreground data-[status=active]:font-medium data-[status=active]:text-foreground"

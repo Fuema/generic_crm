@@ -161,7 +161,11 @@ function describe(e: TimelineEvent, fieldLabels: Record<string, string>) {
 				? m.event_payment_rejected_reason({ reason: payload.reason })
 				: m.event_payment_rejected();
 		case "accepted":
-			return m.event_quote_accepted();
+			return (payload as { via?: string }).via === "portal"
+				? m.event_quote_accepted_portal({
+						name: (payload as { name?: string | null }).name ?? "",
+					})
+				: m.event_quote_accepted();
 		case "declined":
 			return payload.reason
 				? m.event_quote_declined_reason({ reason: payload.reason })

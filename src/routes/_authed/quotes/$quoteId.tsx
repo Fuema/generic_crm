@@ -395,6 +395,17 @@ function QuotePage() {
 								{q.declineReason}
 							</p>
 						) : null}
+						{q.decidedVia === "portal" ? (
+							<p className="mt-4 text-sm">
+								<span className="block text-xs text-muted-foreground">
+									{m.quote_decided_in_portal()}
+								</span>
+								{q.status === "accepted" && q.acceptedName
+									? m.quote_portal_signed({ name: q.acceptedName })
+									: null}{" "}
+								{q.decidedIp ? m.quote_portal_from({ ip: q.decidedIp }) : null}
+							</p>
+						) : null}
 					</CardContent>
 				</Card>
 				<Card className="lg:col-span-2">

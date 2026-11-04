@@ -219,6 +219,66 @@ export function sendPortalLinkEmail(input: {
 	});
 }
 
+// Tells a quote's owner that the customer decided in the portal (phase 4
+// step 3). Staff have no saved language yet, so it is written in English and
+// Spanish, one after the other.
+export function sendQuoteDecisionEmail(input: {
+	to: string;
+	staffName: string;
+	quoteNumber: string;
+	contactName: string;
+	accepted: boolean;
+	acceptedName: string | null;
+	reason: string | null;
+	url: string;
+}) {
+	const part = (locale: "en" | "es") => {
+		const o = { locale };
+		const values = {
+			name: input.staffName,
+			quote: input.quoteNumber,
+			contact: input.contactName,
+		};
+		const body = input.accepted
+			? m.email_quote_accepted_body(
+					{ ...values, signed: input.acceptedName ?? input.contactName },
+					o,
+				)
+			: input.reason
+				? m.email_quote_declined_reason_body(
+						{ ...values, reason: input.reason },
+						o,
+					)
+				: m.email_quote_declined_body(values, o);
+		return { body, button: m.email_quote_open({}, o) };
+	};
+	const en = part("en");
+	const es = part("es");
+	const subjectValues = {
+		quote: input.quoteNumber,
+		contact: input.contactName,
+	};
+	const subject = input.accepted
+		? `${m.email_quote_accepted_subject(subjectValues, { locale: "en" })} / ${m.email_quote_accepted_subject(subjectValues, { locale: "es" })}`
+		: `${m.email_quote_declined_subject(subjectValues, { locale: "en" })} / ${m.email_quote_declined_subject(subjectValues, { locale: "es" })}`;
+	return sendEmail({
+		to: input.to,
+		subject,
+		html: layout(
+			escapeHtml(subject),
+			paragraph(escapeHtml(en.body)) +
+				button(input.url, en.button, "en") +
+				paragraph(escapeHtml(es.body)),
+			"en",
+		),
+		text: `${en.body}
+
+${es.body}
+
+${input.url}`,
+	});
+}
+
 // Used by `bun run email:test` to confirm the Resend setup end to end
 export function sendTestEmail(to: string) {
 	return sendEmail({

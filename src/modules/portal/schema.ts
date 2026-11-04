@@ -64,6 +64,31 @@ export const updatePortalProfileSchema = z.object({
 });
 
 const id = z.uuid({ error: () => m.validation_invalid_id() });
+
+// Quotes in the portal (owner decisions 2026-11-04): accepting takes the
+// full name typed and a tick; declining takes an optional reason
+export const portalQuoteSchema = z.object({ slug: slugSchema, id });
+export const acceptPortalQuoteSchema = z.object({
+	slug: slugSchema,
+	id,
+	name: z
+		.string()
+		.trim()
+		.min(2, { error: () => m.validation_portal_accept_name() })
+		.max(120, { error: () => m.validation_text_max({ max: 120 }) }),
+	agree: z.literal(true, { error: () => m.validation_portal_accept_agree() }),
+	// The version of the quote the page showed
+	version: z.number().int().nonnegative(),
+});
+export const declinePortalQuoteSchema = z.object({
+	slug: slugSchema,
+	id,
+	reason: z
+		.string()
+		.trim()
+		.max(500, { error: () => m.validation_text_max({ max: 500 }) }),
+	version: z.number().int().nonnegative(),
+});
 export const contactPortalSchema = z.object({ contactId: id });
 export const companyAccessSchema = z.object({
 	contactId: id,

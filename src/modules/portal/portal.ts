@@ -10,9 +10,12 @@ import { requirePermission } from "#/lib/authz";
 import { m } from "#/paraglide/messages.js";
 import * as data from "./portal.server";
 import {
+	acceptPortalQuoteSchema,
 	companyAccessSchema,
 	contactPortalSchema,
+	declinePortalQuoteSchema,
 	portalCookieName,
+	portalQuoteSchema,
 	portalSlugSchema,
 	requestLinkSchema,
 	signInSchema,
@@ -187,6 +190,53 @@ export const updatePortalProfile = createServerFn({ method: "POST" })
 		return data.updatePortalProfile(scope, profile);
 	});
 
+export const getPortalQuotes = createServerFn({ method: "GET" })
+	.validator(portalSlugSchema)
+	.handler(async ({ data: { slug } }) => {
+		const scope = await requirePortal(slug);
+		return {
+			portal: portalHeader(scope),
+			quotes: await data.portalQuotes(scope),
+		};
+	});
+
+export const getPortalQuote = createServerFn({ method: "GET" })
+	.validator(portalQuoteSchema)
+	.handler(async ({ data: { slug, id } }) => {
+		const scope = await requirePortal(slug);
+		return {
+			portal: portalHeader(scope),
+			quote: await data.portalQuote(scope, id),
+		};
+	});
+
+export const acceptPortalQuote = createServerFn({ method: "POST" })
+	.validator(acceptPortalQuoteSchema)
+	.handler(async ({ data: { slug, id, name, version } }) => {
+		const scope = await requirePortal(slug);
+		return data.decidePortalQuote(
+			scope,
+			id,
+			{ accept: true, name, version },
+			{ ip: clientIp(), userAgent: getRequestHeader("user-agent") ?? null },
+			appUrl(),
+		);
+	});
+
+export const declinePortalQuote = createServerFn({ method: "POST" })
+	.validator(declinePortalQuoteSchema)
+	.handler(async ({ data: { slug, id, reason, version } }) => {
+		const scope = await requirePortal(slug);
+		return data.decidePortalQuote(
+			scope,
+			id,
+			{ accept: false, reason, version },
+			{ ip: clientIp(), userAgent: getRequestHeader("user-agent") ?? null },
+			appUrl(),
+		);
+	});
+
 export type PortalHome = Awaited<ReturnType<typeof getPortalHome>>;
+export type PortalQuote = Awaited<ReturnType<typeof getPortalQuote>>["quote"];
 export type PortalProfile = Awaited<ReturnType<typeof getPortalProfile>>;
 export type ContactPortal = Awaited<ReturnType<typeof getContactPortal>>;
