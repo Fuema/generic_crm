@@ -5,7 +5,6 @@ const RESOURCES = [
 	"contact",
 	"company",
 	"project",
-	"customer",
 	"product",
 	"order",
 	"invoice",

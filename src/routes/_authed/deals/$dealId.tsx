@@ -56,6 +56,8 @@ import { listRelatedQuotes } from "#/modules/quotes/quotes";
 import { RecordTimeline } from "#/modules/records/components/RecordTimeline";
 import { TagEditor } from "#/modules/records/components/TagEditor";
 import { getTimeline, listWorkspaceTags } from "#/modules/records/records";
+import { RecordWork } from "#/modules/tasks/components/RecordWork";
+import { listRecordWork } from "#/modules/tasks/tasks";
 import { m } from "#/paraglide/messages.js";
 
 export const Route = createFileRoute("/_authed/deals/$dealId")({
@@ -76,6 +78,7 @@ export const Route = createFileRoute("/_authed/deals/$dealId")({
 				orders,
 				invoices,
 				projects,
+				work,
 			] = await Promise.all([
 				getDeal({ data: { id: params.dealId } }),
 				listPipelines({ data: { includeArchived: true } }),
@@ -87,8 +90,10 @@ export const Route = createFileRoute("/_authed/deals/$dealId")({
 				listRelatedOrders({ data: { dealId: params.dealId } }),
 				listRelatedInvoices({ data: { dealId: params.dealId } }),
 				listRelatedProjects({ data: { dealId: params.dealId } }),
+				listRecordWork({ data: subject }),
 			]);
 			return {
+				work,
 				...detail,
 				pipelines,
 				options,
@@ -127,6 +132,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 function DealPage() {
 	const router = useRouter();
 	const data = Route.useLoaderData();
+	const { work } = Route.useLoaderData();
 	const {
 		deal,
 		pipeline,
@@ -335,6 +341,14 @@ function DealPage() {
 					<CardHeader>
 						<CardTitle>{m.timeline_title()}</CardTitle>
 					</CardHeader>
+					<RecordWork
+						subjectType="deal"
+						subjectId={deal.id}
+						label={deal.name}
+						work={work}
+						role={access?.role}
+						archived={archived}
+					/>
 					<CardContent>
 						<RecordTimeline
 							subjectType="deal"

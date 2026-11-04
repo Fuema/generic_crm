@@ -56,6 +56,8 @@ import {
 import { RecordTimeline } from "#/modules/records/components/RecordTimeline";
 import { TagEditor } from "#/modules/records/components/TagEditor";
 import { getTimeline, listWorkspaceTags } from "#/modules/records/records";
+import { RecordWork } from "#/modules/tasks/components/RecordWork";
+import { listRecordWork } from "#/modules/tasks/tasks";
 import { m } from "#/paraglide/messages.js";
 
 export const Route = createFileRoute("/_authed/quotes/$quoteId")({
@@ -65,7 +67,7 @@ export const Route = createFileRoute("/_authed/quotes/$quoteId")({
 				subjectType: "quote" as const,
 				subjectId: params.quoteId,
 			};
-			const [detail, options, timeline, allTags, fields, orders] =
+			const [detail, options, timeline, allTags, fields, orders, work] =
 				await Promise.all([
 					getQuote({ data: { id: params.quoteId } }),
 					getContactFormOptions(),
@@ -73,13 +75,23 @@ export const Route = createFileRoute("/_authed/quotes/$quoteId")({
 					listWorkspaceTags(),
 					getRecordFields({ data: { objectKey: "quote" } }),
 					listRelatedOrders({ data: { quoteId: params.quoteId } }),
+					listRecordWork({ data: subject }),
 				]);
 			// The catalog only matters while the quote can be edited
 			const products =
 				detail.quote.status === "draft" && !detail.quote.archivedAt
 					? await pickProducts({ data: { q: "" } })
 					: [];
-			return { detail, options, timeline, allTags, fields, products, orders };
+			return {
+				work,
+				detail,
+				options,
+				timeline,
+				allTags,
+				fields,
+				products,
+				orders,
+			};
 		} catch (e) {
 			if (e instanceof Response && (e.status === 404 || e.status === 400))
 				throw notFound();
@@ -98,6 +110,7 @@ function QuotePage() {
 	const router = useRouter();
 	const { detail, options, timeline, allTags, fields, products, orders } =
 		Route.useLoaderData();
+	const { work } = Route.useLoaderData();
 	const navigate = useNavigate();
 	const order = orders[0] ?? null;
 	const { access, session } = Route.useRouteContext();
@@ -376,6 +389,14 @@ function QuotePage() {
 					<CardHeader>
 						<CardTitle>{m.timeline_title()}</CardTitle>
 					</CardHeader>
+					<RecordWork
+						subjectType="quote"
+						subjectId={q.id}
+						label={number}
+						work={work}
+						role={access?.role}
+						archived={archived}
+					/>
 					<CardContent>
 						<RecordTimeline
 							subjectType="quote"

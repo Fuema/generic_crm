@@ -1,13 +1,17 @@
 import { BellRing, CheckSquare, Mail, Phone, Plus, Users } from "lucide-react";
-import type { CalendarActivity, CalendarTask } from "#/lib/activities";
+import { m } from "#/paraglide/messages.js";
+import { getLocale } from "#/paraglide/runtime.js";
+import { type DayKey, dayKeyLocal, formatTime, itemDayKey } from "../calendar";
 import {
-	type DayKey,
-	dayKeyLocal,
-	formatTime,
-	itemDayKey,
-} from "#/lib/calendar";
-import type { ActivityType, CalendarView } from "#/lib/schema";
-import { ACTIVITY_LABELS } from "./ActivityFormDialog";
+	ACTIVITY_TYPE_LABELS,
+	type ActivityType,
+	type CalendarView,
+} from "../schema";
+import type { CalendarActivity, CalendarTask } from "../tasks";
+import { subjectLabel } from "./WorkBits";
+
+const activityLabel = (type: string) =>
+	ACTIVITY_TYPE_LABELS[type as ActivityType]?.() ?? type;
 
 // One entry on the calendar: a task (by due date) or an activity (by start)
 export type CalendarItem =
@@ -55,7 +59,9 @@ export function toCalendarItems(
 					at: new Date(t.dueAt as Date),
 					allDay: t.allDay,
 					done: t.status === "done",
-					meta: [t.assigneeName, t.customerName].filter(Boolean).join(" · "),
+					meta: [t.assigneeName, subjectLabel(t.subjectType, t), t.projectName]
+						.filter(Boolean)
+						.join(" · "),
 					task: t,
 				}),
 			),
@@ -69,8 +75,9 @@ export function toCalendarItems(
 				allDay: a.allDay,
 				done: a.completed,
 				meta: [
-					ACTIVITY_LABELS[a.type as ActivityType] ?? a.type,
-					a.customerName,
+					activityLabel(a.type),
+					subjectLabel(a.subjectType, a),
+					a.projectName,
 					a.ownerName,
 				]
 					.filter(Boolean)
@@ -106,10 +113,12 @@ function ItemIcon({ item }: { item: CalendarItem }) {
 function itemLabel(item: CalendarItem) {
 	const kind =
 		item.kind === "task"
-			? "Task"
-			: (ACTIVITY_LABELS[item.activity.type as ActivityType] ?? "Activity");
-	const when = item.allDay ? "all day" : formatTime(item.at);
-	return `${kind}: ${item.title}, ${when}${item.done ? ", done" : ""}`;
+			? m.calendar_task()
+			: activityLabel(item.activity.type);
+	const when = item.allDay ? m.work_all_day() : formatTime(item.at);
+	return item.done
+		? m.calendar_item_label_done({ kind, title: item.title, when })
+		: m.calendar_item_label({ kind, title: item.title, when });
 }
 
 // Compact chip for month and week cells
@@ -143,7 +152,21 @@ function Chip({
 	);
 }
 
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+// Monday first, in the page's language (Jan 5 2026 is a Monday)
+function weekdays() {
+	return Array.from({ length: 7 }, (_, i) =>
+		new Date(2026, 0, 5 + i).toLocaleDateString(getLocale(), {
+			weekday: "short",
+		}),
+	);
+}
+
+const longDay = (d: Date) =>
+	d.toLocaleDateString(getLocale(), {
+		weekday: "long",
+		month: "long",
+		day: "numeric",
+	});
 
 // Static class names so Tailwind generates them; more than 7 days wrap
 const COLUMNS = [
@@ -176,6 +199,7 @@ export function CalendarBoard({
 	onShowDay: (day: DayKey) => void;
 }) {
 	const byDay = groupByDay(items);
+	const WEEKDAYS = weekdays();
 	const today = dayKeyLocal(new Date());
 
 	if (view === "day") {
@@ -187,22 +211,22 @@ export function CalendarBoard({
 			<div className="space-y-4 rounded-xl border bg-background p-4">
 				{list.length === 0 ? (
 					<div className="flex flex-col items-center gap-3 py-12 text-center text-sm text-muted-foreground">
-						<p>Nothing planned for this day.</p>
+						<p>{m.calendar_nothing_planned()}</p>
 						{canAdd ? (
 							<button
 								type="button"
 								className="text-foreground underline-offset-4 hover:underline"
 								onClick={() => onAdd(key)}
 							>
-								Add something
+								{m.calendar_add_something()}
 							</button>
 						) : null}
 					</div>
 				) : null}
 				{allDay.length ? (
-					<section aria-label="All day" className="space-y-2">
+					<section aria-label={m.work_all_day()} className="space-y-2">
 						<h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-							All day
+							{m.work_all_day()}
 						</h3>
 						<ul className="space-y-1.5">
 							{allDay.map((item) => (
@@ -214,9 +238,9 @@ export function CalendarBoard({
 					</section>
 				) : null}
 				{timed.length ? (
-					<section aria-label="Scheduled" className="space-y-2">
+					<section aria-label={m.calendar_scheduled()} className="space-y-2">
 						<h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-							Scheduled
+							{m.calendar_scheduled()}
 						</h3>
 						<ul className="space-y-1.5">
 							{timed.map((item) => (
@@ -240,11 +264,7 @@ export function CalendarBoard({
 					return (
 						<section
 							key={key}
-							aria-label={d.toLocaleDateString(undefined, {
-								weekday: "long",
-								month: "long",
-								day: "numeric",
-							})}
+							aria-label={longDay(d)}
 							className={`flex min-h-40 flex-col rounded-xl border bg-background p-2 ${key === today ? "ring-2 ring-ring" : ""}`}
 						>
 							<header className="mb-2 flex items-center justify-between">
@@ -252,7 +272,7 @@ export function CalendarBoard({
 									type="button"
 									onClick={() => onShowDay(key)}
 									className="text-left text-sm hover:underline"
-									aria-label={`Open ${d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}`}
+									aria-label={m.calendar_open_day({ day: longDay(d) })}
 								>
 									<span className="text-muted-foreground">
 										{WEEKDAYS[(d.getDay() + 6) % 7]}
@@ -293,11 +313,7 @@ export function CalendarBoard({
 					return (
 						<section
 							key={key}
-							aria-label={d.toLocaleDateString(undefined, {
-								weekday: "long",
-								month: "long",
-								day: "numeric",
-							})}
+							aria-label={longDay(d)}
 							className={`group min-h-28 border-r border-b p-1.5 [&:nth-child(7n)]:border-r-0 ${inMonth ? "" : "bg-muted/40"}`}
 						>
 							<div className="mb-1 flex items-center justify-between">
@@ -311,7 +327,7 @@ export function CalendarBoard({
 												? ""
 												: "text-muted-foreground"
 									}`}
-									aria-label={`Open ${d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}`}
+									aria-label={m.calendar_open_day({ day: longDay(d) })}
 								>
 									{d.getDate()}
 								</button>
@@ -334,7 +350,7 @@ export function CalendarBoard({
 									onClick={() => onShowDay(key)}
 									className="mt-0.5 px-1.5 text-xs text-muted-foreground hover:text-foreground hover:underline"
 								>
-									+{list.length - 3} more
+									{m.calendar_more({ count: list.length - 3 })}
 								</button>
 							) : null}
 						</section>
@@ -357,7 +373,7 @@ function AddButton({
 			type="button"
 			onClick={() => onAdd(day)}
 			className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-			aria-label={`Add to ${day}`}
+			aria-label={m.calendar_add_to({ day })}
 		>
 			<Plus className="size-3.5" />
 		</button>
@@ -372,7 +388,7 @@ function AgendaRow({
 	onOpen: (item: CalendarItem) => void;
 }) {
 	const time = item.allDay
-		? "All day"
+		? m.work_all_day()
 		: item.kind === "activity" && item.end
 			? `${formatTime(item.at)} – ${formatTime(item.end)}`
 			: formatTime(item.at);
@@ -403,7 +419,7 @@ function AgendaRow({
 				) : null}
 			</span>
 			<span className="shrink-0 text-xs text-muted-foreground">
-				{item.kind === "task" ? "Task" : "Activity"}
+				{item.kind === "task" ? m.calendar_task() : m.calendar_activity()}
 			</span>
 		</button>
 	);
@@ -413,7 +429,7 @@ export function CalendarLegend() {
 	return (
 		<ul
 			className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground"
-			aria-label="Legend"
+			aria-label={m.calendar_legend()}
 		>
 			<li className="flex items-center gap-1.5">
 				<span
@@ -421,7 +437,8 @@ export function CalendarLegend() {
 					style={{ background: "var(--viz-1)" }}
 					aria-hidden="true"
 				/>
-				<CheckSquare className="size-3.5" aria-hidden="true" /> Task
+				<CheckSquare className="size-3.5" aria-hidden="true" />{" "}
+				{m.calendar_task()}
 			</li>
 			<li className="flex items-center gap-1.5">
 				<span
@@ -429,11 +446,15 @@ export function CalendarLegend() {
 					style={{ background: "var(--viz-2)" }}
 					aria-hidden="true"
 				/>
-				Activity:
-				<Phone className="size-3.5" aria-hidden="true" /> call
-				<Users className="size-3.5" aria-hidden="true" /> meeting
-				<Mail className="size-3.5" aria-hidden="true" /> email
-				<BellRing className="size-3.5" aria-hidden="true" /> follow-up
+				{m.calendar_activity()}:
+				<Phone className="size-3.5" aria-hidden="true" />{" "}
+				{m.activity_type_call()}
+				<Users className="size-3.5" aria-hidden="true" />{" "}
+				{m.activity_type_meeting()}
+				<Mail className="size-3.5" aria-hidden="true" />{" "}
+				{m.activity_type_email()}
+				<BellRing className="size-3.5" aria-hidden="true" />{" "}
+				{m.activity_type_follow_up()}
 			</li>
 		</ul>
 	);

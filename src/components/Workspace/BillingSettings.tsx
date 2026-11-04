@@ -6,7 +6,7 @@ import {
 	FormAlert,
 	fieldErrors,
 } from "#/components/Auth/FormParts";
-import { serverErrorMessage } from "#/components/Customers/CustomerFormDialog";
+import { serverErrorMessage } from "#/components/data/serverError";
 import { Button } from "#/components/ui/button";
 import {
 	Card,

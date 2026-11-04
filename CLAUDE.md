@@ -7,9 +7,12 @@ conventions and pitfalls live there.
 
 ## Where things stand
 - **Phase 3 (Work) in progress** (spec §16; phases 0–2 done, #1–#28; browser checks of
-  phases 1–2 pending). Step 1, projects, is built on `feat/phase3-projects`; its migration
-  `0014` is applied to dev. **Next: step 2, tasks and activities rebuilt.**
-  Spec §16.1 is the handoff: the phase 3 plan, what waits on the owner, how to resume.
+  phases 1–3 pending). Step 1, projects, merged in #29. Steps 2–3 (tasks and activities in
+  `src/modules/tasks`, old `customer` table dropped) are built together on
+  `feat/phase3-tasks`; migrations `0015`/`0016` are applied to dev. **Next: step 4, files
+  and folders.** Spec §16.1 is the handoff: the phase 3 plan, what waits on the owner, how to resume.
+- Tasks and activities point to one record by `subject_type` + `subject_id` (no foreign key):
+  check the pair against the workspace on every write that sets it (spec §10, §17 pitfall 21).
 - Files (step 4) go to R2 in production and a git-ignored local-disk stand-in in dev, behind
   one interface; file rights follow the record (spec §3, §9).
 - Contact and deal timelines also show related records' milestones (not `*.updated`,
@@ -19,7 +22,8 @@ conventions and pitfalls live there.
 - Quotes, orders and invoices share lines, totals, email and components in
   `src/modules/documents`; they are printable pages, not generated PDFs (Workers CPU, spec §3).
 - Modules that point to contacts must also move their rows in `mergeContacts` (deals,
-  quotes, orders, invoices and projects do; tickets, portal access… follow, spec §10).
+  quotes, orders, invoices, projects, tasks and activities do; tickets, portal access…
+  follow, spec §10).
 - Quote "expired" and invoice "overdue" are worked out on read (no cron on the free plan),
   never stored (spec §17).
 - Deal writes that set or keep a stage take the pipelines' advisory lock and guard the stage
@@ -45,7 +49,7 @@ conventions and pitfalls live there.
 - **Contact isolation (portal):** portal queries also filter by the contact's scope and return only portal-visible fields, objects and files.
 - **Every server function** has `requirePermission(...)` (or `requireObjectPermission(...)` for custom objects) and a Zod `.validator(...)`; custom-field values are validated on the server against their definitions.
 - **No plain exported `db` helpers in modules routes import** — put them in `*.server.ts` (`check:bundle` guards it).
-- **English and Spanish:** user-visible text comes from `messages/en.json` and `messages/es.json` through `m.*()` (`#/paraglide/messages.js`), never hard-coded; add every key to both files (`check:i18n` fails otherwise). Pages not yet converted are listed in spec §5.
+- **English and Spanish:** user-visible text comes from `messages/en.json` and `messages/es.json` through `m.*()` (`#/paraglide/messages.js`), never hard-coded; add every key to both files (`check:i18n` fails otherwise). Every page is converted since phase 3 steps 2–3 (spec §5).
 - Money in integer cents, tax in basis points, dates in UTC (all-day at 12:00 UTC).
 - Never edit `.env*`; never print secret values. This project has **its own** Neon database; never point it at `my-tanstack-app`'s.
 

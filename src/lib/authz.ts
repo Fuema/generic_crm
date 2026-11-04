@@ -84,9 +84,6 @@ export const getWorkspaceAccess = createServerFn({ method: "GET" })
 			invite,
 			updateWorkspace,
 			deleteWorkspace,
-			createCustomer,
-			updateCustomer,
-			deleteCustomer,
 		] = await Promise.all([
 			check({ project: ["create"] }),
 			check({ project: ["update"] }),
@@ -95,9 +92,6 @@ export const getWorkspaceAccess = createServerFn({ method: "GET" })
 			check({ invitation: ["create"] }),
 			check({ organization: ["update"] }),
 			check({ organization: ["delete"] }),
-			check({ customer: ["create"] }),
-			check({ customer: ["update"] }),
-			check({ customer: ["delete"] }),
 		]);
 
 		return {
@@ -114,9 +108,6 @@ export const getWorkspaceAccess = createServerFn({ method: "GET" })
 				invite,
 				updateWorkspace,
 				deleteWorkspace,
-				createCustomer,
-				updateCustomer,
-				deleteCustomer,
 			},
 		};
 	});

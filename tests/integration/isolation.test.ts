@@ -2,9 +2,9 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { eq, sql } from "drizzle-orm";
 import { db } from "#/db/index";
 import {
+	activity,
 	company,
 	contact,
-	customer,
 	deal,
 	event,
 	fieldDefinition,
@@ -23,6 +23,7 @@ import {
 	salesOrder,
 	savedView,
 	tag,
+	task,
 	workspaceCounter,
 	workspaceSetting,
 } from "#/db/schema";
@@ -37,6 +38,7 @@ import * as pipelines from "#/modules/pipelines/pipelines.server";
 import * as projectsData from "#/modules/projects/projects.server";
 import * as quotes from "#/modules/quotes/quotes.server";
 import * as records from "#/modules/records/records.server";
+import * as work from "#/modules/tasks/tasks.server";
 import { applyTemplateToNewWorkspace } from "#/modules/templates/templates.server";
 import { cleanup, createWorkspace, type Workspace } from "./fixtures";
 
@@ -63,17 +65,12 @@ describe("assertWorkspaceRefs", () => {
 	test("accepts references from the same workspace", async () => {
 		await assertWorkspaceRefs(a.workspaceId, {
 			userId: a.userId,
-			customerId: a.customerId,
 			orderId: a.orderId,
 		});
 	});
 
-	test("rejects another workspace's member, customer and order", async () => {
-		for (const refs of [
-			{ userId: b.userId },
-			{ customerId: b.customerId },
-			{ orderId: b.orderId },
-		]) {
+	test("rejects another workspace's member and order", async () => {
+		for (const refs of [{ userId: b.userId }, { orderId: b.orderId }]) {
 			const error = await rejection(assertWorkspaceRefs(a.workspaceId, refs));
 			expect(error).toBeInstanceOf(Response);
 			expect((error as Response).status).toBe(400);
@@ -82,7 +79,7 @@ describe("assertWorkspaceRefs", () => {
 
 	test("rejects ids that don't exist", async () => {
 		const error = await rejection(
-			assertWorkspaceRefs(a.workspaceId, { customerId: crypto.randomUUID() }),
+			assertWorkspaceRefs(a.workspaceId, { orderId: crypto.randomUUID() }),
 		);
 		expect((error as Response).status).toBe(400);
 	});
@@ -125,26 +122,18 @@ describe("workspace settings", () => {
 });
 
 describe("database rules", () => {
-	test("the same customer email and SKU are allowed in two workspaces", async () => {
-		// The fixtures already gave both workspaces "shared@example.com" and "SKU-1"
-		const emails = await db
-			.select({ id: customer.id })
-			.from(customer)
+	test("the same SKU is allowed in two workspaces", async () => {
+		// The fixtures already gave both workspaces "SKU-1"
+		const skus = await db
+			.select({ id: product.id })
+			.from(product)
 			.where(
-				sql`lower(${customer.email}) = 'shared@example.com' and ${customer.workspaceId} in (${a.workspaceId}, ${b.workspaceId})`,
+				sql`${product.sku} = 'SKU-1' and ${product.workspaceId} in (${a.workspaceId}, ${b.workspaceId})`,
 			);
-		expect(emails).toHaveLength(2);
+		expect(skus).toHaveLength(2);
 	});
 
 	test("but not twice within one workspace, ignoring case", async () => {
-		const duplicateCustomer = db.insert(customer).values({
-			id: crypto.randomUUID(),
-			workspaceId: a.workspaceId,
-			name: "Duplicate",
-			email: "SHARED@example.com",
-		});
-		expect(await rejection(duplicateCustomer)).toBeInstanceOf(Error);
-
 		const duplicateProduct = db.insert(product).values({
 			id: crypto.randomUUID(),
 			workspaceId: a.workspaceId,
@@ -208,6 +197,34 @@ describe("database rules", () => {
 			ownerId: "",
 			contactId: ana.id,
 			companyId: "",
+		});
+		// Phase 3: a task and an activity about the contact
+		const workLinks = {
+			subjectType: "contact" as const,
+			subjectId: ana.id,
+			projectId: "",
+		};
+		await work.createTask(c.workspaceId, actor, {
+			title: "Call back",
+			description: "",
+			status: "todo",
+			priority: "medium",
+			assigneeId: "",
+			dueAt: null,
+			allDay: true,
+			isMilestone: false,
+			...workLinks,
+		});
+		await work.createActivity(c.workspaceId, actor, {
+			type: "call",
+			subject: "Intro call",
+			notes: "",
+			startsAt: new Date().toISOString(),
+			endsAt: null,
+			allDay: false,
+			completed: false,
+			ownerId: "",
+			...workLinks,
 		});
 		const order = await orders.createOrder(c.workspaceId, actor, {
 			contactId: ana.id,
@@ -285,6 +302,8 @@ describe("database rules", () => {
 			orderLine,
 			payment,
 			project,
+			task,
+			activity,
 		];
 		for (const table of phase1) {
 			const [{ n }] = await db
@@ -297,7 +316,6 @@ describe("database rules", () => {
 		await db.delete(organization).where(eq(organization.id, c.workspaceId));
 
 		for (const table of [
-			customer,
 			product,
 			salesOrder,
 			workspaceCounter,
@@ -311,9 +329,9 @@ describe("database rules", () => {
 			expect(left[0].n).toBe(0);
 		}
 		const survivors = await db
-			.select({ id: customer.id })
-			.from(customer)
-			.where(eq(customer.workspaceId, a.workspaceId));
+			.select({ id: product.id })
+			.from(product)
+			.where(eq(product.workspaceId, a.workspaceId));
 		expect(survivors).toHaveLength(1);
 	}, 30_000); // creates a full workspace through many requests
 });

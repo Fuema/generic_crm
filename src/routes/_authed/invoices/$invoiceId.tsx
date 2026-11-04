@@ -46,6 +46,8 @@ import { pickProducts } from "#/modules/products/products";
 import { RecordTimeline } from "#/modules/records/components/RecordTimeline";
 import { TagEditor } from "#/modules/records/components/TagEditor";
 import { getTimeline, listWorkspaceTags } from "#/modules/records/records";
+import { RecordWork } from "#/modules/tasks/components/RecordWork";
+import { listRecordWork } from "#/modules/tasks/tasks";
 import { m } from "#/paraglide/messages.js";
 
 export const Route = createFileRoute("/_authed/invoices/$invoiceId")({
@@ -55,7 +57,7 @@ export const Route = createFileRoute("/_authed/invoices/$invoiceId")({
 				subjectType: "invoice" as const,
 				subjectId: params.invoiceId,
 			};
-			const [detail, options, timeline, allTags, fields, payments] =
+			const [detail, options, timeline, allTags, fields, payments, work] =
 				await Promise.all([
 					getInvoice({ data: { id: params.invoiceId } }),
 					getContactFormOptions(),
@@ -63,12 +65,22 @@ export const Route = createFileRoute("/_authed/invoices/$invoiceId")({
 					listWorkspaceTags(),
 					getRecordFields({ data: { objectKey: "invoice" } }),
 					listPayments({ data: { invoiceId: params.invoiceId } }),
+					listRecordWork({ data: subject }),
 				]);
 			const products =
 				detail.invoice.status === "draft" && !detail.invoice.archivedAt
 					? await pickProducts({ data: { q: "" } })
 					: [];
-			return { detail, options, timeline, allTags, fields, products, payments };
+			return {
+				work,
+				detail,
+				options,
+				timeline,
+				allTags,
+				fields,
+				products,
+				payments,
+			};
 		} catch (e) {
 			if (e instanceof Response && (e.status === 404 || e.status === 400))
 				throw notFound();
@@ -87,6 +99,7 @@ function InvoicePage() {
 	const router = useRouter();
 	const { detail, options, timeline, allTags, fields, products, payments } =
 		Route.useLoaderData();
+	const { work } = Route.useLoaderData();
 	const { access, session } = Route.useRouteContext();
 	const can = {
 		update: roleCan(access?.role, { invoice: ["update"] }),
@@ -363,6 +376,14 @@ function InvoicePage() {
 					<CardHeader>
 						<CardTitle>{m.timeline_title()}</CardTitle>
 					</CardHeader>
+					<RecordWork
+						subjectType="invoice"
+						subjectId={inv.id}
+						label={title}
+						work={work}
+						role={access?.role}
+						archived={archived}
+					/>
 					<CardContent>
 						<RecordTimeline
 							subjectType="invoice"

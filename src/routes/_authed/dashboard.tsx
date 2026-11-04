@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ShieldCheck } from "lucide-react";
-import { STATUS_LABELS } from "#/components/Customers/CustomerStatusBadge";
 import { ChartCard } from "#/components/Dashboard/ChartCard";
 import { MonthlyColumns } from "#/components/Dashboard/MonthlyColumns";
 import { RankedBars } from "#/components/Dashboard/RankedBars";
@@ -17,7 +16,8 @@ import { Card, CardContent } from "#/components/ui/card";
 import { RoleBadge } from "#/components/Workspace/RoleBadge";
 import { countryName } from "#/lib/countries";
 import { getDashboardStats } from "#/lib/dashboard";
-import { CUSTOMER_STATUSES } from "#/lib/schema";
+import { LIFECYCLE_STAGES, STAGE_LABELS } from "#/modules/contacts/schema";
+import { m } from "#/paraglide/messages.js";
 
 // Protected by the _authed layout guard; the stats are scoped to the active workspace
 export const Route = createFileRoute("/_authed/dashboard")({
@@ -25,15 +25,17 @@ export const Route = createFileRoute("/_authed/dashboard")({
 	component: DashboardPage,
 });
 
-// Categorical slots in fixed order: Lead, Active, Inactive
-const STATUS_COLORS = {
+// Categorical slots in fixed order; the two quiet stages share the muted tone
+const STAGE_COLORS = {
+	subscriber: "var(--viz-deemph)",
 	lead: "var(--viz-1)",
-	active: "var(--viz-2)",
-	inactive: "var(--viz-3)",
+	qualified: "var(--viz-2)",
+	customer: "var(--viz-3)",
+	inactive: "var(--viz-axis)",
 } as const;
 
 function changeVsPrevious(current: number, previous: number): Delta {
-	const period = "vs previous 30 days";
+	const period = m.dashboard_vs_previous();
 	if (previous === 0) {
 		return current === 0
 			? { value: "0", period, direction: "flat", good: true }
@@ -52,108 +54,120 @@ function DashboardPage() {
 	const stats = Route.useLoaderData();
 	const { session, access } = Route.useRouteContext();
 	const { user } = session;
-	const c = stats.customers;
-	const active = c.byStatus.active;
-	const activeRate = c.total > 0 ? Math.round((active / c.total) * 100) : 0;
+	const c = stats.contacts;
+	const customers = c.byStage.customer;
+	const customerRate =
+		c.total > 0 ? Math.round((customers / c.total) * 100) : 0;
+	const country = (code: string) =>
+		code ? countryName(code) : m.dashboard_other_countries();
 
 	return (
 		<div className="mx-auto max-w-7xl space-y-6 p-6">
 			<div>
-				<h1 className="text-2xl font-bold">Dashboard</h1>
+				<h1 className="text-2xl font-bold">{m.nav_dashboard()}</h1>
 				<p className="text-sm text-muted-foreground">
-					{access?.workspace?.name ?? "Your workspace"} at a glance.
+					{m.dashboard_summary({
+						name: access?.workspace?.name ?? m.dashboard_your_workspace(),
+					})}
 				</p>
 			</div>
 
 			{/* KPI row */}
 			<section
-				aria-label="Key figures"
+				aria-label={m.dashboard_key_figures()}
 				className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
 			>
 				<StatTile
-					label="Customers"
+					label={m.nav_contacts()}
 					value={formatCount(c.total)}
 					delta={{
 						value: `+${c.newLast30}`,
-						period: "in the last 30 days",
+						period: m.dashboard_in_last_30(),
 						direction: c.newLast30 > 0 ? "up" : "flat",
 						good: true,
 					}}
-					trend={c.monthly.map((m) => m.count)}
+					trend={c.monthly.map((x) => x.count)}
 				/>
 				<StatTile
-					label="New customers (30 days)"
+					label={m.dashboard_new_contacts_30()}
 					value={formatCount(c.newLast30)}
 					delta={changeVsPrevious(c.newLast30, c.newPrev30)}
-					caption={`${c.newPrev30} in the 30 days before`}
+					caption={m.dashboard_in_30_before({ count: c.newPrev30 })}
 				/>
 				<StatTile
-					label="Active customers"
-					value={`${activeRate}%`}
-					caption={`${active} of ${c.total} are active`}
+					label={m.dashboard_customers_share()}
+					value={`${customerRate}%`}
+					caption={m.dashboard_customers_of({
+						count: customers,
+						total: c.total,
+					})}
 				>
-					<Meter value={active} max={c.total} />
+					<Meter value={customers} max={c.total} />
 				</StatTile>
 				<StatTile
-					label="Team"
-					value={`${stats.members} ${stats.members === 1 ? "member" : "members"}`}
-					caption={`${stats.projects} ${stats.projects === 1 ? "project" : "projects"} · ${stats.pendingInvitations} pending ${stats.pendingInvitations === 1 ? "invitation" : "invitations"}`}
+					label={m.dashboard_team()}
+					value={m.dashboard_members({ count: stats.members })}
+					caption={m.dashboard_team_caption({
+						projects: stats.projects,
+						invitations: stats.pendingInvitations,
+					})}
 				/>
 			</section>
 
 			<ChartCard
-				title="New customers per month"
-				description="Last 12 months"
+				title={m.dashboard_new_per_month()}
+				description={m.dashboard_last_12_months()}
 				table={{
-					headers: ["Month", "New customers"],
-					rows: c.monthly.map((m) => [m.month, String(m.count)]),
+					headers: [m.dashboard_month(), m.dashboard_new_contacts()],
+					rows: c.monthly.map((x) => [x.month, String(x.count)]),
 				}}
 			>
-				<MonthlyColumns data={c.monthly} />
+				<MonthlyColumns
+					data={c.monthly}
+					label={m.dashboard_new_per_month()}
+					itemLabel={(month, count) => m.dashboard_month_new({ month, count })}
+				/>
 			</ChartCard>
 
 			<div className="grid gap-6 lg:grid-cols-2">
 				<ChartCard
-					title="Customers by status"
-					description={`${c.total} customers`}
+					title={m.dashboard_by_stage()}
+					description={m.dashboard_contacts_count({ count: c.total })}
 					table={{
-						headers: ["Status", "Customers"],
-						rows: CUSTOMER_STATUSES.map((s) => [
-							STATUS_LABELS[s],
-							String(c.byStatus[s]),
+						headers: [m.contact_stage(), m.nav_contacts()],
+						rows: LIFECYCLE_STAGES.map((s) => [
+							STAGE_LABELS[s](),
+							String(c.byStage[s]),
 						]),
 					}}
 				>
 					<StatusSegmentedBar
-						label="Customers by status"
-						segments={CUSTOMER_STATUSES.map((s) => ({
-							name: STATUS_LABELS[s],
-							value: c.byStatus[s],
-							color: STATUS_COLORS[s],
+						label={m.dashboard_by_stage()}
+						segments={LIFECYCLE_STAGES.map((s) => ({
+							name: STAGE_LABELS[s](),
+							value: c.byStage[s],
+							color: STAGE_COLORS[s],
 						}))}
 					/>
 				</ChartCard>
 
 				<ChartCard
-					title="Top countries"
-					description="Customers by country"
+					title={m.dashboard_top_countries()}
+					description={m.dashboard_companies_by_country()}
 					table={{
-						headers: ["Country", "Customers"],
-						rows: c.topCountries.map((r) => [
-							r.country === "Other" ? "Other" : countryName(r.country),
+						headers: [m.common_country(), m.nav_companies()],
+						rows: stats.topCountries.map((r) => [
+							country(r.country),
 							String(r.count),
 						]),
 					}}
 				>
 					<RankedBars
-						label="Customers by country"
-						rows={c.topCountries.map((r) => ({
-							name:
-								r.country === "Other"
-									? "Other countries"
-									: countryName(r.country),
+						label={m.dashboard_companies_by_country()}
+						rows={stats.topCountries.map((r) => ({
+							name: country(r.country),
 							value: r.count,
-							folded: r.country === "Other",
+							folded: r.country === "",
 						}))}
 					/>
 				</ChartCard>
@@ -166,10 +180,14 @@ function DashboardPage() {
 					<span className="break-all text-muted-foreground">{user.email}</span>
 					{access ? <RoleBadge role={access.role} /> : null}
 					<Badge variant={user.emailVerified ? "default" : "secondary"}>
-						{user.emailVerified ? "Email verified" : "Email not verified"}
+						{user.emailVerified
+							? m.dashboard_email_verified()
+							: m.dashboard_email_not_verified()}
 					</Badge>
 					<Badge variant={user.twoFactorEnabled ? "default" : "secondary"}>
-						{user.twoFactorEnabled ? "2FA on" : "2FA off"}
+						{user.twoFactorEnabled
+							? m.dashboard_2fa_on()
+							: m.dashboard_2fa_off()}
 					</Badge>
 					<Link
 						to="/account/security"
@@ -179,7 +197,7 @@ function DashboardPage() {
 							className: "ml-auto",
 						})}
 					>
-						<ShieldCheck /> Security
+						<ShieldCheck /> {m.nav_security()}
 					</Link>
 				</CardContent>
 			</Card>

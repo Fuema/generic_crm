@@ -4,6 +4,7 @@
 // local time. All-day items are stored at 12:00 UTC on their date and read back
 // with their UTC date, so an all-day task never slides to a neighbouring day.
 
+import { getLocale } from "#/paraglide/runtime.js";
 import type { CalendarView } from "./schema";
 
 export type DayKey = string; // YYYY-MM-DD
@@ -108,7 +109,7 @@ export function fromStoredISO(iso: string | Date | null, allDay: boolean) {
 }
 
 export function formatTime(at: Date | string) {
-	return new Date(at).toLocaleTimeString(undefined, {
+	return new Date(at).toLocaleTimeString(getLocale(), {
 		hour: "numeric",
 		minute: "2-digit",
 	});

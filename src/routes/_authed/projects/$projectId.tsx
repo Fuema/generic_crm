@@ -33,6 +33,8 @@ import type { ProjectStatus } from "#/modules/projects/schema";
 import { RecordTimeline } from "#/modules/records/components/RecordTimeline";
 import { TagEditor } from "#/modules/records/components/TagEditor";
 import { getTimeline, listWorkspaceTags } from "#/modules/records/records";
+import { RecordWork } from "#/modules/tasks/components/RecordWork";
+import { listRecordWork } from "#/modules/tasks/tasks";
 import { m } from "#/paraglide/messages.js";
 
 export const Route = createFileRoute("/_authed/projects/$projectId")({
@@ -42,14 +44,16 @@ export const Route = createFileRoute("/_authed/projects/$projectId")({
 				subjectType: "project" as const,
 				subjectId: params.projectId,
 			};
-			const [detail, options, timeline, allTags, fields] = await Promise.all([
-				getProject({ data: { id: params.projectId } }),
-				getContactFormOptions(),
-				getTimeline({ data: subject }),
-				listWorkspaceTags(),
-				getRecordFields({ data: { objectKey: "project" } }),
-			]);
-			return { ...detail, options, timeline, allTags, fields };
+			const [detail, options, timeline, allTags, fields, work] =
+				await Promise.all([
+					getProject({ data: { id: params.projectId } }),
+					getContactFormOptions(),
+					getTimeline({ data: subject }),
+					listWorkspaceTags(),
+					getRecordFields({ data: { objectKey: "project" } }),
+					listRecordWork({ data: subject }),
+				]);
+			return { work, ...detail, options, timeline, allTags, fields };
 		} catch (e) {
 			if (e instanceof Response && (e.status === 404 || e.status === 400))
 				throw notFound();
@@ -76,6 +80,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 function ProjectPage() {
 	const router = useRouter();
 	const data = Route.useLoaderData();
+	const { work } = Route.useLoaderData();
 	const { project: p, options, timeline, allTags, fields } = data;
 	const { access, session } = Route.useRouteContext();
 	const can = {
@@ -208,6 +213,14 @@ function ProjectPage() {
 					<CardHeader>
 						<CardTitle>{m.timeline_title()}</CardTitle>
 					</CardHeader>
+					<RecordWork
+						subjectType="project"
+						subjectId={p.id}
+						label={p.name}
+						work={work}
+						role={access?.role}
+						archived={archived}
+					/>
 					<CardContent>
 						<RecordTimeline
 							subjectType="project"

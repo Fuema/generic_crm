@@ -9,7 +9,7 @@ import {
 	step,
 	toStoredISO,
 	visibleDays,
-} from "#/lib/calendar";
+} from "#/modules/tasks/calendar";
 
 // These tests hold in any time zone: Bun on Windows ignores TZ=, so they can't
 // pin one (spec §17, pitfall 8).

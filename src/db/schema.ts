@@ -220,42 +220,6 @@ export const project = pgTable(
 	],
 );
 
-// Customers. The workspace is a Better Auth organization: every query filters by
-// workspace_id from the caller's active session, never from client input.
-export const customer = pgTable(
-	"customer",
-	{
-		id: text("id").primaryKey(),
-		workspaceId: text("workspace_id")
-			.notNull()
-			.references(() => organization.id, { onDelete: "cascade" }),
-		name: text("name").notNull(),
-		email: text("email").notNull(),
-		phone: text("phone"),
-		company: text("company"),
-		// lead | active | inactive
-		status: text("status").notNull().default("lead"),
-		city: text("city"),
-		// ISO 3166-1 alpha-2 code, e.g. "US"
-		country: text("country"),
-		notes: text("notes"),
-		createdById: text("created_by_id").references(() => user.id, {
-			onDelete: "set null",
-		}),
-		createdAt: timestamp("created_at").notNull().defaultNow(),
-		updatedAt: timestamp("updated_at").notNull().defaultNow(),
-	},
-	(t) => [
-		// One customer per email address within a workspace, case-insensitive
-		uniqueIndex("customer_workspace_email_unique").on(
-			t.workspaceId,
-			sql`lower(${t.email})`,
-		),
-		index("customer_workspace_created_idx").on(t.workspaceId, t.createdAt),
-		index("customer_workspace_status_idx").on(t.workspaceId, t.status),
-	],
-);
-
 // ---------------------------------------------------------------------------
 // Products, orders and invoices. Money is stored as integer cents and tax rates
 // as basis points (825 = 8.25%), so totals never suffer floating-point drift.
@@ -571,12 +535,16 @@ export const task = pgTable(
 		dueAt: timestamp("due_at"),
 		// All-day tasks have a date but no meaningful time
 		allDay: boolean("all_day").notNull().default(true),
-		customerId: text("customer_id").references(() => customer.id, {
+		// The one record it's about (contact | company | deal | quote | order |
+		// invoice), checked against the workspace on write; plus an optional
+		// project for project work
+		subjectType: text("subject_type"),
+		subjectId: text("subject_id"),
+		projectId: text("project_id").references(() => project.id, {
 			onDelete: "set null",
 		}),
-		orderId: text("order_id").references(() => salesOrder.id, {
-			onDelete: "set null",
-		}),
+		// A project milestone: shown on the project's timeline and page
+		isMilestone: boolean("is_milestone").notNull().default(false),
 		completedAt: timestamp("completed_at"),
 		createdById: text("created_by_id").references(() => user.id, {
 			onDelete: "set null",
@@ -592,6 +560,12 @@ export const task = pgTable(
 		),
 		index("task_workspace_due_idx").on(t.workspaceId, t.dueAt),
 		index("task_workspace_assignee_idx").on(t.workspaceId, t.assigneeId),
+		index("task_workspace_subject_idx").on(
+			t.workspaceId,
+			t.subjectType,
+			t.subjectId,
+		),
+		index("task_workspace_project_idx").on(t.workspaceId, t.projectId),
 	],
 );
 
@@ -614,10 +588,12 @@ export const activity = pgTable(
 		ownerId: text("owner_id").references(() => user.id, {
 			onDelete: "set null",
 		}),
-		customerId: text("customer_id").references(() => customer.id, {
-			onDelete: "set null",
-		}),
-		orderId: text("order_id").references(() => salesOrder.id, {
+		// The one record it's about (contact | company | deal | quote | order |
+		// invoice), checked against the workspace on write; plus an optional
+		// project for project work
+		subjectType: text("subject_type"),
+		subjectId: text("subject_id"),
+		projectId: text("project_id").references(() => project.id, {
 			onDelete: "set null",
 		}),
 		createdById: text("created_by_id").references(() => user.id, {
@@ -628,7 +604,12 @@ export const activity = pgTable(
 	},
 	(t) => [
 		index("activity_workspace_starts_idx").on(t.workspaceId, t.startsAt),
-		index("activity_workspace_customer_idx").on(t.workspaceId, t.customerId),
+		index("activity_workspace_subject_idx").on(
+			t.workspaceId,
+			t.subjectType,
+			t.subjectId,
+		),
+		index("activity_workspace_project_idx").on(t.workspaceId, t.projectId),
 	],
 );
 

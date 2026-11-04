@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getLocale } from "#/paraglide/runtime.js";
 
 // Clean axis ticks: 0, then a 1/2/5 × 10ⁿ step that covers the max in ≤ 4 steps
 function ticksFor(max: number) {
@@ -13,7 +14,7 @@ function ticksFor(max: number) {
 
 function monthLabel(month: string, style: "short" | "long") {
 	const [y, m] = month.split("-").map(Number);
-	return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("en", {
+	return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString(getLocale(), {
 		month: style,
 		year: style === "long" ? "numeric" : undefined,
 		timeZone: "UTC",
@@ -25,8 +26,13 @@ function monthLabel(month: string, style: "short" | "long") {
 // the table view.
 export function MonthlyColumns({
 	data,
+	label,
+	itemLabel,
 }: {
 	data: { month: string; count: number }[];
+	label: string;
+	// Spoken label of one column, e.g. "March 2026: 4 new contacts"
+	itemLabel: (month: string, count: number) => string;
 }) {
 	const [active, setActive] = useState<number | null>(null);
 	const ticks = ticksFor(Math.max(...data.map((d) => d.count)));
@@ -64,19 +70,19 @@ export function MonthlyColumns({
 							aria-hidden="true"
 						/>
 					))}
-					<ul
-						className="relative flex h-full items-end"
-						aria-label="New customers per month"
-					>
+					<ul className="relative flex h-full items-end" aria-label={label}>
 						{data.map((d, i) => {
 							const height = (d.count / top) * 100;
-							const label = `${monthLabel(d.month, "long")}: ${d.count} new ${d.count === 1 ? "customer" : "customers"}`;
+							const columnLabel = itemLabel(
+								monthLabel(d.month, "long"),
+								d.count,
+							);
 							return (
 								<li key={d.month} className="relative flex h-full flex-1">
 									{/* The whole band is the hit target, not just the painted column */}
 									<button
 										type="button"
-										aria-label={label}
+										aria-label={columnLabel}
 										className="relative flex h-full w-full cursor-default items-end justify-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
 										onPointerEnter={() => setActive(i)}
 										onPointerLeave={() => setActive(null)}

@@ -6,6 +6,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "#/components/ui/card";
+import { m } from "#/paraglide/messages.js";
 
 // A chart with a title, and a table view so no value depends on color or hover
 export function ChartCard({
@@ -29,7 +30,7 @@ export function ChartCard({
 				{children}
 				<details className="text-sm">
 					<summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-						Show as table
+						{m.dashboard_show_table()}
 					</summary>
 					<table className="mt-2 w-full tabular-nums">
 						<thead>

@@ -57,6 +57,8 @@ import { listRelatedQuotes } from "#/modules/quotes/quotes";
 import { RecordTimeline } from "#/modules/records/components/RecordTimeline";
 import { TagEditor } from "#/modules/records/components/TagEditor";
 import { getTimeline, listWorkspaceTags } from "#/modules/records/records";
+import { RecordWork } from "#/modules/tasks/components/RecordWork";
+import { listRecordWork } from "#/modules/tasks/tasks";
 import { m } from "#/paraglide/messages.js";
 
 export const Route = createFileRoute("/_authed/contacts/$contactId")({
@@ -77,6 +79,7 @@ export const Route = createFileRoute("/_authed/contacts/$contactId")({
 				orders,
 				invoices,
 				projects,
+				work,
 			] = await Promise.all([
 				getContact({ data: { id: params.contactId } }),
 				getContactFormOptions(),
@@ -88,8 +91,10 @@ export const Route = createFileRoute("/_authed/contacts/$contactId")({
 				listRelatedOrders({ data: { contactId: params.contactId } }),
 				listRelatedInvoices({ data: { contactId: params.contactId } }),
 				listRelatedProjects({ data: { contactId: params.contactId } }),
+				listRecordWork({ data: subject }),
 			]);
 			return {
+				work,
 				...detail,
 				options,
 				timeline,
@@ -141,6 +146,7 @@ function ContactPage() {
 		invoices,
 		projects,
 	} = Route.useLoaderData();
+	const { work } = Route.useLoaderData();
 	const navigate = useNavigate();
 	const { access, session } = Route.useRouteContext();
 	const can = {
@@ -308,6 +314,14 @@ function ContactPage() {
 					<CardHeader>
 						<CardTitle>{m.timeline_title()}</CardTitle>
 					</CardHeader>
+					<RecordWork
+						subjectType="contact"
+						subjectId={contact.id}
+						label={name}
+						work={work}
+						role={access?.role}
+						archived={archived}
+					/>
 					<CardContent>
 						<RecordTimeline
 							subjectType="contact"
