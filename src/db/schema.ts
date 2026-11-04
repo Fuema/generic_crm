@@ -440,6 +440,8 @@ export const invoice = pgTable(
 			.where(sql`${t.orderId} is not null and ${t.status} <> 'void'`),
 		index("invoice_workspace_status_idx").on(t.workspaceId, t.status),
 		index("invoice_workspace_contact_idx").on(t.workspaceId, t.contactId),
+		// The deal page's invoices and the deal timeline look invoices up by deal
+		index("invoice_workspace_deal_idx").on(t.workspaceId, t.dealId),
 		index("invoice_custom_gin_idx").using("gin", t.custom),
 	],
 );
