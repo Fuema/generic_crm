@@ -18,6 +18,7 @@ import {
 	fieldGroup,
 	invoice,
 	product,
+	project,
 	quote,
 	salesOrder,
 } from "#/db/schema";
@@ -58,6 +59,7 @@ const RECORD_TABLES = {
 	quote,
 	order: salesOrder,
 	invoice,
+	project,
 } as const;
 
 const definitionColumns = {

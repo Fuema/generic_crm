@@ -190,18 +190,6 @@ export const inviteSchema = z.object({
 	}),
 });
 
-export const projectInputSchema = z.object({
-	name: z
-		.string()
-		.trim()
-		.min(2, "Name must be at least 2 characters")
-		.max(80, "Name must not exceed 80 characters"),
-	description: z
-		.string()
-		.trim()
-		.max(500, "Description must not exceed 500 characters"),
-});
-
 export const CUSTOMER_STATUSES = ["lead", "active", "inactive"] as const;
 export type CustomerStatus = (typeof CUSTOMER_STATUSES)[number];
 

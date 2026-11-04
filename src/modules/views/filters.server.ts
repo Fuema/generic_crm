@@ -15,6 +15,7 @@ const TABLE: Record<ObjectKey, string> = {
 	quote: `"quote"`,
 	order: `"sales_order"`,
 	invoice: `"invoice"`,
+	project: `"project"`,
 };
 
 // Built-in columns by field id (raw, fixed names only)
@@ -71,6 +72,15 @@ const COLUMNS: Record<ObjectKey, Record<string, string>> = {
 		issueDate: `"invoice"."issue_date"`,
 		dueDate: `"invoice"."due_date"`,
 		createdAt: `"invoice"."created_at"`,
+	},
+	project: {
+		name: `"project"."name"`,
+		status: `"project"."status"`,
+		companyId: `"project"."company_id"`,
+		ownerId: `"project"."owner_id"`,
+		startDate: `"project"."start_date"`,
+		dueDate: `"project"."due_date"`,
+		createdAt: `"project"."created_at"`,
 	},
 	product: {
 		name: `"product"."name"`,

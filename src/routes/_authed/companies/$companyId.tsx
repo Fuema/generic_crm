@@ -30,6 +30,8 @@ import {
 	customFieldLabels,
 } from "#/modules/fields/components/CustomFields";
 import { getRecordFields } from "#/modules/fields/fields";
+import { RelatedProjects } from "#/modules/projects/components/ProjectBits";
+import { listRelatedProjects } from "#/modules/projects/projects";
 import { RecordTimeline } from "#/modules/records/components/RecordTimeline";
 import { TagEditor } from "#/modules/records/components/TagEditor";
 import { getTimeline, listWorkspaceTags } from "#/modules/records/records";
@@ -42,7 +44,7 @@ export const Route = createFileRoute("/_authed/companies/$companyId")({
 				subjectType: "company" as const,
 				subjectId: params.companyId,
 			};
-			const [detail, options, timeline, allTags, fields, deals] =
+			const [detail, options, timeline, allTags, fields, deals, projects] =
 				await Promise.all([
 					getCompany({ data: { id: params.companyId } }),
 					getContactFormOptions(),
@@ -50,6 +52,7 @@ export const Route = createFileRoute("/_authed/companies/$companyId")({
 					listWorkspaceTags(),
 					getRecordFields({ data: { objectKey: "company" } }),
 					listRelatedDeals({ data: { companyId: params.companyId } }),
+					listRelatedProjects({ data: { companyId: params.companyId } }),
 				]);
 			return {
 				...detail,
@@ -59,6 +62,7 @@ export const Route = createFileRoute("/_authed/companies/$companyId")({
 				allTags,
 				fields,
 				deals,
+				projects,
 			};
 		} catch (e) {
 			// Unknown, malformed or another workspace's id: the same "not found"
@@ -96,6 +100,7 @@ function CompanyPage() {
 		fields,
 		options,
 		deals,
+		projects,
 	} = Route.useLoaderData();
 	const { access, session } = Route.useRouteContext();
 	const can = {
@@ -267,6 +272,7 @@ function CompanyPage() {
 				</div>
 			</div>
 
+			<RelatedProjects projects={projects} />
 			<RelatedDeals
 				deals={deals}
 				currency={fields.currency}

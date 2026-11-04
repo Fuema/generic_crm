@@ -50,6 +50,8 @@ import {
 } from "#/modules/invoices/invoices";
 import { orderRow } from "#/modules/orders/components/orderBits";
 import { createOrder, listRelatedOrders } from "#/modules/orders/orders";
+import { RelatedProjects } from "#/modules/projects/components/ProjectBits";
+import { listRelatedProjects } from "#/modules/projects/projects";
 import { RelatedQuotes } from "#/modules/quotes/components/RelatedQuotes";
 import { listRelatedQuotes } from "#/modules/quotes/quotes";
 import { RecordTimeline } from "#/modules/records/components/RecordTimeline";
@@ -74,6 +76,7 @@ export const Route = createFileRoute("/_authed/contacts/$contactId")({
 				quotes,
 				orders,
 				invoices,
+				projects,
 			] = await Promise.all([
 				getContact({ data: { id: params.contactId } }),
 				getContactFormOptions(),
@@ -84,6 +87,7 @@ export const Route = createFileRoute("/_authed/contacts/$contactId")({
 				listRelatedQuotes({ data: { contactId: params.contactId } }),
 				listRelatedOrders({ data: { contactId: params.contactId } }),
 				listRelatedInvoices({ data: { contactId: params.contactId } }),
+				listRelatedProjects({ data: { contactId: params.contactId } }),
 			]);
 			return {
 				...detail,
@@ -95,6 +99,7 @@ export const Route = createFileRoute("/_authed/contacts/$contactId")({
 				quotes,
 				orders,
 				invoices,
+				projects,
 			};
 		} catch (e) {
 			// Unknown, malformed or another workspace's id: the same "not found"
@@ -134,6 +139,7 @@ function ContactPage() {
 		quotes,
 		orders,
 		invoices,
+		projects,
 	} = Route.useLoaderData();
 	const navigate = useNavigate();
 	const { access, session } = Route.useRouteContext();
@@ -325,6 +331,7 @@ function ContactPage() {
 				options={options}
 			/>
 
+			<RelatedProjects projects={projects} />
 			<RelatedQuotes
 				quotes={quotes}
 				from={archived ? null : { contactId: contact.id }}

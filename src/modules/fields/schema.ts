@@ -14,6 +14,7 @@ export const OBJECT_KEYS = [
 	"quote",
 	"order",
 	"invoice",
+	"project",
 ] as const;
 export type ObjectKey = (typeof OBJECT_KEYS)[number];
 

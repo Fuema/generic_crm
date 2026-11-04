@@ -119,6 +119,17 @@ async function existing(workspaceId: string, objectKey: ObjectKey) {
 	};
 }
 
+// The record types a template touches (its field groups and views). Each one
+// costs 3 queries, so the others are skipped: with every record type that
+// was 20+ sequential subrequests per call (Workers limit 50, spec §17 #15).
+function templateObjects(template: Template) {
+	return OBJECT_KEYS.filter(
+		(key) =>
+			Boolean(template.objects[key]) ||
+			template.views.some((v) => v.objectKey === key),
+	);
+}
+
 // Pipeline keys this workspace already has (archived ones too)
 async function pipelineKeys(workspaceId: string) {
 	const rows = await db
@@ -139,7 +150,7 @@ export async function templateStatus(
 	).length;
 	let fieldsMissing = 0;
 	let viewsMissing = 0;
-	for (const objectKey of OBJECT_KEYS) {
+	for (const objectKey of templateObjects(template)) {
 		const have = await existing(workspaceId, objectKey);
 		for (const group of template.objects[objectKey]?.groups ?? []) {
 			fieldsMissing += group.fields.filter(
@@ -165,7 +176,7 @@ export async function applyTemplate(
 ) {
 	const actor = { type: "member" as const, id: userId };
 	const added = { groups: 0, fields: 0, views: 0, pipelines: 0 };
-	for (const objectKey of OBJECT_KEYS) {
+	for (const objectKey of templateObjects(template)) {
 		const have = await existing(workspaceId, objectKey);
 		for (const group of template.objects[objectKey]?.groups ?? []) {
 			const missing = group.fields.filter((f) => !have.fieldKeys.has(f.key));

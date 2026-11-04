@@ -75,6 +75,7 @@ const BUILT_IN_COLUMN_LABELS: Record<string, () => string> = {
 	orderId: m.invoice_order,
 	issueDate: m.invoice_issue_date,
 	dueDate: m.invoice_due_date,
+	startDate: m.project_start,
 };
 
 export function columnLabel(column: string, defs: FieldDef[]) {

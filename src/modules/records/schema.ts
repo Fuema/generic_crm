@@ -10,12 +10,13 @@ export const SUBJECT_TYPES = [
 	"quote",
 	"order",
 	"invoice",
+	"project",
 ] as const;
 export type SubjectType = (typeof SUBJECT_TYPES)[number];
 
 export const SUBJECT_RESOURCE: Record<
 	SubjectType,
-	"contact" | "company" | "deal" | "quote" | "order" | "invoice"
+	"contact" | "company" | "deal" | "quote" | "order" | "invoice" | "project"
 > = {
 	contact: "contact",
 	company: "company",
@@ -23,6 +24,7 @@ export const SUBJECT_RESOURCE: Record<
 	quote: "quote",
 	order: "order",
 	invoice: "invoice",
+	project: "project",
 };
 
 export const TAG_COLORS = [

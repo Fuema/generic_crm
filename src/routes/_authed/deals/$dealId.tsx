@@ -5,7 +5,13 @@ import {
 	useNavigate,
 	useRouter,
 } from "@tanstack/react-router";
-import { Archive, ArchiveRestore, ArrowLeft, Pencil } from "lucide-react";
+import {
+	Archive,
+	ArchiveRestore,
+	ArrowLeft,
+	FolderKanban,
+	Pencil,
+} from "lucide-react";
 import { useState } from "react";
 import { FormAlert } from "#/components/Auth/FormParts";
 import { formatDate } from "#/components/data/ListControls";
@@ -40,6 +46,11 @@ import {
 import { orderRow } from "#/modules/orders/components/orderBits";
 import { createOrder, listRelatedOrders } from "#/modules/orders/orders";
 import { listPipelines } from "#/modules/pipelines/pipelines";
+import { RelatedProjects } from "#/modules/projects/components/ProjectBits";
+import {
+	createProjectFromDeal,
+	listRelatedProjects,
+} from "#/modules/projects/projects";
 import { RelatedQuotes } from "#/modules/quotes/components/RelatedQuotes";
 import { listRelatedQuotes } from "#/modules/quotes/quotes";
 import { RecordTimeline } from "#/modules/records/components/RecordTimeline";
@@ -64,6 +75,7 @@ export const Route = createFileRoute("/_authed/deals/$dealId")({
 				quotes,
 				orders,
 				invoices,
+				projects,
 			] = await Promise.all([
 				getDeal({ data: { id: params.dealId } }),
 				listPipelines({ data: { includeArchived: true } }),
@@ -74,6 +86,7 @@ export const Route = createFileRoute("/_authed/deals/$dealId")({
 				listRelatedQuotes({ data: { dealId: params.dealId } }),
 				listRelatedOrders({ data: { dealId: params.dealId } }),
 				listRelatedInvoices({ data: { dealId: params.dealId } }),
+				listRelatedProjects({ data: { dealId: params.dealId } }),
 			]);
 			return {
 				...detail,
@@ -85,6 +98,7 @@ export const Route = createFileRoute("/_authed/deals/$dealId")({
 				quotes,
 				orders,
 				invoices,
+				projects,
 			};
 		} catch (e) {
 			// Unknown, malformed or another workspace's id: the same "not found"
@@ -124,6 +138,7 @@ function DealPage() {
 		quotes,
 		orders,
 		invoices,
+		projects,
 	} = data;
 	const navigate = useNavigate();
 	const { access, session } = Route.useRouteContext();
@@ -211,6 +226,34 @@ function DealPage() {
 								onError={(message) => setStatus({ ok: false, message })}
 							/>
 						</div>
+					) : null}
+					{deal.status === "won" &&
+					!archived &&
+					!projects.length &&
+					roleCan(access?.role, { project: ["create"] }) ? (
+						<Button
+							type="button"
+							variant="outline"
+							onClick={async () => {
+								setStatus(null);
+								try {
+									const { id } = await createProjectFromDeal({
+										data: { dealId: deal.id },
+									});
+									void navigate({
+										to: "/projects/$projectId",
+										params: { projectId: id },
+									});
+								} catch (e) {
+									setStatus({
+										ok: false,
+										message: await serverErrorMessage(e),
+									});
+								}
+							}}
+						>
+							<FolderKanban /> {m.deal_create_project()}
+						</Button>
 					) : null}
 					{can.update && !archived ? (
 						<Button type="button" onClick={() => setOpen(true)}>
@@ -307,6 +350,7 @@ function DealPage() {
 				</Card>
 			</div>
 
+			<RelatedProjects projects={projects} />
 			<RelatedQuotes
 				quotes={quotes}
 				from={archived ? null : { dealId: deal.id }}

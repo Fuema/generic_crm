@@ -7,6 +7,7 @@ import {
 	event,
 	invoice,
 	note,
+	project,
 	quote,
 	recordTag,
 	salesOrder,
@@ -34,6 +35,7 @@ const SUBJECT_TABLES = {
 	quote,
 	order: salesOrder,
 	invoice,
+	project,
 } as const;
 
 // The record must exist in this workspace; writes also need it not archived
@@ -62,7 +64,9 @@ async function assertSubject(
 							? m.error_quote_not_found()
 							: subjectType === "order"
 								? m.error_order_not_found()
-								: m.error_invoice_not_found(),
+								: subjectType === "invoice"
+									? m.error_invoice_not_found()
+									: m.error_project_not_found(),
 		);
 	}
 	if (writable && row.archivedAt) {
@@ -374,9 +378,9 @@ function relatedEvents(
 	const of = (type: string, table: string, column: string) =>
 		sql`(${event.subjectType} = ${type} and ${event.subjectId} = any(array(select r."id" from ${sql.raw(`"${table}"`)} r where r."workspace_id" = ${workspaceId} and r.${sql.raw(`"${column}"`)} = ${subjectId})))`;
 	if (subjectType === "contact")
-		return sql`(${MILESTONE} and (${of("deal", "deal", "contact_id")} or ${of("quote", "quote", "contact_id")} or ${of("order", "sales_order", "contact_id")} or ${of("invoice", "invoice", "contact_id")}))`;
+		return sql`(${MILESTONE} and (${of("deal", "deal", "contact_id")} or ${of("quote", "quote", "contact_id")} or ${of("order", "sales_order", "contact_id")} or ${of("invoice", "invoice", "contact_id")} or ${of("project", "project", "contact_id")}))`;
 	if (subjectType === "deal")
-		return sql`(${MILESTONE} and (${of("quote", "quote", "deal_id")} or ${of("order", "sales_order", "deal_id")} or ${of("invoice", "invoice", "deal_id")}))`;
+		return sql`(${MILESTONE} and (${of("quote", "quote", "deal_id")} or ${of("order", "sales_order", "deal_id")} or ${of("invoice", "invoice", "deal_id")} or ${of("project", "project", "deal_id")}))`;
 	return undefined;
 }
 
@@ -422,7 +426,7 @@ export async function getTimeline(
 				// For events of a related record: what to call it
 				relatedName: sql<
 					string | null
-				>`(case when ${event.subjectType} = 'deal' then (select d."name" from "deal" d where d."id" = ${event.subjectId} and d."workspace_id" = ${workspaceId}) end)`,
+				>`(case ${event.subjectType} when 'deal' then (select d."name" from "deal" d where d."id" = ${event.subjectId} and d."workspace_id" = ${workspaceId}) when 'project' then (select pr."name" from "project" pr where pr."id" = ${event.subjectId} and pr."workspace_id" = ${workspaceId}) end)`,
 				relatedNumber: sql<
 					number | null
 				>`(case ${event.subjectType} when 'quote' then (select q."number" from "quote" q where q."id" = ${event.subjectId} and q."workspace_id" = ${workspaceId}) when 'order' then (select o."number" from "sales_order" o where o."id" = ${event.subjectId} and o."workspace_id" = ${workspaceId}) when 'invoice' then (select i."number" from "invoice" i where i."id" = ${event.subjectId} and i."workspace_id" = ${workspaceId}) end)`,

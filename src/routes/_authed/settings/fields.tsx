@@ -276,7 +276,9 @@ function FieldsPage() {
 												? m.nav_quotes()
 												: key === "order"
 													? m.nav_orders()
-													: m.nav_invoices()}
+													: key === "invoice"
+														? m.nav_invoices()
+														: m.nav_projects()}
 						</button>
 					))}
 				</fieldset>
