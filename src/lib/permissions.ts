@@ -28,6 +28,8 @@ export const statements = {
 	invoice: ["create", "read", "update", "delete", "issue", "pay", "void"],
 	task: ["create", "read", "update", "delete"],
 	activity: ["create", "read", "update", "delete"],
+	// Workspace folders and their files (record files follow the record)
+	file: ["create", "read", "update", "delete"],
 } as const;
 
 export const ac = createAccessControl(statements);
@@ -46,6 +48,7 @@ export const owner = ac.newRole({
 	invoice: ["create", "read", "update", "delete", "issue", "pay", "void"],
 	task: ["create", "read", "update", "delete"],
 	activity: ["create", "read", "update", "delete"],
+	file: ["create", "read", "update", "delete"],
 });
 
 // Like owner, but can't delete the workspace
@@ -63,6 +66,7 @@ export const admin = ac.newRole({
 	invoice: ["create", "read", "update", "delete", "issue", "pay", "void"],
 	task: ["create", "read", "update", "delete"],
 	activity: ["create", "read", "update", "delete"],
+	file: ["create", "read", "update", "delete"],
 });
 
 export const editor = ac.newRole({
@@ -79,6 +83,8 @@ export const editor = ac.newRole({
 	invoice: ["create", "read", "update"],
 	task: ["create", "read", "update"],
 	activity: ["create", "read", "update"],
+	// Editors upload and organize; deleting stays with owners/admins
+	file: ["create", "read", "update"],
 });
 
 export const viewer = ac.newRole({
@@ -94,6 +100,7 @@ export const viewer = ac.newRole({
 	invoice: ["read"],
 	task: ["read"],
 	activity: ["read"],
+	file: ["read"],
 });
 
 export const roles = { owner, admin, editor, viewer };

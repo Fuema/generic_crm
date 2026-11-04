@@ -39,7 +39,7 @@ const SUBJECT_TABLES = {
 } as const;
 
 // The record must exist in this workspace; writes also need it not archived
-async function assertSubject(
+export async function assertSubject(
 	workspaceId: string,
 	subjectType: SubjectType,
 	subjectId: string,
@@ -367,7 +367,7 @@ export async function deleteNote(
 // have those related events filtered out here.
 const WORK_MILESTONE = sql`${event.type} in ('task.created', 'task.completed', 'activity.created', 'activity.completed')`;
 
-const MILESTONE = sql`${event.type} not like '%.updated' and ${event.type} not like '%.tag\\_%' and ${event.type} not like '%.note\\_%'`;
+const MILESTONE = sql`${event.type} not like '%.updated' and ${event.type} not like '%.tag\\_%' and ${event.type} not like '%.note\\_%' and ${event.type} not like '%.file\\_%'`;
 
 function relatedEvents(
 	workspaceId: string,

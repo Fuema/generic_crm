@@ -56,6 +56,7 @@ export function RecordWork({
 	work,
 	role,
 	archived = false,
+	className,
 }: {
 	subjectType: WorkSubjectType | "project";
 	subjectId: string;
@@ -64,6 +65,7 @@ export function RecordWork({
 	work: RecordWorkData;
 	role: string | undefined;
 	archived?: boolean;
+	className?: string;
 }) {
 	const router = useRouter();
 	const [options, setOptions] = useState<WorkOptions | null>(null);
@@ -102,7 +104,7 @@ export function RecordWork({
 			: { subject: { type: subjectType, id: subjectId, label } };
 
 	return (
-		<Card>
+		<Card className={className}>
 			<CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
 				<CardTitle>{m.work_card_title()}</CardTitle>
 				<div className="flex gap-2">

@@ -43,6 +43,8 @@ import {
 	customFieldLabels,
 } from "#/modules/fields/components/CustomFields";
 import { getRecordFields } from "#/modules/fields/fields";
+import { RecordFiles } from "#/modules/files/components/FileBits";
+import { listRecordFiles } from "#/modules/files/files";
 import { invoiceRow } from "#/modules/invoices/components/invoiceBits";
 import {
 	createInvoice,
@@ -80,6 +82,7 @@ export const Route = createFileRoute("/_authed/contacts/$contactId")({
 				invoices,
 				projects,
 				work,
+				recordFiles,
 			] = await Promise.all([
 				getContact({ data: { id: params.contactId } }),
 				getContactFormOptions(),
@@ -92,9 +95,11 @@ export const Route = createFileRoute("/_authed/contacts/$contactId")({
 				listRelatedInvoices({ data: { contactId: params.contactId } }),
 				listRelatedProjects({ data: { contactId: params.contactId } }),
 				listRecordWork({ data: subject }),
+				listRecordFiles({ data: subject }),
 			]);
 			return {
 				work,
+				recordFiles,
 				...detail,
 				options,
 				timeline,
@@ -146,7 +151,7 @@ function ContactPage() {
 		invoices,
 		projects,
 	} = Route.useLoaderData();
-	const { work } = Route.useLoaderData();
+	const { work, recordFiles } = Route.useLoaderData();
 	const navigate = useNavigate();
 	const { access, session } = Route.useRouteContext();
 	const can = {
@@ -314,14 +319,6 @@ function ContactPage() {
 					<CardHeader>
 						<CardTitle>{m.timeline_title()}</CardTitle>
 					</CardHeader>
-					<RecordWork
-						subjectType="contact"
-						subjectId={contact.id}
-						label={name}
-						work={work}
-						role={access?.role}
-						archived={archived}
-					/>
 					<CardContent>
 						<RecordTimeline
 							subjectType="contact"
@@ -335,6 +332,24 @@ function ContactPage() {
 						/>
 					</CardContent>
 				</Card>
+				<RecordWork
+					className="lg:col-span-3"
+					subjectType="contact"
+					subjectId={contact.id}
+					label={name}
+					work={work}
+					role={access?.role}
+					archived={archived}
+				/>
+				<RecordFiles
+					className="lg:col-span-3"
+					subjectType="contact"
+					subjectId={contact.id}
+					files={recordFiles}
+					role={access?.role}
+					userId={session.user.id}
+					archived={archived}
+				/>
 			</div>
 
 			<RelatedDeals

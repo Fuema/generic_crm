@@ -38,6 +38,8 @@ import {
 } from "#/modules/fields/components/CustomFields";
 import { getRecordFields } from "#/modules/fields/fields";
 import { localized } from "#/modules/fields/schema";
+import { RecordFiles } from "#/modules/files/components/FileBits";
+import { listRecordFiles } from "#/modules/files/files";
 import { invoiceRow } from "#/modules/invoices/components/invoiceBits";
 import {
 	createInvoice,
@@ -79,6 +81,7 @@ export const Route = createFileRoute("/_authed/deals/$dealId")({
 				invoices,
 				projects,
 				work,
+				recordFiles,
 			] = await Promise.all([
 				getDeal({ data: { id: params.dealId } }),
 				listPipelines({ data: { includeArchived: true } }),
@@ -91,9 +94,11 @@ export const Route = createFileRoute("/_authed/deals/$dealId")({
 				listRelatedInvoices({ data: { dealId: params.dealId } }),
 				listRelatedProjects({ data: { dealId: params.dealId } }),
 				listRecordWork({ data: subject }),
+				listRecordFiles({ data: subject }),
 			]);
 			return {
 				work,
+				recordFiles,
 				...detail,
 				pipelines,
 				options,
@@ -132,7 +137,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 function DealPage() {
 	const router = useRouter();
 	const data = Route.useLoaderData();
-	const { work } = Route.useLoaderData();
+	const { work, recordFiles } = Route.useLoaderData();
 	const {
 		deal,
 		pipeline,
@@ -341,14 +346,6 @@ function DealPage() {
 					<CardHeader>
 						<CardTitle>{m.timeline_title()}</CardTitle>
 					</CardHeader>
-					<RecordWork
-						subjectType="deal"
-						subjectId={deal.id}
-						label={deal.name}
-						work={work}
-						role={access?.role}
-						archived={archived}
-					/>
 					<CardContent>
 						<RecordTimeline
 							subjectType="deal"
@@ -362,6 +359,24 @@ function DealPage() {
 						/>
 					</CardContent>
 				</Card>
+				<RecordWork
+					className="lg:col-span-3"
+					subjectType="deal"
+					subjectId={deal.id}
+					label={deal.name}
+					work={work}
+					role={access?.role}
+					archived={archived}
+				/>
+				<RecordFiles
+					className="lg:col-span-3"
+					subjectType="deal"
+					subjectId={deal.id}
+					files={recordFiles}
+					role={access?.role}
+					userId={session.user.id}
+					archived={archived}
+				/>
 			</div>
 
 			<RelatedProjects projects={projects} />

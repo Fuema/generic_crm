@@ -21,6 +21,8 @@ import {
 	customFieldLabels,
 } from "#/modules/fields/components/CustomFields";
 import { getRecordFields } from "#/modules/fields/fields";
+import { RecordFiles } from "#/modules/files/components/FileBits";
+import { listRecordFiles } from "#/modules/files/files";
 import { projectStatus } from "#/modules/projects/components/ProjectBits";
 import { ProjectFormDialog } from "#/modules/projects/components/ProjectFormDialog";
 import {
@@ -44,7 +46,7 @@ export const Route = createFileRoute("/_authed/projects/$projectId")({
 				subjectType: "project" as const,
 				subjectId: params.projectId,
 			};
-			const [detail, options, timeline, allTags, fields, work] =
+			const [detail, options, timeline, allTags, fields, work, recordFiles] =
 				await Promise.all([
 					getProject({ data: { id: params.projectId } }),
 					getContactFormOptions(),
@@ -52,8 +54,17 @@ export const Route = createFileRoute("/_authed/projects/$projectId")({
 					listWorkspaceTags(),
 					getRecordFields({ data: { objectKey: "project" } }),
 					listRecordWork({ data: subject }),
+					listRecordFiles({ data: subject }),
 				]);
-			return { work, ...detail, options, timeline, allTags, fields };
+			return {
+				work,
+				recordFiles,
+				...detail,
+				options,
+				timeline,
+				allTags,
+				fields,
+			};
 		} catch (e) {
 			if (e instanceof Response && (e.status === 404 || e.status === 400))
 				throw notFound();
@@ -80,7 +91,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 function ProjectPage() {
 	const router = useRouter();
 	const data = Route.useLoaderData();
-	const { work } = Route.useLoaderData();
+	const { work, recordFiles } = Route.useLoaderData();
 	const { project: p, options, timeline, allTags, fields } = data;
 	const { access, session } = Route.useRouteContext();
 	const can = {
@@ -213,14 +224,6 @@ function ProjectPage() {
 					<CardHeader>
 						<CardTitle>{m.timeline_title()}</CardTitle>
 					</CardHeader>
-					<RecordWork
-						subjectType="project"
-						subjectId={p.id}
-						label={p.name}
-						work={work}
-						role={access?.role}
-						archived={archived}
-					/>
 					<CardContent>
 						<RecordTimeline
 							subjectType="project"
@@ -234,6 +237,24 @@ function ProjectPage() {
 						/>
 					</CardContent>
 				</Card>
+				<RecordWork
+					className="lg:col-span-3"
+					subjectType="project"
+					subjectId={p.id}
+					label={p.name}
+					work={work}
+					role={access?.role}
+					archived={archived}
+				/>
+				<RecordFiles
+					className="lg:col-span-3"
+					subjectType="project"
+					subjectId={p.id}
+					files={recordFiles}
+					role={access?.role}
+					userId={session.user.id}
+					archived={archived}
+				/>
 			</div>
 
 			{open ? (

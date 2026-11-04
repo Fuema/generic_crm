@@ -9,6 +9,8 @@ import {
 	event,
 	fieldDefinition,
 	fieldGroup,
+	file,
+	folder,
 	invoice,
 	note,
 	orderLine,
@@ -31,6 +33,7 @@ import { getWorkspaceSettings, nextDocumentNumber } from "#/lib/billing.server";
 import { assertWorkspaceRefs } from "#/lib/workspace-refs.server";
 import * as contacts from "#/modules/contacts/contacts.server";
 import * as deals from "#/modules/deals/deals.server";
+import * as filesData from "#/modules/files/files.server";
 import * as invoices from "#/modules/invoices/invoices.server";
 import * as orders from "#/modules/orders/orders.server";
 import * as payments from "#/modules/payments/payments.server";
@@ -198,6 +201,28 @@ describe("database rules", () => {
 			contactId: ana.id,
 			companyId: "",
 		});
+		// Phase 3: a folder with a file, a file on the contact
+		const docs = await filesData.createFolder(c.workspaceId, actor, {
+			name: "Docs",
+			parentId: "",
+		});
+		await filesData.uploadFile(
+			c.workspaceId,
+			actor,
+			{ kind: "folder", folderId: docs.id },
+			{ name: "a.txt", size: 1, body: new Blob(["a"]).stream() },
+		);
+		await filesData.uploadFile(
+			c.workspaceId,
+			actor,
+			{
+				kind: "record",
+				subjectType: "contact",
+				subjectId: ana.id,
+				paymentId: "",
+			},
+			{ name: "b.txt", size: 1, body: new Blob(["b"]).stream() },
+		);
 		// Phase 3: a task and an activity about the contact
 		const workLinks = {
 			subjectType: "contact" as const,
@@ -304,6 +329,8 @@ describe("database rules", () => {
 			project,
 			task,
 			activity,
+			folder,
+			file,
 		];
 		for (const table of phase1) {
 			const [{ n }] = await db

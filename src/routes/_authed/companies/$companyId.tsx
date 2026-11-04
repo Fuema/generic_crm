@@ -30,6 +30,8 @@ import {
 	customFieldLabels,
 } from "#/modules/fields/components/CustomFields";
 import { getRecordFields } from "#/modules/fields/fields";
+import { RecordFiles } from "#/modules/files/components/FileBits";
+import { listRecordFiles } from "#/modules/files/files";
 import { RelatedProjects } from "#/modules/projects/components/ProjectBits";
 import { listRelatedProjects } from "#/modules/projects/projects";
 import { RecordTimeline } from "#/modules/records/components/RecordTimeline";
@@ -55,6 +57,7 @@ export const Route = createFileRoute("/_authed/companies/$companyId")({
 				deals,
 				projects,
 				work,
+				recordFiles,
 			] = await Promise.all([
 				getCompany({ data: { id: params.companyId } }),
 				getContactFormOptions(),
@@ -64,9 +67,11 @@ export const Route = createFileRoute("/_authed/companies/$companyId")({
 				listRelatedDeals({ data: { companyId: params.companyId } }),
 				listRelatedProjects({ data: { companyId: params.companyId } }),
 				listRecordWork({ data: subject }),
+				listRecordFiles({ data: subject }),
 			]);
 			return {
 				work,
+				recordFiles,
 				...detail,
 				members: options.members,
 				options,
@@ -114,7 +119,7 @@ function CompanyPage() {
 		deals,
 		projects,
 	} = Route.useLoaderData();
-	const { work } = Route.useLoaderData();
+	const { work, recordFiles } = Route.useLoaderData();
 	const { access, session } = Route.useRouteContext();
 	const can = {
 		update: roleCan(access?.role, { company: ["update"] }),
@@ -265,18 +270,26 @@ function CompanyPage() {
 							)}
 						</CardContent>
 					</Card>
+					<RecordWork
+						subjectType="company"
+						subjectId={company.id}
+						label={company.name}
+						work={work}
+						role={access?.role}
+						archived={archived}
+					/>
+					<RecordFiles
+						subjectType="company"
+						subjectId={company.id}
+						files={recordFiles}
+						role={access?.role}
+						userId={session.user.id}
+						archived={archived}
+					/>
 					<Card>
 						<CardHeader>
 							<CardTitle>{m.timeline_title()}</CardTitle>
 						</CardHeader>
-						<RecordWork
-							subjectType="company"
-							subjectId={company.id}
-							label={company.name}
-							work={work}
-							role={access?.role}
-							archived={archived}
-						/>
 						<CardContent>
 							<RecordTimeline
 								subjectType="company"

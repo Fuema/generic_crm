@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+	type AnyPgColumn,
 	bigint,
 	boolean,
 	doublePrecision,
@@ -1101,5 +1102,77 @@ export const savedView = pgTable(
 	(t) => [
 		index("saved_view_object_idx").on(t.workspaceId, t.objectKey),
 		index("saved_view_owner_idx").on(t.workspaceId, t.ownerId),
+	],
+);
+
+// ---------------------------------------------------------------------------
+// Files and folders (spec §9), phase 3 step 4. The bytes live in R2 (in dev,
+// Miniflare's local R2 on disk) under storage_key; the database holds the
+// name, type and size. A file sits either in the workspace tree (folder_id,
+// null = top level) or on a record (subject_type + subject_id, no foreign
+// key, checked on write); a payment receipt is a file on the invoice that also
+// points to its payment.
+// ---------------------------------------------------------------------------
+
+export const folder = pgTable(
+	"folder",
+	{
+		id: text("id").primaryKey(),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
+		// Null = top level; only empty folders can be deleted
+		parentId: text("parent_id").references((): AnyPgColumn => folder.id),
+		name: text("name").notNull(),
+		createdById: text("created_by_id").references(() => user.id, {
+			onDelete: "set null",
+		}),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+		updatedAt: timestamp("updated_at").notNull().defaultNow(),
+	},
+	(t) => [
+		// One name per level, ignoring case
+		uniqueIndex("folder_workspace_parent_name_unique").on(
+			t.workspaceId,
+			sql`coalesce(${t.parentId}, '')`,
+			sql`lower(${t.name})`,
+		),
+	],
+);
+
+export const file = pgTable(
+	"file",
+	{
+		id: text("id").primaryKey(),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
+		folderId: text("folder_id").references(() => folder.id),
+		subjectType: text("subject_type"),
+		subjectId: text("subject_id"),
+		paymentId: text("payment_id").references(() => payment.id),
+		// The original name, shown and used for downloads
+		name: text("name").notNull(),
+		contentType: text("content_type").notNull(),
+		sizeBytes: integer("size_bytes").notNull(),
+		// workspace/<workspace id>/<uuid>
+		storageKey: text("storage_key").notNull(),
+		// For the customer portal (phase 4)
+		sharedWithCustomer: boolean("shared_with_customer")
+			.notNull()
+			.default(false),
+		uploadedById: text("uploaded_by_id").references(() => user.id, {
+			onDelete: "set null",
+		}),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+	},
+	(t) => [
+		index("file_workspace_subject_idx").on(
+			t.workspaceId,
+			t.subjectType,
+			t.subjectId,
+		),
+		index("file_workspace_folder_idx").on(t.workspaceId, t.folderId),
+		index("file_workspace_payment_idx").on(t.workspaceId, t.paymentId),
 	],
 );
