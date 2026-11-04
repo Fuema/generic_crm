@@ -78,6 +78,14 @@ function describe(e: TimelineEvent, fieldLabels: Record<string, string>) {
 		});
 	if (e.type === "activity.completed") return m.event_activity_completed();
 	switch (kind) {
+		case "portal_invited":
+			return m.event_portal_invited();
+		case "portal_revoked":
+			return m.event_portal_revoked();
+		case "portal_company_on":
+			return m.event_portal_company_on();
+		case "portal_company_off":
+			return m.event_portal_company_off();
 		case "file_added":
 			return payload.paymentId
 				? m.event_receipt_added({ name: payload.name ?? "" })

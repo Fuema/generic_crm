@@ -52,6 +52,8 @@ import {
 } from "#/modules/invoices/invoices";
 import { orderRow } from "#/modules/orders/components/orderBits";
 import { createOrder, listRelatedOrders } from "#/modules/orders/orders";
+import { PortalAccessCard } from "#/modules/portal/components/PortalAccessCard";
+import { getContactPortal } from "#/modules/portal/portal";
 import { RelatedProjects } from "#/modules/projects/components/ProjectBits";
 import { listRelatedProjects } from "#/modules/projects/projects";
 import { RelatedQuotes } from "#/modules/quotes/components/RelatedQuotes";
@@ -83,6 +85,7 @@ export const Route = createFileRoute("/_authed/contacts/$contactId")({
 				projects,
 				work,
 				recordFiles,
+				portal,
 			] = await Promise.all([
 				getContact({ data: { id: params.contactId } }),
 				getContactFormOptions(),
@@ -96,10 +99,12 @@ export const Route = createFileRoute("/_authed/contacts/$contactId")({
 				listRelatedProjects({ data: { contactId: params.contactId } }),
 				listRecordWork({ data: subject }),
 				listRecordFiles({ data: subject }),
+				getContactPortal({ data: { contactId: params.contactId } }),
 			]);
 			return {
 				work,
 				recordFiles,
+				portal,
 				...detail,
 				options,
 				timeline,
@@ -151,7 +156,7 @@ function ContactPage() {
 		invoices,
 		projects,
 	} = Route.useLoaderData();
-	const { work, recordFiles } = Route.useLoaderData();
+	const { work, recordFiles, portal } = Route.useLoaderData();
 	const navigate = useNavigate();
 	const { access, session } = Route.useRouteContext();
 	const can = {
@@ -349,6 +354,14 @@ function ContactPage() {
 					role={access?.role}
 					userId={session.user.id}
 					archived={archived}
+				/>
+				<PortalAccessCard
+					className="lg:col-span-3"
+					contactId={contact.id}
+					hasEmail={Boolean(contact.email)}
+					hasCompany={Boolean(contact.companyId)}
+					portal={portal}
+					canEdit={can.update && !archived}
 				/>
 			</div>
 

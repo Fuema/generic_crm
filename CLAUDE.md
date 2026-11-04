@@ -6,10 +6,14 @@ first**: vision, decisions, data model, customization engine, portal, phases,
 conventions and pitfalls live there.
 
 ## Where things stand
-- **Phase 3 (Work) done** (spec §16; phases 0–3 done, #1–#31 plus the acceptance check on
-  `test/phase3-acceptance`; browser checks of phases 1–3 pending). Files go through one
-  download check, `authorizeDownload` (spec §9). **Next: phase 4, the customer portal, only
-  when the owner says so.** Spec §16.1 is the handoff: what waits on the owner, how to resume.
+- **Phase 4 (Customer portal) in progress** (spec §16; phases 0–3 done, #1–#32; browser
+  checks of phases 1–3 pending). Step 1, the portal foundation (email-link sign-in, sessions,
+  contact scope, staff invite card), is on `feat/phase4-portal`; migrations `0018`/`0019` are
+  applied to dev. **Next: step 2, profile, once step 1 is merged.** Spec §16.1 is the handoff.
+- Portal: staff and portal sessions are separate tables and cookies, never accepted by the
+  other. Portal reads go through `inScope(scope, table)` (workspace AND contact, or company
+  when company access applies); ending access (revoke, archive, new email, merge) deletes
+  sessions and burns unused links in the same batch (`endPortalSessions`, spec §8).
 - Tasks and activities point to one record by `subject_type` + `subject_id` (no foreign key):
   check the pair against the workspace on every write that sets it (spec §10, §17 pitfall 21).
 - Files go through `src/platform/storage.server.ts`: R2 binding `FILES` in production,
@@ -24,7 +28,7 @@ conventions and pitfalls live there.
 - Quotes, orders and invoices share lines, totals, email and components in
   `src/modules/documents`; they are printable pages, not generated PDFs (Workers CPU, spec §3).
 - Modules that point to contacts must also move their rows in `mergeContacts` (deals,
-  quotes, orders, invoices, projects, tasks, activities and files do; tickets, portal access…
+  quotes, orders, invoices, projects, tasks, activities, files and portal access do; tickets…
   follow, spec §10).
 - Quote "expired" and invoice "overdue" are worked out on read (no cron on the free plan),
   never stored (spec §17).
@@ -48,8 +52,8 @@ conventions and pitfalls live there.
 
 ## Rules that must never be broken (spec §12.1)
 - **Workspace isolation:** every query filters by the workspace from the session, never from input; check every referenced id against the workspace.
-- **Contact isolation (portal):** portal queries also filter by the contact's scope and return only portal-visible fields, objects and files.
-- **Every server function** has `requirePermission(...)` (or `requireObjectPermission(...)` for custom objects) and a Zod `.validator(...)`; custom-field values are validated on the server against their definitions.
+- **Contact isolation (portal):** portal queries also filter by the contact's scope and return only portal-visible fields, objects and files. Portal server functions take only the slug; the contact comes from the portal cookie, never from input.
+- **Every server function** has `requirePermission(...)` (or `requireObjectPermission(...)` for custom objects; portal functions instead resolve the portal session, since there is no member) and a Zod `.validator(...)`; custom-field values are validated on the server against their definitions.
 - **No plain exported `db` helpers in modules routes import** — put them in `*.server.ts` (`check:bundle` guards it).
 - **English and Spanish:** user-visible text comes from `messages/en.json` and `messages/es.json` through `m.*()` (`#/paraglide/messages.js`), never hard-coded; add every key to both files (`check:i18n` fails otherwise). Every page is converted since phase 3 steps 2–3 (spec §5).
 - Money in integer cents, tax in basis points, dates in UTC (all-day at 12:00 UTC).

@@ -6,4 +6,6 @@ declare module "cloudflare:workers" {
 		// Private R2 bucket for uploaded files (wrangler.jsonc r2_buckets)
 		FILES?: import("./storage.server").BucketLike;
 	};
+	// Keeps work running after the response is sent
+	export function waitUntil(promise: Promise<unknown>): void;
 }
