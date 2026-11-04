@@ -2,6 +2,7 @@ import {
 	createFileRoute,
 	Link,
 	notFound,
+	useNavigate,
 	useRouter,
 } from "@tanstack/react-router";
 import {
@@ -12,6 +13,7 @@ import {
 	Mail,
 	Printer,
 	Send,
+	ShoppingCart,
 	Undo2,
 	X,
 } from "lucide-react";
@@ -30,12 +32,13 @@ import {
 } from "#/components/ui/dialog";
 import { Label } from "#/components/ui/label";
 import { Textarea } from "#/components/ui/textarea";
-import { quoteNumberLabel } from "#/lib/money";
+import { orderNumberLabel, quoteNumberLabel } from "#/lib/money";
 import { roleCan } from "#/lib/permissions";
 import { getContactFormOptions } from "#/modules/contacts/contacts";
 import { moveDeal } from "#/modules/deals/deals";
 import { customFieldLabels } from "#/modules/fields/components/CustomFields";
 import { getRecordFields } from "#/modules/fields/fields";
+import { createOrder, listRelatedOrders } from "#/modules/orders/orders";
 import { listPipelines } from "#/modules/pipelines/pipelines";
 import { pickProducts } from "#/modules/products/products";
 import { QuoteDocument } from "#/modules/quotes/components/QuoteDocument";
@@ -62,19 +65,21 @@ export const Route = createFileRoute("/_authed/quotes/$quoteId")({
 				subjectType: "quote" as const,
 				subjectId: params.quoteId,
 			};
-			const [detail, options, timeline, allTags, fields] = await Promise.all([
-				getQuote({ data: { id: params.quoteId } }),
-				getContactFormOptions(),
-				getTimeline({ data: subject }),
-				listWorkspaceTags(),
-				getRecordFields({ data: { objectKey: "quote" } }),
-			]);
+			const [detail, options, timeline, allTags, fields, orders] =
+				await Promise.all([
+					getQuote({ data: { id: params.quoteId } }),
+					getContactFormOptions(),
+					getTimeline({ data: subject }),
+					listWorkspaceTags(),
+					getRecordFields({ data: { objectKey: "quote" } }),
+					listRelatedOrders({ data: { quoteId: params.quoteId } }),
+				]);
 			// The catalog only matters while the quote can be edited
 			const products =
 				detail.quote.status === "draft" && !detail.quote.archivedAt
 					? await pickProducts({ data: { q: "" } })
 					: [];
-			return { detail, options, timeline, allTags, fields, products };
+			return { detail, options, timeline, allTags, fields, products, orders };
 		} catch (e) {
 			if (e instanceof Response && (e.status === 404 || e.status === 400))
 				throw notFound();
@@ -91,13 +96,16 @@ export const Route = createFileRoute("/_authed/quotes/$quoteId")({
 
 function QuotePage() {
 	const router = useRouter();
-	const { detail, options, timeline, allTags, fields, products } =
+	const { detail, options, timeline, allTags, fields, products, orders } =
 		Route.useLoaderData();
+	const navigate = useNavigate();
+	const order = orders[0] ?? null;
 	const { access, session } = Route.useRouteContext();
 	const can = {
 		update: roleCan(access?.role, { quote: ["update"] }),
 		archive: roleCan(access?.role, { quote: ["delete"] }),
 		moveDeal: roleCan(access?.role, { deal: ["update"] }),
+		createOrder: roleCan(access?.role, { order: ["create"] }),
 	};
 	const q = detail.quote;
 	const number = quoteNumberLabel(q.number);
@@ -191,6 +199,31 @@ function QuotePage() {
 						>
 							<Printer /> {m.quote_print()}
 						</Button>
+						{order ? (
+							<Button asChild variant="outline">
+								<Link to="/orders/$orderId" params={{ orderId: order.id }}>
+									<ShoppingCart /> {orderNumberLabel(order.number)}
+								</Link>
+							</Button>
+						) : can.createOrder && !archived && status === "accepted" ? (
+							<Button
+								type="button"
+								disabled={busy}
+								onClick={() =>
+									run(async () => {
+										const { id } = await createOrder({
+											data: { quoteId: q.id },
+										});
+										void navigate({
+											to: "/orders/$orderId",
+											params: { orderId: id },
+										});
+									}, m.quote_order_created())
+								}
+							>
+								<ShoppingCart /> {m.quote_create_order()}
+							</Button>
+						) : null}
 						{can.update && !archived && status === "draft" ? (
 							<Button
 								type="button"

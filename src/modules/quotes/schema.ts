@@ -1,7 +1,16 @@
 import { z } from "zod";
-import { computeTotals } from "#/lib/money";
 import { listSearchSchema } from "#/lib/schema";
 import { viewState } from "#/modules/contacts/schema";
+import {
+	DOCUMENT_LIMITS,
+	type DocumentLineInput,
+	documentLineSchema,
+	documentLinesSchema,
+	documentTotals,
+	optionalDaySchema,
+	taxRateSchema,
+	utcDay,
+} from "#/modules/documents/lines";
 import { m } from "#/paraglide/messages.js";
 
 // Quotes (spec §6.2, §10). Shared by the pages and the server; the server
@@ -30,20 +39,20 @@ export const QUOTE_STATUS_LABELS: Record<
 };
 
 export const QUOTE_LIMITS = {
-	linesPerQuote: 100,
-	maxQuantity: 1_000_000,
-	// Every amount is an integer column (32-bit)
-	maxCents: 2_000_000_000,
+	linesPerQuote: DOCUMENT_LIMITS.linesPerDocument,
+	maxQuantity: DOCUMENT_LIMITS.maxQuantity,
+	maxCents: DOCUMENT_LIMITS.maxCents,
 	validDays: 30,
 	// Quote emails: per workspace in 24 hours, and per quote in total
 	emailsPerDay: 50,
 	emailsPerQuote: 5,
 } as const;
 
-// "YYYY-MM-DD" of a moment, in UTC
-export function utcDay(at: Date) {
-	return at.toISOString().slice(0, 10);
-}
+// Quotes use the shared document lines (src/modules/documents/lines.ts)
+export const quoteLineSchema = documentLineSchema;
+export type QuoteLineInput = DocumentLineInput;
+export const quoteTotals = documentTotals;
+export { utcDay };
 
 // The valid-until day is the last day the quote can be accepted
 export function displayStatus(
@@ -67,55 +76,8 @@ export function defaultValidUntil(now: Date = new Date()) {
 	return d;
 }
 
-// Totals of a set of lines, or the problem when an amount doesn't fit
-export function quoteTotals(
-	lines: { quantity: number; unitPriceCents: number }[],
-	taxRateBp: number,
-) {
-	const totals = computeTotals(lines, taxRateBp);
-	const tooBig =
-		totals.totalCents > QUOTE_LIMITS.maxCents ||
-		totals.lineTotals.some((t) => t > QUOTE_LIMITS.maxCents);
-	return { ...totals, problem: tooBig ? m.validation_quote_too_large() : null };
-}
-
 const id = z.uuid({ error: () => m.validation_invalid_id() });
 const optionalId = z.union([z.literal(""), id]);
-
-const optionalDay = z.string().refine(
-	(v) => {
-		if (v === "") return true;
-		if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
-		const d = new Date(`${v}T12:00:00.000Z`);
-		return !Number.isNaN(d.getTime()) && d.toISOString().startsWith(v);
-	},
-	{ error: () => m.validation_date() },
-);
-
-export const quoteLineSchema = z.object({
-	// The catalog product it came from, or "" for a free-text line
-	productId: optionalId,
-	description: z
-		.string()
-		.trim()
-		.min(1, { error: () => m.validation_line_description() })
-		.max(500, { error: () => m.validation_text_max({ max: 500 }) }),
-	sku: z
-		.string()
-		.trim()
-		.max(32, { error: () => m.validation_text_max({ max: 32 }) }),
-	quantity: z
-		.number()
-		.int({ error: () => m.validation_quantity() })
-		.min(1, { error: () => m.validation_quantity() })
-		.max(QUOTE_LIMITS.maxQuantity, { error: () => m.validation_quantity() }),
-	unitPriceCents: z
-		.number()
-		.int()
-		.min(0, { error: () => m.validation_price() })
-		.max(QUOTE_LIMITS.maxCents, { error: () => m.validation_price() }),
-});
-export type QuoteLineInput = z.infer<typeof quoteLineSchema>;
 
 // A new draft, from a deal (its contact and company come along) or a contact
 export const createQuoteSchema = z
@@ -130,19 +92,13 @@ export const updateQuoteSchema = z.object({
 	companyId: optionalId,
 	ownerId: z.string().max(64, { error: () => m.validation_invalid_id() }),
 	locale: z.enum(["en", "es"]),
-	taxRateBp: z
-		.number()
-		.int()
-		.min(0, { error: () => m.validation_tax_rate_max() })
-		.max(10_000, { error: () => m.validation_tax_rate_max() }),
-	validUntil: optionalDay,
+	taxRateBp: taxRateSchema,
+	validUntil: optionalDaySchema,
 	notes: z
 		.string()
 		.trim()
 		.max(2000, { error: () => m.validation_text_max({ max: 2000 }) }),
-	lines: z.array(quoteLineSchema).max(QUOTE_LIMITS.linesPerQuote, {
-		error: () => m.validation_lines_max({ max: QUOTE_LIMITS.linesPerQuote }),
-	}),
+	lines: documentLinesSchema,
 	custom: z
 		.record(z.string().max(40), z.unknown())
 		.refine((r) => Object.keys(r).length <= 100)

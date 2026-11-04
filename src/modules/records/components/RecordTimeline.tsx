@@ -80,7 +80,7 @@ function describe(e: TimelineEvent, fieldLabels: Record<string, string>) {
 				? m.event_deal_lost_reason({ reason: payload.reason })
 				: m.event_deal_lost();
 		case "reopened":
-			return e.type.startsWith("quote.")
+			return /^(quote|order)\./.test(e.type)
 				? m.event_quote_reopened()
 				: m.event_deal_reopened();
 		case "merged":
@@ -88,7 +88,22 @@ function describe(e: TimelineEvent, fieldLabels: Record<string, string>) {
 				? m.event_merged_into({ name: payload.otherName ?? "" })
 				: m.event_merged_from({ name: payload.otherName ?? "" });
 		case "sent":
+			if (e.type.startsWith("invoice.")) return m.event_invoice_emailed();
 			return payload.email ? m.event_quote_emailed() : m.event_quote_sent();
+		case "confirmed":
+			return m.event_order_confirmed();
+		case "fulfilled":
+			return m.event_order_fulfilled();
+		case "cancelled":
+			return m.event_order_cancelled();
+		case "invoiced":
+			return m.event_order_invoiced();
+		case "ordered":
+			return m.event_quote_ordered();
+		case "issued":
+			return m.event_invoice_issued();
+		case "voided":
+			return m.event_invoice_voided();
 		case "accepted":
 			return m.event_quote_accepted();
 		case "declined":
@@ -96,8 +111,8 @@ function describe(e: TimelineEvent, fieldLabels: Record<string, string>) {
 				? m.event_quote_declined_reason({ reason: payload.reason })
 				: m.event_quote_declined();
 		case "updated":
-			if (!payload.changes && e.type.startsWith("quote."))
-				return m.event_quote_updated();
+			if (!payload.changes && /^(quote|order|invoice)\./.test(e.type))
+				return m.event_document_updated();
 			return m.event_updated({
 				fields: Object.keys(payload.changes ?? {})
 					.map((key) => FIELD_LABELS[key]?.() ?? fieldLabels[key] ?? key)

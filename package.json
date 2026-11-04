@@ -21,7 +21,6 @@
     "db:studio": "bunx drizzle-kit studio",
     "db:seed:customers": "bun scripts/seed-customers.ts",
     "email:test": "bun scripts/send-test-email.ts",
-    "db:seed:sales": "bun scripts/seed-sales.ts",
     "db:seed:planning": "bun scripts/seed-planning.ts",
     "i18n:compile": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --strategy cookie preferredLanguage baseLocale --output-structure message-modules --emit-ts-declarations",
     "check:i18n": "bun scripts/check-i18n.ts",

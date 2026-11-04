@@ -80,7 +80,6 @@ export const NAV_GROUPS: {
 ];
 
 const EXTRA_TITLES: [string, () => string][] = [
-	["/orders/new", m.nav_new_order],
 	["/workspace/new", m.nav_new_workspace],
 	["/account/security", m.nav_security],
 	["/accept-invitation", m.nav_invitation],

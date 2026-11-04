@@ -3,11 +3,8 @@ import {
 	customerInputSchema,
 	emailSchema,
 	nameSchema,
-	orderInputSchema,
 	passwordSchema,
 } from "#/lib/schema";
-
-const UUID = "0b4c2f0e-8d5a-4c1e-9f3a-2b7d6e1a9c40";
 
 describe("nameSchema", () => {
 	test("accepts names with accents, apostrophes, dots and hyphens", () => {
@@ -70,42 +67,6 @@ describe("customerInputSchema", () => {
 	test("rejects a phone number with too few digits", () => {
 		expect(
 			customerInputSchema.safeParse({ ...valid, phone: "12345" }).success,
-		).toBe(false);
-	});
-});
-
-describe("orderInputSchema", () => {
-	const valid = {
-		customerId: UUID,
-		taxRate: "8.25",
-		notes: "",
-		lines: [{ productId: UUID, quantity: 2 }],
-	};
-
-	test("accepts a valid order", () => {
-		expect(orderInputSchema.safeParse(valid).success).toBe(true);
-	});
-
-	test("rejects ids that aren't UUIDs", () => {
-		expect(
-			orderInputSchema.safeParse({ ...valid, customerId: "1" }).success,
-		).toBe(false);
-	});
-
-	test("rejects zero, fractional and huge quantities", () => {
-		for (const quantity of [0, 1.5, 100_001]) {
-			expect(
-				orderInputSchema.safeParse({
-					...valid,
-					lines: [{ productId: UUID, quantity }],
-				}).success,
-			).toBe(false);
-		}
-	});
-
-	test("rejects a tax rate above 100%", () => {
-		expect(
-			orderInputSchema.safeParse({ ...valid, taxRate: "101" }).success,
 		).toBe(false);
 	});
 });

@@ -17,10 +17,12 @@ import {
 	company,
 	contact,
 	deal,
+	invoice,
 	member,
 	note,
 	quote,
 	recordTag,
+	salesOrder,
 	user,
 } from "#/db/schema";
 import { assertWorkspaceRefs } from "#/lib/workspace-refs.server";
@@ -613,6 +615,24 @@ export async function mergeContacts(
 					and(
 						eq(deal.workspaceId, workspaceId),
 						eq(deal.contactId, duplicateId),
+					),
+				),
+			db
+				.update(salesOrder)
+				.set({ contactId: keepId, updatedAt: now })
+				.where(
+					and(
+						eq(salesOrder.workspaceId, workspaceId),
+						eq(salesOrder.contactId, duplicateId),
+					),
+				),
+			db
+				.update(invoice)
+				.set({ contactId: keepId, updatedAt: now })
+				.where(
+					and(
+						eq(invoice.workspaceId, workspaceId),
+						eq(invoice.contactId, duplicateId),
 					),
 				),
 			db

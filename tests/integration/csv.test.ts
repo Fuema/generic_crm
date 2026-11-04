@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { db } from "#/db/index";
 import { company, contact, event } from "#/db/schema";
 import { parseCsv } from "#/modules/csv/csv";
@@ -114,7 +114,12 @@ describe("import", () => {
 		const [none] = await db
 			.select({ id: contact.id })
 			.from(contact)
-			.where(eq(contact.workspaceId, a.workspaceId));
+			.where(
+				and(
+					eq(contact.workspaceId, a.workspaceId),
+					ne(contact.id, a.contactId),
+				),
+			);
 		expect(none).toBeUndefined();
 	});
 

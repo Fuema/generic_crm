@@ -11,10 +11,11 @@ import {
 	min,
 	ne,
 	type SQL,
+	sql,
 } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "#/db/index";
-import { customer, member, salesOrder, task, user } from "#/db/schema";
+import { contact, customer, member, salesOrder, task, user } from "#/db/schema";
 import { requirePermission } from "#/lib/authz";
 import {
 	moveTaskSchema,
@@ -149,10 +150,17 @@ export const getWorkspaceRefOptions = createServerFn({ method: "GET" })
 				.select({
 					id: salesOrder.id,
 					number: salesOrder.number,
-					customerName: customer.name,
+					// Orders belong to contacts now (phase 2); shown as the customer
+					customerName: sql<string>`concat_ws(' ', ${contact.firstName}, ${contact.lastName})`,
 				})
 				.from(salesOrder)
-				.innerJoin(customer, eq(customer.id, salesOrder.customerId))
+				.innerJoin(
+					contact,
+					and(
+						eq(contact.id, salesOrder.contactId),
+						eq(contact.workspaceId, salesOrder.workspaceId),
+					),
+				)
 				.where(
 					and(
 						eq(salesOrder.workspaceId, workspaceId),

@@ -274,18 +274,7 @@ export const customerSearchSchema = z.object({
 
 export type CustomerSearch = z.infer<typeof customerSearchSchema>;
 
-// --- Orders, invoices (products: src/modules/products) ----------------------
-
-export const ORDER_STATUSES = [
-	"draft",
-	"confirmed",
-	"fulfilled",
-	"cancelled",
-] as const;
-export type OrderStatus = (typeof ORDER_STATUSES)[number];
-
-export const INVOICE_STATUSES = ["draft", "issued", "paid", "void"] as const;
-export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
+// --- Billing settings (orders, invoices and products: src/modules) ----------
 
 const percentString = z
 	.string()
@@ -296,30 +285,6 @@ const percentString = z
 	.refine((v) => Number(v) <= 100, {
 		error: () => m.validation_tax_rate_max(),
 	});
-
-export const orderInputSchema = z.object({
-	customerId: z.uuid("Choose a customer"),
-	taxRate: percentString,
-	notes: z.string().trim().max(1000, "Notes must not exceed 1000 characters"),
-	lines: z
-		.array(
-			z.object({
-				productId: z.uuid("Choose a product"),
-				quantity: z.coerce
-					.number("Enter a quantity")
-					.int("Quantity must be a whole number")
-					.min(1, "Quantity must be at least 1")
-					.max(100_000, "Quantity must not exceed 100,000"),
-			}),
-		)
-		.min(1, "Add at least one line")
-		.max(100, "An order can have at most 100 lines")
-		.refine(
-			(lines) => new Set(lines.map((l) => l.productId)).size === lines.length,
-			"Each product can appear only once; change its quantity instead",
-		),
-});
-export type OrderInput = z.infer<typeof orderInputSchema>;
 
 export const billingSettingsSchema = z.object({
 	currency: z.enum(
@@ -370,20 +335,6 @@ export function listSearchSchema<
 		dir: z.enum(["asc", "desc"]).catch(defaultDir).default(defaultDir),
 	});
 }
-
-export const orderSearchSchema = listSearchSchema(
-	ORDER_STATUSES,
-	["number", "orderDate", "totalCents", "status"],
-	"number",
-);
-// "overdue" = issued and past its due date
-export const invoiceSearchSchema = listSearchSchema(
-	[...INVOICE_STATUSES, "overdue"],
-	["number", "issueDate", "dueDate", "totalCents", "status"],
-	"issueDate",
-);
-export type OrderSearch = z.infer<typeof orderSearchSchema>;
-export type InvoiceSearch = z.infer<typeof invoiceSearchSchema>;
 
 // --- Tasks and activities ---------------------------------------------------
 
