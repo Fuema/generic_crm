@@ -454,19 +454,23 @@ describe("files", () => {
 				),
 			).toBe(404);
 		}
+		// Started one at a time: a call rejected before it's awaited would be an
+		// unhandled rejection that ends the test early
 		for (const call of [
-			files.listFolder(b.workspaceId, folderA.id),
-			files.renameFolder(b.workspaceId, actorB(), {
-				id: folderA.id,
-				name: "Mine",
-			}),
-			files.deleteFolder(b.workspaceId, actorB(), folderA.id),
-			files.createFolder(b.workspaceId, actorB(), {
-				name: "Child",
-				parentId: folderA.id,
-			}),
+			() => files.listFolder(b.workspaceId, folderA.id),
+			() =>
+				files.renameFolder(b.workspaceId, actorB(), {
+					id: folderA.id,
+					name: "Mine",
+				}),
+			() => files.deleteFolder(b.workspaceId, actorB(), folderA.id),
+			() =>
+				files.createFolder(b.workspaceId, actorB(), {
+					name: "Child",
+					parentId: folderA.id,
+				}),
 		]) {
-			expect(await status(call)).toBe(404);
+			expect(await status(call())).toBe(404);
 		}
 		const usageB = await files.storageUsed(b.workspaceId);
 		expect(usageB).toBe(FILE_LIMITS.workspaceQuotaBytes);

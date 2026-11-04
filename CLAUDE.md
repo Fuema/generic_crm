@@ -6,11 +6,10 @@ first**: vision, decisions, data model, customization engine, portal, phases,
 conventions and pitfalls live there.
 
 ## Where things stand
-- **Phase 3 (Work) in progress** (spec §16; phases 0–2 done, #1–#28; browser checks of
-  phases 1–3 pending). Step 1, projects, merged in #29; steps 2–3, tasks and activities, in
-  #30. Step 4, files and folders (`src/modules/files`), is built on `feat/phase3-files`;
-  migration `0017` is applied to dev. **Next: step 5, the phase 3 acceptance.** Spec §16.1
-  is the handoff: the phase 3 plan, what waits on the owner, how to resume.
+- **Phase 3 (Work) done** (spec §16; phases 0–3 done, #1–#31 plus the acceptance check on
+  `test/phase3-acceptance`; browser checks of phases 1–3 pending). Files go through one
+  download check, `authorizeDownload` (spec §9). **Next: phase 4, the customer portal, only
+  when the owner says so.** Spec §16.1 is the handoff: what waits on the owner, how to resume.
 - Tasks and activities point to one record by `subject_type` + `subject_id` (no foreign key):
   check the pair against the workspace on every write that sets it (spec §10, §17 pitfall 21).
 - Files go through `src/platform/storage.server.ts`: R2 binding `FILES` in production,
