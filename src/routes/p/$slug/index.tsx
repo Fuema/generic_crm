@@ -1,4 +1,9 @@
-import { createFileRoute, notFound, redirect } from "@tanstack/react-router";
+import {
+	createFileRoute,
+	Link,
+	notFound,
+	redirect,
+} from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { formatMoney, quoteNumberLabel } from "#/lib/money";
@@ -87,9 +92,13 @@ function PortalHomePage() {
 			<Section title={m.portal_open_quotes()} empty={m.portal_no_quotes()}>
 				{quotes.map((q) => (
 					<li key={q.id} className="flex flex-wrap items-center gap-2 py-2">
-						<span className="flex-1 font-medium">
+						<Link
+							to="/p/$slug/quotes/$quoteId"
+							params={{ slug, quoteId: q.id }}
+							className="flex-1 font-medium hover:underline"
+						>
 							{quoteNumberLabel(q.number)}
-						</span>
+						</Link>
 						{q.validUntil ? (
 							<span className="text-xs text-muted-foreground">
 								{m.portal_valid_until({ date: formatDay(q.validUntil) })}

@@ -8,8 +8,9 @@ conventions and pitfalls live there.
 ## Where things stand
 - **Phase 4 (Customer portal) in progress** (spec §16; phases 0–3 done, #1–#32; browser
   checks of phases 1–3 pending). Step 1, the portal foundation, merged in #33 (migrations
-  `0018`/`0019` applied to dev). Step 2, the portal profile, is on `feat/phase4-profile` (no
-  migration). **Next: step 3, quotes in the portal, once step 2 is merged.** Spec §16.1 is
+  `0018`/`0019` applied to dev); step 2, the profile, in #34. Step 3, quotes in the portal,
+  is on `feat/phase4-quotes` (migration `0020` applied to dev). **Next: step 4, orders,
+  invoices and payments in the portal, once step 3 is merged.** Spec §16.1 is
   the handoff.
 - Portal writes change only what the contact may change: custom fields through
   `prepareEditableCustom` (editable fields only; hidden values never leave the server), and

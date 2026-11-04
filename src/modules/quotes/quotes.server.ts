@@ -87,6 +87,8 @@ function lockAndCheck(
 	id: string,
 	statuses: string[],
 	version?: Date,
+	// Accepting: still valid on today's UTC day (the valid-until day counts)
+	stillValid = false,
 ) {
 	const list = sql.join(
 		statuses.map((s) => sql`${s}`),
@@ -94,6 +96,9 @@ function lockAndCheck(
 	);
 	const same = version
 		? sql` and floor(extract(epoch from q."updated_at") * 1000) = ${Math.floor(version.getTime())}`
+		: sql``;
+	const valid = stillValid
+		? sql` and (q."valid_until" is null or q."valid_until" >= date_trunc('day', now() at time zone 'utc'))`
 		: sql``;
 	return [
 		db
@@ -103,7 +108,7 @@ function lockAndCheck(
 			.for("update"),
 		db
 			.select({
-				ok: sql<number>`1 / (case when exists (select 1 from "quote" q where q."id" = ${id} and q."workspace_id" = ${workspaceId} and q."archived_at" is null and q."status" in (${list})${same}) then 1 else 0 end)`,
+				ok: sql<number>`1 / (case when exists (select 1 from "quote" q where q."id" = ${id} and q."workspace_id" = ${workspaceId} and q."archived_at" is null and q."status" in (${list})${same}${valid}) then 1 else 0 end)`,
 			})
 			.from(quote)
 			.where(and(eq(quote.id, id), eq(quote.workspaceId, workspaceId))),
@@ -615,12 +620,38 @@ export async function reopenQuote(
 	return { id };
 }
 
+// A decision made by the customer in the portal (phase 4 step 3): the
+// contact signed in, the name typed to accept, where it came from
+export type PortalDecision = {
+	contactId: string;
+	// The quote as the customer saw it (its updated_at, in ms): a quote
+	// changed and resent since then is refused, not accepted unseen
+	version: number;
+	acceptedName?: string;
+	ip: string | null;
+	userAgent: string | null;
+};
+
+function decidedBy(portal?: PortalDecision) {
+	return portal
+		? {
+				decidedVia: "portal",
+				decidedByContactId: portal.contactId,
+				acceptedName: portal.acceptedName ?? null,
+				decidedIp: portal.ip?.slice(0, 64) ?? null,
+				decidedUserAgent: portal.userAgent?.slice(0, 300) ?? null,
+			}
+		: { decidedVia: "staff" };
+}
+
 // sent -> accepted, while it is still valid. Returns the deal it belongs to,
-// so the page can offer to mark it won.
+// so the page can offer to mark it won (a customer's acceptance never moves
+// the deal: staff decide, owner decision 2026-11-04).
 export async function acceptQuote(
 	workspaceId: string,
 	actor: Actor,
 	id: string,
+	portal?: PortalDecision,
 ) {
 	const before = await findQuote(workspaceId, id);
 	if (before.archivedAt) throw clientError(409, m.error_record_archived());
@@ -628,18 +659,34 @@ export async function acceptQuote(
 		throw clientError(409, m.error_quote_not_sent());
 	if (displayStatus(before.status, before.validUntil) === "expired")
 		throw clientError(409, m.error_quote_expired());
+	if (portal && before.updatedAt.getTime() !== portal.version)
+		throw clientError(409, m.error_quote_changed());
 	const now = new Date();
 	await runBatch([
-		...lockAndCheck(workspaceId, id, ["sent"], before.updatedAt),
+		...lockAndCheck(
+			workspaceId,
+			id,
+			["sent"],
+			portal ? new Date(portal.version) : before.updatedAt,
+			true,
+		),
 		db
 			.update(quote)
-			.set({ status: "accepted", acceptedAt: now, updatedAt: now })
+			.set({
+				status: "accepted",
+				acceptedAt: now,
+				...decidedBy(portal),
+				updatedAt: now,
+			})
 			.where(and(eq(quote.id, id), eq(quote.workspaceId, workspaceId))),
 		eventInsert(workspaceId, actor, {
 			type: "quote.accepted",
 			subjectType: "quote",
 			subjectId: id,
-			payload: { totalCents: before.totalCents },
+			payload: {
+				totalCents: before.totalCents,
+				...(portal ? { via: "portal", name: portal.acceptedName ?? null } : {}),
+			},
 		}),
 	]);
 	return { id, dealId: before.dealId };
@@ -650,20 +697,29 @@ export async function declineQuote(
 	workspaceId: string,
 	actor: Actor,
 	input: { id: string; reason: string },
+	portal?: PortalDecision,
 ) {
 	const before = await findQuote(workspaceId, input.id);
 	if (before.archivedAt) throw clientError(409, m.error_record_archived());
 	if (before.status !== "sent")
 		throw clientError(409, m.error_quote_not_sent());
+	if (portal && before.updatedAt.getTime() !== portal.version)
+		throw clientError(409, m.error_quote_changed());
 	const now = new Date();
 	await runBatch([
-		...lockAndCheck(workspaceId, input.id, ["sent"]),
+		...lockAndCheck(
+			workspaceId,
+			input.id,
+			["sent"],
+			portal ? new Date(portal.version) : undefined,
+		),
 		db
 			.update(quote)
 			.set({
 				status: "declined",
 				declinedAt: now,
 				declineReason: input.reason || null,
+				...decidedBy(portal),
 				updatedAt: now,
 			})
 			.where(and(eq(quote.id, input.id), eq(quote.workspaceId, workspaceId))),
@@ -671,7 +727,10 @@ export async function declineQuote(
 			type: "quote.declined",
 			subjectType: "quote",
 			subjectId: input.id,
-			payload: { reason: input.reason || null },
+			payload: {
+				reason: input.reason || null,
+				...(portal ? { via: "portal" } : {}),
+			},
 		}),
 	]);
 	return { id: input.id };

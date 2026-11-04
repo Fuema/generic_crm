@@ -24,14 +24,19 @@ import {
 	portalToken,
 	project,
 	quote,
+	quoteLine,
+	user,
 } from "#/db/schema";
 import { getWorkspaceSettings } from "#/lib/billing.server";
-import { sendPortalLinkEmail } from "#/lib/email";
+import { sendPortalLinkEmail, sendQuoteDecisionEmail } from "#/lib/email";
+import { quoteNumberLabel } from "#/lib/money";
 import {
 	customChanges,
 	listFields,
 	prepareEditableCustom,
 } from "#/modules/fields/fields.server";
+import * as quotes from "#/modules/quotes/quotes.server";
+import { displayStatus as quoteDisplayStatus } from "#/modules/quotes/schema";
 import { m } from "#/paraglide/messages.js";
 import {
 	type Actor,
@@ -923,4 +928,180 @@ export async function updatePortalProfile(
 		throw error;
 	}
 	return { changed: true };
+}
+
+// --- Portal: quotes ---------------------------------------------------------
+
+// Quotes the contact can see: sent, accepted or declined (never drafts or
+// archived ones), theirs or their company's
+const PORTAL_QUOTE_STATUSES = ["sent", "accepted", "declined"];
+
+function portalQuoteWhere(scope: PortalScope) {
+	return and(
+		inScope(scope, quote),
+		inArray(quote.status, PORTAL_QUOTE_STATUSES),
+		isNull(quote.archivedAt),
+	);
+}
+
+export async function portalQuotes(scope: PortalScope) {
+	const rows = await db
+		.select({
+			id: quote.id,
+			number: quote.number,
+			status: quote.status,
+			currency: quote.currency,
+			totalCents: quote.totalCents,
+			validUntil: quote.validUntil,
+			sentAt: quote.sentAt,
+			acceptedAt: quote.acceptedAt,
+			declinedAt: quote.declinedAt,
+		})
+		.from(quote)
+		.where(portalQuoteWhere(scope))
+		.orderBy(desc(quote.sentAt))
+		.limit(100);
+	return rows.map((q) => ({
+		...q,
+		displayStatus: quoteDisplayStatus(q.status, q.validUntil),
+	}));
+}
+
+export async function portalQuote(scope: PortalScope, id: string) {
+	const [row] = await db
+		.select()
+		.from(quote)
+		.where(and(eq(quote.id, id), portalQuoteWhere(scope)))
+		.limit(1);
+	if (!row) throw clientError(404, m.error_quote_not_found());
+	const [lines, [names], { fields }, settings] = await Promise.all([
+		db
+			.select({
+				id: quoteLine.id,
+				description: quoteLine.description,
+				sku: quoteLine.sku,
+				quantity: quoteLine.quantity,
+				unitPriceCents: quoteLine.unitPriceCents,
+				lineTotalCents: quoteLine.lineTotalCents,
+			})
+			.from(quoteLine)
+			.where(
+				and(
+					eq(quoteLine.quoteId, row.id),
+					eq(quoteLine.workspaceId, scope.workspaceId),
+				),
+			)
+			.orderBy(asc(quoteLine.position)),
+		db
+			.select({
+				contactName: sql<string>`concat_ws(' ', ${contact.firstName}, ${contact.lastName})`,
+				contactEmail: contact.email,
+				companyName: sql<
+					string | null
+				>`(select co."name" from "company" co where co."id" = ${row.companyId} and co."workspace_id" = ${scope.workspaceId})`,
+			})
+			.from(contact)
+			.where(
+				and(
+					eq(contact.id, row.contactId),
+					eq(contact.workspaceId, scope.workspaceId),
+				),
+			),
+		listFields(scope.workspaceId, "quote", { includeArchived: false }),
+		getWorkspaceSettings(scope.workspaceId),
+	]);
+	// Only the custom fields staff chose to show, and only their values
+	const visible = fields.filter((f) => f.portalVisibility !== "hidden");
+	const custom: Record<string, Json> = {};
+	for (const f of visible)
+		if (Object.hasOwn(row.custom, f.key)) custom[f.key] = row.custom[f.key];
+	return {
+		id: row.id,
+		number: row.number,
+		status: row.status,
+		displayStatus: quoteDisplayStatus(row.status, row.validUntil),
+		locale: row.locale,
+		currency: row.currency,
+		taxRateBp: row.taxRateBp,
+		subtotalCents: row.subtotalCents,
+		taxCents: row.taxCents,
+		totalCents: row.totalCents,
+		validUntil: row.validUntil,
+		sentAt: row.sentAt,
+		notes: row.notes,
+		acceptedAt: row.acceptedAt,
+		acceptedName: row.acceptedName,
+		declinedAt: row.declinedAt,
+		declineReason: row.declineReason,
+		decidedVia: row.decidedVia,
+		// What the page sends back when deciding (spec: the version seen)
+		version: row.updatedAt.getTime(),
+		lines,
+		contactName: names?.contactName ?? "",
+		contactEmail: names?.contactEmail ?? null,
+		companyName: names?.companyName ?? null,
+		workspaceName: scope.workspaceName,
+		fields: visible,
+		custom,
+		fieldCurrency: settings.currency,
+	};
+}
+
+// The contact accepts (with the name they typed) or declines (optionally
+// saying why). The quote must be in their scope and still sent and valid;
+// the quotes module locks it and re-checks in the batch. The quote's owner
+// (or whoever sent it) gets one email; staff decide what happens to the deal.
+export async function decidePortalQuote(
+	scope: PortalScope,
+	id: string,
+	decision:
+		| { accept: true; name: string; version: number }
+		| { accept: false; reason: string; version: number },
+	client: { ip: string | null; userAgent: string | null },
+	baseUrl: string,
+) {
+	const q = await portalQuote(scope, id);
+	if (q.status !== "sent") throw clientError(409, m.error_quote_not_sent());
+	const actor = { type: "contact" as const, id: scope.contactId };
+	const evidence = {
+		contactId: scope.contactId,
+		ip: client.ip,
+		userAgent: client.userAgent,
+		version: decision.version,
+	};
+	if (decision.accept)
+		await quotes.acceptQuote(scope.workspaceId, actor, id, {
+			...evidence,
+			acceptedName: decision.name,
+		});
+	else
+		await quotes.declineQuote(
+			scope.workspaceId,
+			actor,
+			{ id, reason: decision.reason },
+			evidence,
+		);
+
+	// One email to the person responsible, only while they are still a member
+	// of the workspace: the owner, else who sent it, else nobody
+	const ws = scope.workspaceId;
+	const [owner] = await db
+		.select({ email: user.email, name: user.name })
+		.from(user)
+		.where(
+			sql`${user.id} = coalesce((select q."owner_id" from "quote" q join "member" mm on mm."user_id" = q."owner_id" and mm."organization_id" = ${ws} where q."id" = ${id} and q."workspace_id" = ${ws}), (select e."actor_id" from "event" e join "member" mm on mm."user_id" = e."actor_id" and mm."organization_id" = ${ws} where e."workspace_id" = ${ws} and e."subject_type" = 'quote' and e."subject_id" = ${id} and e."type" = 'quote.sent' and e."actor_type" = 'member' order by e."created_at" desc limit 1))`,
+		)
+		.limit(1);
+	if (owner?.email)
+		await sendQuoteDecisionEmail({
+			to: owner.email,
+			staffName: owner.name,
+			quoteNumber: quoteNumberLabel(q.number),
+			contactName: q.contactName,
+			accepted: decision.accept,
+			acceptedName: decision.accept ? decision.name : null,
+			reason: decision.accept ? null : decision.reason || null,
+			url: `${baseUrl.replace(/\/$/, "")}/quotes/${id}`,
+		}).catch(() => {});
+	return { id };
 }

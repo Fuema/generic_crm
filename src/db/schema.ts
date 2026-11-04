@@ -1026,6 +1026,16 @@ export const quote = pgTable(
 		acceptedAt: timestamp("accepted_at"),
 		declinedAt: timestamp("declined_at"),
 		declineReason: text("decline_reason"),
+		// Who decided (phase 4 step 3): staff, or the customer in the portal.
+		// From the portal the evidence is kept: the contact signed in, the name
+		// they typed to accept, their IP address and browser.
+		decidedVia: text("decided_via"),
+		decidedByContactId: text("decided_by_contact_id").references(
+			() => contact.id,
+		),
+		acceptedName: text("accepted_name"),
+		decidedIp: text("decided_ip"),
+		decidedUserAgent: text("decided_user_agent"),
 		custom: jsonb("custom").$type<Record<string, Json>>().notNull().default({}),
 		archivedAt: timestamp("archived_at"),
 		createdAt: timestamp("created_at").notNull().defaultNow(),

@@ -52,6 +52,8 @@ import { Route as PSlugIndexRouteImport } from './routes/p/$slug/index'
 import { Route as PSlugProfileRouteImport } from './routes/p/$slug/profile'
 import { Route as PSlugSignInRouteImport } from './routes/p/$slug/sign-in'
 import { Route as PSlugVerifyRouteImport } from './routes/p/$slug/verify'
+import { Route as PSlugQuotesIndexRouteImport } from './routes/p/$slug/quotes/index'
+import { Route as PSlugQuotesQuoteIdRouteImport } from './routes/p/$slug/quotes/$quoteId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -268,6 +270,16 @@ const PSlugVerifyRoute = PSlugVerifyRouteImport.update({
   path: '/p/$slug/verify',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PSlugQuotesIndexRoute = PSlugQuotesIndexRouteImport.update({
+  id: '/p/$slug/quotes/',
+  path: '/p/$slug/quotes/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PSlugQuotesQuoteIdRoute = PSlugQuotesQuoteIdRouteImport.update({
+  id: '/p/$slug/quotes/$quoteId',
+  path: '/p/$slug/quotes/$quoteId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -311,6 +323,8 @@ export interface FileRoutesByFullPath {
   '/quotes/': typeof AuthedQuotesIndexRoute
   '/api/files/': typeof ApiFilesIndexRoute
   '/p/$slug/': typeof PSlugIndexRoute
+  '/p/$slug/quotes/$quoteId': typeof PSlugQuotesQuoteIdRoute
+  '/p/$slug/quotes/': typeof PSlugQuotesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -354,6 +368,8 @@ export interface FileRoutesByTo {
   '/quotes': typeof AuthedQuotesIndexRoute
   '/api/files': typeof ApiFilesIndexRoute
   '/p/$slug': typeof PSlugIndexRoute
+  '/p/$slug/quotes/$quoteId': typeof PSlugQuotesQuoteIdRoute
+  '/p/$slug/quotes': typeof PSlugQuotesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -400,6 +416,8 @@ export interface FileRoutesById {
   '/_authed/quotes/': typeof AuthedQuotesIndexRoute
   '/api/files/': typeof ApiFilesIndexRoute
   '/p/$slug/': typeof PSlugIndexRoute
+  '/p/$slug/quotes/$quoteId': typeof PSlugQuotesQuoteIdRoute
+  '/p/$slug/quotes/': typeof PSlugQuotesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -445,6 +463,8 @@ export interface FileRouteTypes {
     | '/quotes/'
     | '/api/files/'
     | '/p/$slug/'
+    | '/p/$slug/quotes/$quoteId'
+    | '/p/$slug/quotes/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -488,6 +508,8 @@ export interface FileRouteTypes {
     | '/quotes'
     | '/api/files'
     | '/p/$slug'
+    | '/p/$slug/quotes/$quoteId'
+    | '/p/$slug/quotes'
   id:
     | '__root__'
     | '/'
@@ -533,6 +555,8 @@ export interface FileRouteTypes {
     | '/_authed/quotes/'
     | '/api/files/'
     | '/p/$slug/'
+    | '/p/$slug/quotes/$quoteId'
+    | '/p/$slug/quotes/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -547,6 +571,8 @@ export interface RootRouteChildren {
   PSlugVerifyRoute: typeof PSlugVerifyRoute
   ApiFilesIndexRoute: typeof ApiFilesIndexRoute
   PSlugIndexRoute: typeof PSlugIndexRoute
+  PSlugQuotesQuoteIdRoute: typeof PSlugQuotesQuoteIdRoute
+  PSlugQuotesIndexRoute: typeof PSlugQuotesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -852,6 +878,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PSlugVerifyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/p/$slug/quotes/': {
+      id: '/p/$slug/quotes/'
+      path: '/p/$slug/quotes'
+      fullPath: '/p/$slug/quotes/'
+      preLoaderRoute: typeof PSlugQuotesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/p/$slug/quotes/$quoteId': {
+      id: '/p/$slug/quotes/$quoteId'
+      path: '/p/$slug/quotes/$quoteId'
+      fullPath: '/p/$slug/quotes/$quoteId'
+      preLoaderRoute: typeof PSlugQuotesQuoteIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -949,6 +989,8 @@ const rootRouteChildren: RootRouteChildren = {
   PSlugVerifyRoute: PSlugVerifyRoute,
   ApiFilesIndexRoute: ApiFilesIndexRoute,
   PSlugIndexRoute: PSlugIndexRoute,
+  PSlugQuotesQuoteIdRoute: PSlugQuotesQuoteIdRoute,
+  PSlugQuotesIndexRoute: PSlugQuotesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
