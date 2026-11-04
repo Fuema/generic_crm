@@ -48,6 +48,9 @@ import { Route as AuthedWorkspaceSettingsRouteImport } from './routes/_authed/wo
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiFilesIndexRouteImport } from './routes/api/files/index'
 import { Route as ApiFilesFileIdRouteImport } from './routes/api/files/$fileId'
+import { Route as PSlugIndexRouteImport } from './routes/p/$slug/index'
+import { Route as PSlugSignInRouteImport } from './routes/p/$slug/sign-in'
+import { Route as PSlugVerifyRouteImport } from './routes/p/$slug/verify'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -244,6 +247,21 @@ const ApiFilesFileIdRoute = ApiFilesFileIdRouteImport.update({
   path: '/api/files/$fileId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PSlugIndexRoute = PSlugIndexRouteImport.update({
+  id: '/p/$slug/',
+  path: '/p/$slug/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PSlugSignInRoute = PSlugSignInRouteImport.update({
+  id: '/p/$slug/sign-in',
+  path: '/p/$slug/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PSlugVerifyRoute = PSlugVerifyRouteImport.update({
+  id: '/p/$slug/verify',
+  path: '/p/$slug/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -274,6 +292,8 @@ export interface FileRoutesByFullPath {
   '/workspace/settings': typeof AuthedWorkspaceSettingsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/$fileId': typeof ApiFilesFileIdRoute
+  '/p/$slug/sign-in': typeof PSlugSignInRoute
+  '/p/$slug/verify': typeof PSlugVerifyRoute
   '/companies/': typeof AuthedCompaniesIndexRoute
   '/contacts/': typeof AuthedContactsIndexRoute
   '/deals/': typeof AuthedDealsIndexRoute
@@ -283,6 +303,7 @@ export interface FileRoutesByFullPath {
   '/projects/': typeof AuthedProjectsIndexRoute
   '/quotes/': typeof AuthedQuotesIndexRoute
   '/api/files/': typeof ApiFilesIndexRoute
+  '/p/$slug/': typeof PSlugIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -313,6 +334,8 @@ export interface FileRoutesByTo {
   '/workspace/settings': typeof AuthedWorkspaceSettingsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/$fileId': typeof ApiFilesFileIdRoute
+  '/p/$slug/sign-in': typeof PSlugSignInRoute
+  '/p/$slug/verify': typeof PSlugVerifyRoute
   '/companies': typeof AuthedCompaniesIndexRoute
   '/contacts': typeof AuthedContactsIndexRoute
   '/deals': typeof AuthedDealsIndexRoute
@@ -322,6 +345,7 @@ export interface FileRoutesByTo {
   '/projects': typeof AuthedProjectsIndexRoute
   '/quotes': typeof AuthedQuotesIndexRoute
   '/api/files': typeof ApiFilesIndexRoute
+  '/p/$slug': typeof PSlugIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -355,6 +379,8 @@ export interface FileRoutesById {
   '/_authed/workspace/settings': typeof AuthedWorkspaceSettingsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/$fileId': typeof ApiFilesFileIdRoute
+  '/p/$slug/sign-in': typeof PSlugSignInRoute
+  '/p/$slug/verify': typeof PSlugVerifyRoute
   '/_authed/companies/': typeof AuthedCompaniesIndexRoute
   '/_authed/contacts/': typeof AuthedContactsIndexRoute
   '/_authed/deals/': typeof AuthedDealsIndexRoute
@@ -364,6 +390,7 @@ export interface FileRoutesById {
   '/_authed/projects/': typeof AuthedProjectsIndexRoute
   '/_authed/quotes/': typeof AuthedQuotesIndexRoute
   '/api/files/': typeof ApiFilesIndexRoute
+  '/p/$slug/': typeof PSlugIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -396,6 +423,8 @@ export interface FileRouteTypes {
     | '/workspace/settings'
     | '/api/auth/$'
     | '/api/files/$fileId'
+    | '/p/$slug/sign-in'
+    | '/p/$slug/verify'
     | '/companies/'
     | '/contacts/'
     | '/deals/'
@@ -405,6 +434,7 @@ export interface FileRouteTypes {
     | '/projects/'
     | '/quotes/'
     | '/api/files/'
+    | '/p/$slug/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -435,6 +465,8 @@ export interface FileRouteTypes {
     | '/workspace/settings'
     | '/api/auth/$'
     | '/api/files/$fileId'
+    | '/p/$slug/sign-in'
+    | '/p/$slug/verify'
     | '/companies'
     | '/contacts'
     | '/deals'
@@ -444,6 +476,7 @@ export interface FileRouteTypes {
     | '/projects'
     | '/quotes'
     | '/api/files'
+    | '/p/$slug'
   id:
     | '__root__'
     | '/'
@@ -476,6 +509,8 @@ export interface FileRouteTypes {
     | '/_authed/workspace/settings'
     | '/api/auth/$'
     | '/api/files/$fileId'
+    | '/p/$slug/sign-in'
+    | '/p/$slug/verify'
     | '/_authed/companies/'
     | '/_authed/contacts/'
     | '/_authed/deals/'
@@ -485,6 +520,7 @@ export interface FileRouteTypes {
     | '/_authed/projects/'
     | '/_authed/quotes/'
     | '/api/files/'
+    | '/p/$slug/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -494,7 +530,10 @@ export interface RootRouteChildren {
   VerifyEmailRoute: typeof VerifyEmailRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiFilesFileIdRoute: typeof ApiFilesFileIdRoute
+  PSlugSignInRoute: typeof PSlugSignInRoute
+  PSlugVerifyRoute: typeof PSlugVerifyRoute
   ApiFilesIndexRoute: typeof ApiFilesIndexRoute
+  PSlugIndexRoute: typeof PSlugIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -772,6 +811,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiFilesFileIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/p/$slug/': {
+      id: '/p/$slug/'
+      path: '/p/$slug'
+      fullPath: '/p/$slug/'
+      preLoaderRoute: typeof PSlugIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/p/$slug/sign-in': {
+      id: '/p/$slug/sign-in'
+      path: '/p/$slug/sign-in'
+      fullPath: '/p/$slug/sign-in'
+      preLoaderRoute: typeof PSlugSignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/p/$slug/verify': {
+      id: '/p/$slug/verify'
+      path: '/p/$slug/verify'
+      fullPath: '/p/$slug/verify'
+      preLoaderRoute: typeof PSlugVerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -864,7 +924,10 @@ const rootRouteChildren: RootRouteChildren = {
   VerifyEmailRoute: VerifyEmailRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiFilesFileIdRoute: ApiFilesFileIdRoute,
+  PSlugSignInRoute: PSlugSignInRoute,
+  PSlugVerifyRoute: PSlugVerifyRoute,
   ApiFilesIndexRoute: ApiFilesIndexRoute,
+  PSlugIndexRoute: PSlugIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

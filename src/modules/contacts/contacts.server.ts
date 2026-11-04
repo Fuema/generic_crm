@@ -35,6 +35,10 @@ import {
 	listFields,
 	prepareCustom,
 } from "#/modules/fields/fields.server";
+import {
+	endPortalSessions,
+	mergePortalAccess,
+} from "#/modules/portal/portal.server";
 import { LIMITS as RECORD_LIMITS } from "#/modules/records/schema";
 import {
 	filterConditions,
@@ -335,19 +339,23 @@ export async function updateContact(
 		...customChanges(before.custom, custom),
 	};
 	if (!Object.keys(changes).length) return { id };
+	// Portal links went to the old address: whoever holds it is signed out
+	const newEmail =
+		(before.email ?? "").toLowerCase() !== (values.email ?? "").toLowerCase();
 	try {
 		await db.batch([
 			db
 				.update(contact)
 				.set({ ...values, custom, updatedAt: new Date() })
 				.where(and(eq(contact.id, id), eq(contact.workspaceId, workspaceId))),
+			...(newEmail ? endPortalSessions(workspaceId, id) : []),
 			eventInsert(workspaceId, actor, {
 				type: "contact.updated",
 				subjectType: "contact",
 				subjectId: id,
 				payload: { changes },
 			}),
-		]);
+		] as unknown as Parameters<typeof db.batch>[0]);
 		return { id };
 	} catch (error) {
 		if (isUniqueViolation(error))
@@ -369,12 +377,15 @@ export async function setContactArchived(
 			.update(contact)
 			.set({ archivedAt: archived ? new Date() : null, updatedAt: new Date() })
 			.where(and(eq(contact.id, id), eq(contact.workspaceId, workspaceId))),
+		// Archiving signs the contact out of the portal for good: restoring
+		// never brings old sessions or links back
+		...(archived ? endPortalSessions(workspaceId, id) : []),
 		eventInsert(workspaceId, actor, {
 			type: archived ? "contact.archived" : "contact.restored",
 			subjectType: "contact",
 			subjectId: id,
 		}),
-	]);
+	] as unknown as Parameters<typeof db.batch>[0]);
 	return { id };
 }
 
@@ -610,6 +621,13 @@ export async function mergeContacts(
 						isNull(contact.archivedAt),
 					),
 				),
+			// Portal: the kept contact takes over the duplicate's access unless
+			// it has its own, and a new address signs the kept contact out
+			...mergePortalAccess(workspaceId, keepId, duplicateId),
+			...((keep.email ?? "").toLowerCase() !==
+			(values.email ?? keep.email ?? "").toLowerCase()
+				? endPortalSessions(workspaceId, keepId)
+				: []),
 			// Records that point to contacts move to the kept one (deals today;
 			// quotes, orders, invoices and portal access as they arrive)
 			db

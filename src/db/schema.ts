@@ -1176,3 +1176,109 @@ export const file = pgTable(
 		index("file_workspace_payment_idx").on(t.workspaceId, t.paymentId),
 	],
 );
+
+// ---------------------------------------------------------------------------
+// Customer portal (spec §8), phase 4. Contacts are not members: they sign in
+// with a one-time email link and get their own session, which the staff app
+// never accepts (and the other way round). Tokens and session ids are stored
+// only as SHA-256 hashes.
+// ---------------------------------------------------------------------------
+
+// A contact's access to their workspace's portal, turned on by staff
+export const portalAccess = pgTable(
+	"portal_access",
+	{
+		id: text("id").primaryKey(),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
+		contactId: text("contact_id")
+			.notNull()
+			.references(() => contact.id),
+		// Also sees their company's records (a "company contact")
+		companyAccess: boolean("company_access").notNull().default(false),
+		// The company that access was granted for; if the contact moves to
+		// another company, company access no longer applies
+		companyId: text("company_id").references(() => company.id, {
+			onDelete: "set null",
+		}),
+		invitedById: text("invited_by_id").references(() => user.id, {
+			onDelete: "set null",
+		}),
+		invitedAt: timestamp("invited_at").notNull().defaultNow(),
+		// Null = active; revoking ends every session at once
+		revokedAt: timestamp("revoked_at"),
+		lastSignInAt: timestamp("last_sign_in_at"),
+	},
+	(t) => [
+		uniqueIndex("portal_access_workspace_contact_unique").on(
+			t.workspaceId,
+			t.contactId,
+		),
+	],
+);
+
+// One-time sign-in links: 15 minutes, single use
+export const portalToken = pgTable(
+	"portal_token",
+	{
+		id: text("id").primaryKey(),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
+		contactId: text("contact_id")
+			.notNull()
+			.references(() => contact.id),
+		tokenHash: text("token_hash").notNull().unique(),
+		expiresAt: timestamp("expires_at").notNull(),
+		usedAt: timestamp("used_at"),
+		// For rate limits: who asked, from where
+		requestedIp: text("requested_ip"),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+	},
+	(t) => [
+		index("portal_token_contact_created_idx").on(
+			t.workspaceId,
+			t.contactId,
+			t.createdAt,
+		),
+	],
+);
+
+export const portalSession = pgTable(
+	"portal_session",
+	{
+		id: text("id").primaryKey(),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
+		contactId: text("contact_id")
+			.notNull()
+			.references(() => contact.id),
+		tokenHash: text("token_hash").notNull().unique(),
+		expiresAt: timestamp("expires_at").notNull(),
+		ip: text("ip"),
+		userAgent: text("user_agent"),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+	},
+	(t) => [index("portal_session_contact_idx").on(t.workspaceId, t.contactId)],
+);
+
+// Every "send me a link" request, matched or not, for rate limits: by
+// address (as a hash, never the address itself), by IP and per workspace
+export const portalLinkRequest = pgTable(
+	"portal_link_request",
+	{
+		id: text("id").primaryKey(),
+		workspaceId: text("workspace_id").references(() => organization.id, {
+			onDelete: "cascade",
+		}),
+		emailHash: text("email_hash").notNull(),
+		ip: text("ip"),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+	},
+	(t) => [
+		index("portal_link_request_email_idx").on(t.emailHash, t.createdAt),
+		index("portal_link_request_ip_idx").on(t.ip, t.createdAt),
+	],
+);

@@ -81,12 +81,14 @@ export async function sendEmail({ to, subject, html, text, replyTo }: Email) {
 	}
 }
 
-function layout(title: string, body: string) {
-	return `<!doctype html><html lang="${getLocale()}"><body style="margin:0;background:#f4f4f5;font-family:system-ui,sans-serif">
+// The request's language by default; emails to contacts pass the contact's
+function layout(title: string, body: string, locale = getLocale()) {
+	const o = { locale: locale as ReturnType<typeof getLocale> };
+	return `<!doctype html><html lang="${locale}"><body style="margin:0;background:#f4f4f5;font-family:system-ui,sans-serif">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px">
 <table role="presentation" width="100%" style="max-width:480px;background:#fff;border-radius:12px;padding:32px">
 <tr><td><h1 style="margin:0 0 16px;font-size:20px;color:#18181b">${title}</h1>${body}
-<p style="margin:24px 0 0;font-size:12px;color:#71717a">${escapeHtml(m.email_ignore())}</p>
+<p style="margin:24px 0 0;font-size:12px;color:#71717a">${escapeHtml(m.email_ignore({}, o))}</p>
 </td></tr></table></td></tr></table></body></html>`;
 }
 
@@ -94,9 +96,10 @@ function paragraph(text: string) {
 	return `<p style="color:#3f3f46">${text}</p>`;
 }
 
-function button(url: string, label: string) {
+function button(url: string, label: string, locale = getLocale()) {
+	const o = { locale: locale as ReturnType<typeof getLocale> };
 	return `<p style="margin:24px 0"><a href="${escapeHtml(url)}" style="background:#18181b;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">${escapeHtml(label)}</a></p>
-<p style="font-size:12px;color:#71717a;word-break:break-all">${escapeHtml(m.email_paste_link())}<br>${escapeHtml(url)}</p>`;
+<p style="font-size:12px;color:#71717a;word-break:break-all">${escapeHtml(m.email_paste_link({}, o))}<br>${escapeHtml(url)}</p>`;
 }
 
 function roleLabel(role: string) {
@@ -178,6 +181,41 @@ export function sendInvitationEmail(
 			role: roleName,
 			url,
 		}),
+	});
+}
+
+// A customer portal sign-in link (spec §8), in the contact's language
+export function sendPortalLinkEmail(input: {
+	to: string;
+	name: string;
+	workspaceName: string;
+	url: string;
+	locale: string;
+	invited: boolean;
+}) {
+	const locale = (input.locale === "es" ? "es" : "en") as ReturnType<
+		typeof getLocale
+	>;
+	const o = { locale };
+	const values = { name: input.name, workspace: input.workspaceName };
+	const subject = input.invited
+		? m.email_portal_invite_subject(values, o)
+		: m.email_portal_link_subject(values, o);
+	return sendEmail({
+		to: input.to,
+		subject,
+		html: layout(
+			escapeHtml(subject),
+			paragraph(
+				escapeHtml(
+					input.invited
+						? m.email_portal_invite_body(values, o)
+						: m.email_portal_link_body(values, o),
+				),
+			) + button(input.url, m.email_portal_button({}, o), locale),
+			locale,
+		),
+		text: m.email_portal_text({ ...values, url: input.url }, o),
 	});
 }
 
