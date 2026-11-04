@@ -1,10 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-	customerInputSchema,
-	emailSchema,
-	nameSchema,
-	passwordSchema,
-} from "#/lib/schema";
+import { emailSchema, nameSchema, passwordSchema } from "#/lib/schema";
 
 describe("nameSchema", () => {
 	test("accepts names with accents, apostrophes, dots and hyphens", () => {
@@ -45,28 +40,5 @@ describe("passwordSchema", () => {
 		for (const pw of ["short", "alllowercase-but-long", " Gc-2026-Xq9!vLm"]) {
 			expect(passwordSchema.safeParse(pw).success).toBe(false);
 		}
-	});
-});
-
-describe("customerInputSchema", () => {
-	const valid = {
-		name: "Acme Ltd",
-		email: "billing@acme.example",
-		phone: "+1 (555) 010-2030",
-		company: "",
-		status: "lead",
-		city: "",
-		country: "",
-		notes: "",
-	};
-
-	test("accepts a valid customer", () => {
-		expect(customerInputSchema.safeParse(valid).success).toBe(true);
-	});
-
-	test("rejects a phone number with too few digits", () => {
-		expect(
-			customerInputSchema.safeParse({ ...valid, phone: "12345" }).success,
-		).toBe(false);
 	});
 });

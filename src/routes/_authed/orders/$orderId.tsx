@@ -44,6 +44,8 @@ import { pickProducts } from "#/modules/products/products";
 import { RecordTimeline } from "#/modules/records/components/RecordTimeline";
 import { TagEditor } from "#/modules/records/components/TagEditor";
 import { getTimeline, listWorkspaceTags } from "#/modules/records/records";
+import { RecordWork } from "#/modules/tasks/components/RecordWork";
+import { listRecordWork } from "#/modules/tasks/tasks";
 import { m } from "#/paraglide/messages.js";
 
 export const Route = createFileRoute("/_authed/orders/$orderId")({
@@ -53,18 +55,20 @@ export const Route = createFileRoute("/_authed/orders/$orderId")({
 				subjectType: "order" as const,
 				subjectId: params.orderId,
 			};
-			const [detail, options, timeline, allTags, fields] = await Promise.all([
-				getOrder({ data: { id: params.orderId } }),
-				getContactFormOptions(),
-				getTimeline({ data: subject }),
-				listWorkspaceTags(),
-				getRecordFields({ data: { objectKey: "order" } }),
-			]);
+			const [detail, options, timeline, allTags, fields, work] =
+				await Promise.all([
+					getOrder({ data: { id: params.orderId } }),
+					getContactFormOptions(),
+					getTimeline({ data: subject }),
+					listWorkspaceTags(),
+					getRecordFields({ data: { objectKey: "order" } }),
+					listRecordWork({ data: subject }),
+				]);
 			const products =
 				detail.order.status === "draft" && !detail.order.archivedAt
 					? await pickProducts({ data: { q: "" } })
 					: [];
-			return { detail, options, timeline, allTags, fields, products };
+			return { work, detail, options, timeline, allTags, fields, products };
 		} catch (e) {
 			if (e instanceof Response && (e.status === 404 || e.status === 400))
 				throw notFound();
@@ -84,6 +88,7 @@ function OrderPage() {
 	const navigate = useNavigate();
 	const { detail, options, timeline, allTags, fields, products } =
 		Route.useLoaderData();
+	const { work } = Route.useLoaderData();
 	const { access, session } = Route.useRouteContext();
 	const can = {
 		update: roleCan(access?.role, { order: ["update"] }),
@@ -371,6 +376,14 @@ function OrderPage() {
 					<CardHeader>
 						<CardTitle>{m.timeline_title()}</CardTitle>
 					</CardHeader>
+					<RecordWork
+						subjectType="order"
+						subjectId={o.id}
+						label={number}
+						work={work}
+						role={access?.role}
+						archived={archived}
+					/>
 					<CardContent>
 						<RecordTimeline
 							subjectType="order"

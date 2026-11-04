@@ -365,6 +365,8 @@ export async function deleteNote(
 // themselves. Every role that reads contacts also reads deals, quotes, orders
 // and invoices today; a future role without one of them (custom roles) must
 // have those related events filtered out here.
+const WORK_MILESTONE = sql`${event.type} in ('task.created', 'task.completed', 'activity.created', 'activity.completed')`;
+
 const MILESTONE = sql`${event.type} not like '%.updated' and ${event.type} not like '%.tag\\_%' and ${event.type} not like '%.note\\_%'`;
 
 function relatedEvents(
@@ -377,11 +379,17 @@ function relatedEvents(
 	// subquery under OR would be re-checked against every event instead
 	const of = (type: string, table: string, column: string) =>
 		sql`(${event.subjectType} = ${type} and ${event.subjectId} = any(array(select r."id" from ${sql.raw(`"${table}"`)} r where r."workspace_id" = ${workspaceId} and r.${sql.raw(`"${column}"`)} = ${subjectId})))`;
+	// Tasks and activities about this record (on a project: its activities and
+	// milestone tasks); only their creation and completion
+	const work =
+		subjectType === "project"
+			? sql`(${WORK_MILESTONE} and ((${event.subjectType} = 'task' and ${event.subjectId} = any(array(select t."id" from "task" t where t."workspace_id" = ${workspaceId} and t."project_id" = ${subjectId} and t."is_milestone"))) or (${event.subjectType} = 'activity' and ${event.subjectId} = any(array(select a."id" from "activity" a where a."workspace_id" = ${workspaceId} and a."project_id" = ${subjectId})))))`
+			: sql`(${WORK_MILESTONE} and ((${event.subjectType} = 'task' and ${event.subjectId} = any(array(select t."id" from "task" t where t."workspace_id" = ${workspaceId} and t."subject_type" = ${subjectType} and t."subject_id" = ${subjectId}))) or (${event.subjectType} = 'activity' and ${event.subjectId} = any(array(select a."id" from "activity" a where a."workspace_id" = ${workspaceId} and a."subject_type" = ${subjectType} and a."subject_id" = ${subjectId})))))`;
 	if (subjectType === "contact")
-		return sql`(${MILESTONE} and (${of("deal", "deal", "contact_id")} or ${of("quote", "quote", "contact_id")} or ${of("order", "sales_order", "contact_id")} or ${of("invoice", "invoice", "contact_id")} or ${of("project", "project", "contact_id")}))`;
+		return sql`(${work} or (${MILESTONE} and (${of("deal", "deal", "contact_id")} or ${of("quote", "quote", "contact_id")} or ${of("order", "sales_order", "contact_id")} or ${of("invoice", "invoice", "contact_id")} or ${of("project", "project", "contact_id")})))`;
 	if (subjectType === "deal")
-		return sql`(${MILESTONE} and (${of("quote", "quote", "deal_id")} or ${of("order", "sales_order", "deal_id")} or ${of("invoice", "invoice", "deal_id")} or ${of("project", "project", "deal_id")}))`;
-	return undefined;
+		return sql`(${work} or (${MILESTONE} and (${of("quote", "quote", "deal_id")} or ${of("order", "sales_order", "deal_id")} or ${of("invoice", "invoice", "deal_id")} or ${of("project", "project", "deal_id")})))`;
+	return work;
 }
 
 export async function getTimeline(
@@ -426,7 +434,7 @@ export async function getTimeline(
 				// For events of a related record: what to call it
 				relatedName: sql<
 					string | null
-				>`(case ${event.subjectType} when 'deal' then (select d."name" from "deal" d where d."id" = ${event.subjectId} and d."workspace_id" = ${workspaceId}) when 'project' then (select pr."name" from "project" pr where pr."id" = ${event.subjectId} and pr."workspace_id" = ${workspaceId}) end)`,
+				>`(case ${event.subjectType} when 'deal' then (select d."name" from "deal" d where d."id" = ${event.subjectId} and d."workspace_id" = ${workspaceId}) when 'project' then (select pr."name" from "project" pr where pr."id" = ${event.subjectId} and pr."workspace_id" = ${workspaceId}) when 'task' then (select t."title" from "task" t where t."id" = ${event.subjectId} and t."workspace_id" = ${workspaceId}) when 'activity' then (select a."subject" from "activity" a where a."id" = ${event.subjectId} and a."workspace_id" = ${workspaceId}) end)`,
 				relatedNumber: sql<
 					number | null
 				>`(case ${event.subjectType} when 'quote' then (select q."number" from "quote" q where q."id" = ${event.subjectId} and q."workspace_id" = ${workspaceId}) when 'order' then (select o."number" from "sales_order" o where o."id" = ${event.subjectId} and o."workspace_id" = ${workspaceId}) when 'invoice' then (select i."number" from "invoice" i where i."id" = ${event.subjectId} and i."workspace_id" = ${workspaceId}) end)`,

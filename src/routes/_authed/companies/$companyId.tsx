@@ -35,6 +35,8 @@ import { listRelatedProjects } from "#/modules/projects/projects";
 import { RecordTimeline } from "#/modules/records/components/RecordTimeline";
 import { TagEditor } from "#/modules/records/components/TagEditor";
 import { getTimeline, listWorkspaceTags } from "#/modules/records/records";
+import { RecordWork } from "#/modules/tasks/components/RecordWork";
+import { listRecordWork } from "#/modules/tasks/tasks";
 import { m } from "#/paraglide/messages.js";
 
 export const Route = createFileRoute("/_authed/companies/$companyId")({
@@ -44,17 +46,27 @@ export const Route = createFileRoute("/_authed/companies/$companyId")({
 				subjectType: "company" as const,
 				subjectId: params.companyId,
 			};
-			const [detail, options, timeline, allTags, fields, deals, projects] =
-				await Promise.all([
-					getCompany({ data: { id: params.companyId } }),
-					getContactFormOptions(),
-					getTimeline({ data: subject }),
-					listWorkspaceTags(),
-					getRecordFields({ data: { objectKey: "company" } }),
-					listRelatedDeals({ data: { companyId: params.companyId } }),
-					listRelatedProjects({ data: { companyId: params.companyId } }),
-				]);
+			const [
+				detail,
+				options,
+				timeline,
+				allTags,
+				fields,
+				deals,
+				projects,
+				work,
+			] = await Promise.all([
+				getCompany({ data: { id: params.companyId } }),
+				getContactFormOptions(),
+				getTimeline({ data: subject }),
+				listWorkspaceTags(),
+				getRecordFields({ data: { objectKey: "company" } }),
+				listRelatedDeals({ data: { companyId: params.companyId } }),
+				listRelatedProjects({ data: { companyId: params.companyId } }),
+				listRecordWork({ data: subject }),
+			]);
 			return {
+				work,
 				...detail,
 				members: options.members,
 				options,
@@ -102,6 +114,7 @@ function CompanyPage() {
 		deals,
 		projects,
 	} = Route.useLoaderData();
+	const { work } = Route.useLoaderData();
 	const { access, session } = Route.useRouteContext();
 	const can = {
 		update: roleCan(access?.role, { company: ["update"] }),
@@ -256,6 +269,14 @@ function CompanyPage() {
 						<CardHeader>
 							<CardTitle>{m.timeline_title()}</CardTitle>
 						</CardHeader>
+						<RecordWork
+							subjectType="company"
+							subjectId={company.id}
+							label={company.name}
+							work={work}
+							role={access?.role}
+							archived={archived}
+						/>
 						<CardContent>
 							<RecordTimeline
 								subjectType="company"

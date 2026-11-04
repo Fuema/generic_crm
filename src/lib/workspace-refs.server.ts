@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "#/db/index";
-import { company, customer, member, salesOrder } from "#/db/schema";
+import { company, member, salesOrder } from "#/db/schema";
 import { m } from "#/paraglide/messages.js";
 
 // Server-only: import from server-function handlers, never from routes or
@@ -10,7 +10,7 @@ function badRequest(message: string) {
 	return new Response(message, { status: 400 });
 }
 
-// Confirms every referenced user, company, customer and order belongs to this
+// Confirms every referenced user, company and order belongs to this
 // workspace, so a record can't be assigned to an outsider or linked to another
 // workspace's data
 export async function assertWorkspaceRefs(
@@ -18,7 +18,6 @@ export async function assertWorkspaceRefs(
 	refs: {
 		userId?: string | null;
 		companyId?: string | null;
-		customerId?: string | null;
 		orderId?: string | null;
 	},
 ) {
@@ -54,23 +53,6 @@ export async function assertWorkspaceRefs(
 				.limit(1)
 				.then(([row]) => {
 					if (!row) throw badRequest(m.error_choose_company());
-				}),
-		);
-	}
-	if (refs.customerId) {
-		checks.push(
-			db
-				.select({ id: customer.id })
-				.from(customer)
-				.where(
-					and(
-						eq(customer.workspaceId, workspaceId),
-						eq(customer.id, refs.customerId),
-					),
-				)
-				.limit(1)
-				.then(([row]) => {
-					if (!row) throw badRequest(m.error_choose_customer());
 				}),
 		);
 	}

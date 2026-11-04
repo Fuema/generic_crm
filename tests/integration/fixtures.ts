@@ -2,7 +2,6 @@ import { inArray } from "drizzle-orm";
 import { db } from "#/db/index";
 import {
 	contact,
-	customer,
 	member,
 	organization,
 	product,
@@ -17,13 +16,12 @@ const created = { workspaces: [] as string[], users: [] as string[] };
 
 export type Workspace = Awaited<ReturnType<typeof createWorkspace>>;
 
-// A workspace with one owner, one customer (old model, still used by tasks),
-// one contact, one product and one order for that contact
+// A workspace with one owner, one (archived) contact, one product and one
+// order for that contact
 export async function createWorkspace(label: string) {
 	const now = new Date();
 	const workspaceId = crypto.randomUUID();
 	const userId = crypto.randomUUID();
-	const customerId = crypto.randomUUID();
 	const productId = crypto.randomUUID();
 	const orderId = crypto.randomUUID();
 	const contactId = crypto.randomUUID();
@@ -52,12 +50,6 @@ export async function createWorkspace(label: string) {
 			role: "owner",
 			createdAt: now,
 		}),
-		db.insert(customer).values({
-			id: customerId,
-			workspaceId,
-			name: `Customer ${label}`,
-			email: "shared@example.com",
-		}),
 		db.insert(product).values({
 			id: productId,
 			workspaceId,
@@ -84,7 +76,7 @@ export async function createWorkspace(label: string) {
 		}),
 	]);
 
-	return { workspaceId, userId, customerId, contactId, productId, orderId };
+	return { workspaceId, userId, contactId, productId, orderId };
 }
 
 // Deleting a workspace cascades to all of its data

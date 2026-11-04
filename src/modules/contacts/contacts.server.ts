@@ -14,6 +14,7 @@ import {
 } from "drizzle-orm";
 import { db } from "#/db/index";
 import {
+	activity,
 	company,
 	contact,
 	deal,
@@ -24,6 +25,7 @@ import {
 	quote,
 	recordTag,
 	salesOrder,
+	task,
 	user,
 } from "#/db/schema";
 import { assertWorkspaceRefs } from "#/lib/workspace-refs.server";
@@ -634,6 +636,26 @@ export async function mergeContacts(
 					and(
 						eq(project.workspaceId, workspaceId),
 						eq(project.contactId, duplicateId),
+					),
+				),
+			db
+				.update(task)
+				.set({ subjectId: keepId, updatedAt: now })
+				.where(
+					and(
+						eq(task.workspaceId, workspaceId),
+						eq(task.subjectType, "contact"),
+						eq(task.subjectId, duplicateId),
+					),
+				),
+			db
+				.update(activity)
+				.set({ subjectId: keepId, updatedAt: now })
+				.where(
+					and(
+						eq(activity.workspaceId, workspaceId),
+						eq(activity.subjectType, "contact"),
+						eq(activity.subjectId, duplicateId),
 					),
 				),
 			db

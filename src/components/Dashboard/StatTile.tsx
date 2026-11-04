@@ -1,15 +1,16 @@
 import { ArrowDown, ArrowUp, Minus } from "lucide-react";
 import type { ReactNode } from "react";
 import { Card, CardContent } from "#/components/ui/card";
+import { getLocale } from "#/paraglide/runtime.js";
 
-const compact = new Intl.NumberFormat("en", {
+const compact = new Intl.NumberFormat(getLocale(), {
 	notation: "compact",
 	maximumFractionDigits: 1,
 });
 
 // 1,284 / 12.9K / 4.2M
 export function formatCount(n: number) {
-	return n < 10_000 ? n.toLocaleString("en") : compact.format(n);
+	return n < 10_000 ? n.toLocaleString(getLocale()) : compact.format(n);
 }
 
 export type Delta = {

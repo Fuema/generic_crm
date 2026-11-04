@@ -20,14 +20,15 @@ import {
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { CalendarClock, Link2, Plus } from "lucide-react";
+import { CalendarClock, Flag, FolderKanban, Link2, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "#/components/ui/button";
-import { dayKeyLocal, formatTime, itemDayKey } from "#/lib/calendar";
-import { orderNumberLabel } from "#/lib/money";
-import { TASK_STATUSES, type TaskStatus } from "#/lib/schema";
-import type { TaskCard } from "#/lib/tasks";
-import { initials, PriorityBadge, STATUS_LABELS } from "./fields";
+import { m } from "#/paraglide/messages.js";
+import { TASK_STATUS_LABELS, TASK_STATUSES, type TaskStatus } from "../schema";
+import type { TaskCard } from "../tasks";
+import { dueLabel, initials, PriorityBadge, subjectLabel } from "./WorkBits";
+
+const statusLabel = (s: string) => TASK_STATUS_LABELS[s as TaskStatus]?.() ?? s;
 
 type Columns = Record<TaskStatus, string[]>;
 
@@ -39,22 +40,6 @@ function toColumns(tasks: TaskCard[]): Columns {
 		(columns[t.status as TaskStatus] ?? columns.todo).push(t.id);
 	}
 	return columns;
-}
-
-function dueLabel(t: TaskCard) {
-	if (!t.dueAt) return null;
-	const key = itemDayKey(t.dueAt, t.allDay);
-	const today = dayKeyLocal(new Date());
-	const [y, m, d] = key.split("-").map(Number);
-	const date = new Date(y, m - 1, d).toLocaleDateString(undefined, {
-		month: "short",
-		day: "numeric",
-	});
-	const overdue = t.status !== "done" && key < today;
-	return {
-		text: `${key === today ? "Today" : date}${t.allDay ? "" : ` ${formatTime(t.dueAt)}`}`,
-		overdue,
-	};
 }
 
 function CardBody({ task }: { task: TaskCard }) {
@@ -69,15 +54,24 @@ function CardBody({ task }: { task: TaskCard }) {
 				</p>
 				<PriorityBadge priority={task.priority} />
 			</div>
-			{task.customerName || task.orderNumber ? (
+			{task.subjectId ? (
 				<p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
 					<Link2 className="size-3 shrink-0" aria-hidden="true" />
-					{[
-						task.customerName,
-						task.orderNumber ? orderNumberLabel(task.orderNumber) : null,
-					]
-						.filter(Boolean)
-						.join(" · ")}
+					<span className="sr-only">{m.work_related_to()}:</span>
+					{subjectLabel(task.subjectType, task)}
+				</p>
+			) : null}
+			{task.projectId ? (
+				<p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+					{task.isMilestone ? (
+						<Flag className="size-3 shrink-0" aria-hidden="true" />
+					) : (
+						<FolderKanban className="size-3 shrink-0" aria-hidden="true" />
+					)}
+					<span className="sr-only">
+						{task.isMilestone ? m.task_milestone() : m.work_project()}:
+					</span>
+					{task.projectName}
 				</p>
 			) : null}
 			<div className="flex items-center justify-between gap-2 text-xs">
@@ -86,7 +80,7 @@ function CardBody({ task }: { task: TaskCard }) {
 						className={`inline-flex items-center gap-1 ${due.overdue ? "font-medium text-destructive" : "text-muted-foreground"}`}
 					>
 						<CalendarClock className="size-3" aria-hidden="true" />
-						{due.overdue ? "Overdue · " : ""}
+						{due.overdue ? `${m.task_overdue()} · ` : ""}
 						{due.text}
 					</span>
 				) : (
@@ -98,7 +92,9 @@ function CardBody({ task }: { task: TaskCard }) {
 						title={task.assigneeName}
 					>
 						<span aria-hidden="true">{initials(task.assigneeName)}</span>
-						<span className="sr-only">Assigned to {task.assigneeName}</span>
+						<span className="sr-only">
+							{m.task_assigned_to({ name: task.assigneeName })}
+						</span>
 					</span>
 				) : null}
 			</div>
@@ -135,8 +131,18 @@ function SortableCard({
 			} ${isDragging ? "opacity-40" : ""}`}
 			{...attributes}
 			{...listeners}
-			aria-roledescription={disabled ? undefined : "draggable task"}
-			aria-label={`${task.title}. ${STATUS_LABELS[task.status as TaskStatus] ?? task.status}. Press Enter to open${disabled ? "" : ", Space to pick up"}.`}
+			aria-roledescription={disabled ? undefined : m.task_draggable()}
+			aria-label={
+				disabled
+					? m.task_card_label({
+							title: task.title,
+							status: statusLabel(task.status),
+						})
+					: m.task_card_label_drag({
+							title: task.title,
+							status: statusLabel(task.status),
+						})
+			}
 			onClick={onOpen}
 			onKeyDown={(e) => {
 				if (e.key === "Enter") {
@@ -173,12 +179,12 @@ function Column({
 	const { setNodeRef, isOver } = useDroppable({ id: status });
 	return (
 		<section
-			aria-label={`${STATUS_LABELS[status]} column`}
+			aria-label={m.task_column_label({ status: statusLabel(status) })}
 			className={`flex w-72 shrink-0 flex-col rounded-xl border bg-muted/50 ${isOver ? "ring-2 ring-ring" : ""}`}
 		>
 			<header className="flex items-center justify-between gap-2 px-3 pt-3 pb-2">
 				<h2 className="text-sm font-semibold">
-					{STATUS_LABELS[status]}{" "}
+					{statusLabel(status)}{" "}
 					<span className="font-normal text-muted-foreground">
 						{ids.length}
 					</span>
@@ -190,7 +196,7 @@ function Column({
 						size="icon"
 						className="size-7"
 						onClick={() => onAdd(status)}
-						aria-label={`Add task to ${STATUS_LABELS[status]}`}
+						aria-label={m.task_add_to({ status: statusLabel(status) })}
 					>
 						<Plus />
 					</Button>
@@ -218,7 +224,7 @@ function Column({
 					})}
 					{ids.length === 0 ? (
 						<li className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
-							{canMove ? "Drop tasks here" : "No tasks"}
+							{canMove ? m.task_drop_here() : m.task_none()}
 						</li>
 					) : null}
 				</ul>
@@ -328,20 +334,23 @@ export function TaskBoard({
 	};
 
 	const title = (id: string | number | undefined) =>
-		id ? (byId.get(String(id))?.title ?? "task") : "task";
+		(id ? byId.get(String(id))?.title : null) ?? m.task_view_title();
 	const place = (id: string | number | undefined) => {
 		const s = id ? columnOf(String(id)) : null;
-		return s ? STATUS_LABELS[s] : "the board";
+		return s ? statusLabel(s) : m.task_the_board();
 	};
 	const announcements: Announcements = {
-		onDragStart: ({ active }) => `Picked up ${title(active.id)}.`,
+		onDragStart: ({ active }) => m.task_drag_start({ title: title(active.id) }),
 		onDragOver: ({ active, over }) =>
-			over ? `${title(active.id)} is over ${place(over.id)}.` : undefined,
+			over
+				? m.task_drag_over({ title: title(active.id), place: place(over.id) })
+				: undefined,
 		onDragEnd: ({ active, over }) =>
 			over
-				? `${title(active.id)} was dropped in ${place(over.id)}.`
-				: `${title(active.id)} was dropped.`,
-		onDragCancel: ({ active }) => `Moving ${title(active.id)} was cancelled.`,
+				? m.task_drag_end({ title: title(active.id), place: place(over.id) })
+				: m.task_drag_dropped({ title: title(active.id) }),
+		onDragCancel: ({ active }) =>
+			m.task_drag_cancel({ title: title(active.id) }),
 	};
 
 	const activeTask = activeId ? byId.get(activeId) : null;
@@ -360,8 +369,7 @@ export function TaskBoard({
 			accessibility={{
 				announcements,
 				screenReaderInstructions: {
-					draggable:
-						"To move a task, press Space to pick it up, use the arrow keys to move it, then press Space again to drop it, or Escape to cancel.",
+					draggable: m.task_drag_instructions(),
 				},
 			}}
 		>

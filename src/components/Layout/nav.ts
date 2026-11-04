@@ -14,7 +14,6 @@ import {
 	Package,
 	Settings,
 	ShoppingCart,
-	UserRound,
 	Users,
 } from "lucide-react";
 import { m } from "#/paraglide/messages.js";
@@ -48,7 +47,6 @@ export const NAV_GROUPS: {
 		items: [
 			{ title: m.nav_deals, to: "/deals", icon: Handshake },
 			{ title: m.nav_quotes, to: "/quotes", icon: FileSignature },
-			{ title: m.nav_customers, to: "/customers", icon: UserRound },
 			{ title: m.nav_products, to: "/products", icon: Package },
 			{ title: m.nav_orders, to: "/orders", icon: ShoppingCart },
 			{ title: m.nav_invoices, to: "/invoices", icon: FileText },

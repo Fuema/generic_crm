@@ -2,14 +2,6 @@ import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, KanbanSquare, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { FormAlert } from "#/components/Auth/FormParts";
-import { ActivityFormDialog } from "#/components/Tasks/ActivityFormDialog";
-import {
-	CalendarBoard,
-	type CalendarItem,
-	CalendarLegend,
-	toCalendarItems,
-} from "#/components/Tasks/CalendarBoard";
-import { TaskFormDialog } from "#/components/Tasks/TaskFormDialog";
 import { Button, buttonVariants } from "#/components/ui/button";
 import {
 	DropdownMenu,
@@ -17,13 +9,12 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
+import { roleCan } from "#/lib/permissions";
 import {
-	type CalendarActivity,
-	createActivity,
-	deleteActivity,
-	listCalendar,
-	updateActivity,
-} from "#/lib/activities";
+	getPreferences,
+	setPreferences,
+} from "#/modules/preferences/preferences";
+import { CALENDAR_DAY_CHOICES } from "#/modules/preferences/schema";
 import {
 	type DayKey,
 	dayKeyLocal,
@@ -31,27 +22,34 @@ import {
 	queryRange,
 	step,
 	visibleDays,
-} from "#/lib/calendar";
-import { roleCan } from "#/lib/permissions";
+} from "#/modules/tasks/calendar";
+import { ActivityFormDialog } from "#/modules/tasks/components/ActivityFormDialog";
+import {
+	CalendarBoard,
+	type CalendarItem,
+	CalendarLegend,
+	toCalendarItems,
+} from "#/modules/tasks/components/CalendarBoard";
+import { TaskFormDialog } from "#/modules/tasks/components/TaskFormDialog";
 import {
 	CALENDAR_VIEWS,
 	type CalendarSearch,
 	calendarSearchSchema,
-} from "#/lib/schema";
+} from "#/modules/tasks/schema";
 import {
+	type CalendarActivity,
+	createActivity,
 	createTask,
+	deleteActivity,
 	deleteTask,
-	getWorkspaceRefOptions,
-	listTasks,
+	getWorkOptions,
+	listCalendar,
 	type TaskCard,
+	updateActivity,
 	updateTask,
-} from "#/lib/tasks";
-import {
-	getPreferences,
-	setPreferences,
-} from "#/modules/preferences/preferences";
-import { CALENDAR_DAY_CHOICES } from "#/modules/preferences/schema";
+} from "#/modules/tasks/tasks";
 import { m } from "#/paraglide/messages.js";
+import { getLocale } from "#/paraglide/runtime.js";
 
 // Protected by the _authed guard; listCalendar requires task:read and activity:read.
 // The range is padded a day each side, so the server's time zone never hides
@@ -65,26 +63,31 @@ export const Route = createFileRoute("/_authed/calendar")({
 		const range = queryRange(
 			visibleDays(deps.view, anchor, prefs.calendarDays),
 		);
-		const [calendar, tasks, refs] = await Promise.all([
+		const [calendar, options] = await Promise.all([
 			listCalendar({ data: range }),
-			listTasks({ data: {} }),
-			getWorkspaceRefOptions(),
+			getWorkOptions(),
 		]);
-		return { calendar, tasks, refs, prefs };
+		return { calendar, options, prefs };
 	},
 	component: CalendarPage,
 });
 
 const VIEW_LABELS = {
-	day: () => "Day",
+	day: () => m.calendar_view_day(),
 	days: (count: number) => m.common_days_count({ count }),
-	week: () => "Week",
-	month: () => "Month",
+	week: () => m.calendar_view_week(),
+	month: () => m.calendar_view_month(),
+} as const;
+
+const SHOW_LABELS = {
+	all: m.calendar_show_all,
+	tasks: m.nav_tasks,
+	activities: m.work_activities,
 } as const;
 
 function rangeTitle(view: CalendarSearch["view"], days: Date[]) {
 	if (view === "day") {
-		return days[0].toLocaleDateString(undefined, {
+		return days[0].toLocaleDateString(getLocale(), {
 			weekday: "long",
 			month: "long",
 			day: "numeric",
@@ -95,8 +98,8 @@ function rangeTitle(view: CalendarSearch["view"], days: Date[]) {
 		const first = days[0];
 		const last = days[days.length - 1];
 		const sameMonth = first.getMonth() === last.getMonth();
-		return `${first.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${last.toLocaleDateString(
-			undefined,
+		return `${first.toLocaleDateString(getLocale(), { month: "short", day: "numeric" })} – ${last.toLocaleDateString(
+			getLocale(),
 			{
 				month: sameMonth ? undefined : "short",
 				day: "numeric",
@@ -105,7 +108,7 @@ function rangeTitle(view: CalendarSearch["view"], days: Date[]) {
 		)}`;
 	}
 	// Month grids start in the previous month; the middle day is always in the month
-	return days[15].toLocaleDateString(undefined, {
+	return days[15].toLocaleDateString(getLocale(), {
 		month: "long",
 		year: "numeric",
 	});
@@ -115,7 +118,7 @@ function CalendarPage() {
 	const router = useRouter();
 	const navigate = Route.useNavigate();
 	const search = Route.useSearch();
-	const { calendar, tasks, refs, prefs } = Route.useLoaderData();
+	const { calendar, options, prefs } = Route.useLoaderData();
 	const dayCount = prefs.calendarDays;
 	const { access } = Route.useRouteContext();
 	const role = access?.role;
@@ -147,10 +150,6 @@ function CalendarPage() {
 				);
 	}, [calendar, search.show]);
 
-	const tasksById = useMemo(
-		() => new Map(tasks.map((t) => [t.id, t])),
-		[tasks],
-	);
 	const [taskDialog, setTaskDialog] = useState<{
 		task: TaskCard | null;
 		date?: string;
@@ -174,8 +173,7 @@ function CalendarPage() {
 
 	const openItem = (item: CalendarItem) => {
 		if (item.kind === "task") {
-			const full = tasksById.get(item.id);
-			if (full) setTaskDialog({ task: full });
+			setTaskDialog({ task: item.task });
 		} else {
 			setActivityDialog({ activity: item.activity });
 		}
@@ -187,20 +185,20 @@ function CalendarPage() {
 		<div className="space-y-5 p-6">
 			<div className="flex flex-wrap items-end justify-between gap-4">
 				<div>
-					<h1 className="text-2xl font-bold">Calendar</h1>
+					<h1 className="text-2xl font-bold">{m.nav_calendar()}</h1>
 					<p className="text-sm text-muted-foreground">
-						Tasks by due date and activities by start time.
+						{m.calendar_summary()}
 					</p>
 				</div>
 				<div className="flex gap-2">
 					<Link to="/tasks" className={buttonVariants({ variant: "outline" })}>
-						<KanbanSquare /> Board
+						<KanbanSquare /> {m.calendar_board()}
 					</Link>
 					{canAddAnything ? (
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
 								<Button type="button">
-									<Plus /> New
+									<Plus /> {m.calendar_new()}
 								</Button>
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="end">
@@ -210,7 +208,7 @@ function CalendarPage() {
 											setTaskDialog({ task: null, date: anchorKey })
 										}
 									>
-										Task
+										{m.calendar_task()}
 									</DropdownMenuItem>
 								) : null}
 								{can.createActivity ? (
@@ -219,7 +217,7 @@ function CalendarPage() {
 											setActivityDialog({ activity: null, date: anchorKey })
 										}
 									>
-										Activity
+										{m.calendar_activity()}
 									</DropdownMenuItem>
 								) : null}
 							</DropdownMenuContent>
@@ -241,13 +239,13 @@ function CalendarPage() {
 						size="sm"
 						onClick={() => go({ date: undefined })}
 					>
-						Today
+						{m.work_today()}
 					</Button>
 					<Button
 						type="button"
 						variant="ghost"
 						size="icon"
-						aria-label={`Previous ${search.view}`}
+						aria-label={m.calendar_previous()}
 						onClick={() =>
 							go({ date: dayKeyLocal(step(search.view, anchor, -1, dayCount)) })
 						}
@@ -258,7 +256,7 @@ function CalendarPage() {
 						type="button"
 						variant="ghost"
 						size="icon"
-						aria-label={`Next ${search.view}`}
+						aria-label={m.calendar_next()}
 						onClick={() =>
 							go({ date: dayKeyLocal(step(search.view, anchor, 1, dayCount)) })
 						}
@@ -295,7 +293,7 @@ function CalendarPage() {
 					<div
 						className="flex rounded-lg bg-muted p-1"
 						role="tablist"
-						aria-label="Calendar view"
+						aria-label={m.calendar_view_label()}
 					>
 						{CALENDAR_VIEWS.map((v) => (
 							<button
@@ -317,7 +315,7 @@ function CalendarPage() {
 					<div
 						className="flex rounded-lg bg-muted p-1"
 						role="tablist"
-						aria-label="Show"
+						aria-label={m.common_show()}
 					>
 						{(["all", "tasks", "activities"] as const).map((s) => (
 							<button
@@ -326,13 +324,13 @@ function CalendarPage() {
 								role="tab"
 								aria-selected={search.show === s}
 								onClick={() => go({ show: s })}
-								className={`rounded-md px-3 py-1 text-sm font-medium capitalize ${
+								className={`rounded-md px-3 py-1 text-sm font-medium ${
 									search.show === s
 										? "bg-background shadow-sm"
 										: "text-muted-foreground hover:text-foreground"
 								}`}
 							>
-								{s}
+								{SHOW_LABELS[s]()}
 							</button>
 						))}
 					</div>
@@ -362,14 +360,14 @@ function CalendarPage() {
 				onOpenChange={(o) => !o && setTaskDialog(null)}
 				task={taskDialog?.task ?? null}
 				draft={{ date: taskDialog?.date }}
-				refs={refs}
+				options={options}
 				canEdit={taskDialog?.task ? can.updateTask : can.createTask}
 				canDelete={can.deleteTask}
 				onSave={async (value) => {
 					if (taskDialog?.task)
 						await updateTask({ data: { id: taskDialog.task.id, ...value } });
 					else await createTask({ data: value });
-					await done(taskDialog?.task ? "Task saved." : "Task created.");
+					await done(taskDialog?.task ? m.task_saved() : m.task_created());
 				}}
 				onDelete={
 					taskDialog?.task
@@ -377,7 +375,7 @@ function CalendarPage() {
 								await deleteTask({
 									data: { id: taskDialog.task?.id as string },
 								});
-								await done("Task deleted.");
+								await done(m.task_deleted());
 							}
 						: undefined
 				}
@@ -387,8 +385,8 @@ function CalendarPage() {
 				open={activityDialog !== null}
 				onOpenChange={(o) => !o && setActivityDialog(null)}
 				activity={activityDialog?.activity ?? null}
-				date={activityDialog?.date}
-				refs={refs}
+				draft={{ date: activityDialog?.date }}
+				options={options}
 				canEdit={
 					activityDialog?.activity ? can.updateActivity : can.createActivity
 				}
@@ -400,7 +398,9 @@ function CalendarPage() {
 						});
 					else await createActivity({ data: value });
 					await done(
-						activityDialog?.activity ? "Activity saved." : "Activity logged.",
+						activityDialog?.activity
+							? m.activity_saved()
+							: m.activity_created(),
 					);
 				}}
 				onDelete={
@@ -409,7 +409,7 @@ function CalendarPage() {
 								await deleteActivity({
 									data: { id: activityDialog.activity?.id as string },
 								});
-								await done("Activity deleted.");
+								await done(m.activity_deleted());
 							}
 						: undefined
 				}

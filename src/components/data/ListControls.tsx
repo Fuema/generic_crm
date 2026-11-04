@@ -20,7 +20,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "#/components/ui/select";
-import { CUSTOMER_PAGE_SIZES } from "#/lib/schema";
+import { PAGE_SIZES } from "#/lib/schema";
 import { m } from "#/paraglide/messages.js";
 import { getLocale } from "#/paraglide/runtime.js";
 
@@ -206,7 +206,7 @@ export function ListPagination({
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
-							{CUSTOMER_PAGE_SIZES.map((n) => (
+							{PAGE_SIZES.map((n) => (
 								<SelectItem key={n} value={String(n)}>
 									{n}
 								</SelectItem>

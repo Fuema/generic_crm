@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { FormAlert } from "#/components/Auth/FormParts";
-import { serverErrorMessage } from "#/components/Customers/CustomerFormDialog";
+import { serverErrorMessage } from "#/components/data/serverError";
 import { Button } from "#/components/ui/button";
 import { Checkbox } from "#/components/ui/checkbox";
 import {
@@ -14,31 +14,33 @@ import {
 import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
 import { Textarea } from "#/components/ui/textarea";
-import type { CalendarActivity } from "#/lib/activities";
-import { fromStoredISO, toStoredISO } from "#/lib/calendar";
-import { orderNumberLabel } from "#/lib/money";
+import { OptionSelect } from "#/modules/contacts/components/fields";
+import { m } from "#/paraglide/messages.js";
+import { fromStoredISO, toStoredISO } from "../calendar";
 import {
+	ACTIVITY_TYPE_LABELS,
 	ACTIVITY_TYPES,
 	type ActivityInput,
 	type ActivityType,
 	activityInputSchema,
-} from "#/lib/schema";
-import type { RefOptions } from "#/lib/tasks";
-import { OptionSelect } from "./fields";
+} from "../schema";
+import type { CalendarActivity, WorkOptions } from "../tasks";
+import { NO_SUBJECT, type PickedSubject, SubjectPicker } from "./SubjectPicker";
+import { memberOptions, pickedSubjectOf } from "./TaskFormDialog";
 
-export const ACTIVITY_LABELS: Record<ActivityType, string> = {
-	call: "Call",
-	meeting: "Meeting",
-	email: "Email",
-	follow_up: "Follow-up",
+// What a new activity starts with: a day, the record page it's logged on
+export type ActivityDraft = {
+	date?: string;
+	subject?: PickedSubject;
+	projectId?: string;
 };
 
 export function ActivityFormDialog({
 	open,
 	onOpenChange,
 	activity,
-	date,
-	refs,
+	draft,
+	options,
 	canEdit,
 	canDelete,
 	onSave,
@@ -47,9 +49,8 @@ export function ActivityFormDialog({
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	activity: CalendarActivity | null;
-	// Prefill date for a new activity (YYYY-MM-DD)
-	date?: string;
-	refs: RefOptions;
+	draft?: ActivityDraft;
+	options: WorkOptions;
 	canEdit: boolean;
 	canDelete: boolean;
 	onSave: (value: ActivityInput) => Promise<void>;
@@ -62,19 +63,19 @@ export function ActivityFormDialog({
 					<DialogTitle>
 						{activity
 							? canEdit
-								? "Edit activity"
-								: "Activity"
-							: "Log activity"}
+								? m.activity_edit_title()
+								: m.activity_view_title()
+							: m.activity_new_title()}
 					</DialogTitle>
 					<DialogDescription>
-						Calls, meetings, emails and follow-ups with your customers.
+						{m.activity_dialog_description()}
 					</DialogDescription>
 				</DialogHeader>
 				<ActivityForm
-					key={activity?.id ?? `new-${date ?? ""}`}
+					key={activity?.id ?? `new-${draft?.date ?? ""}`}
 					activity={activity}
-					date={date}
-					refs={refs}
+					draft={draft}
+					options={options}
 					canEdit={canEdit}
 					canDelete={canDelete}
 					onSave={onSave}
@@ -88,8 +89,8 @@ export function ActivityFormDialog({
 
 function ActivityForm({
 	activity,
-	date: prefillDate,
-	refs,
+	draft,
+	options,
 	canEdit,
 	canDelete,
 	onSave,
@@ -97,8 +98,8 @@ function ActivityForm({
 	onCancel,
 }: {
 	activity: CalendarActivity | null;
-	date?: string;
-	refs: RefOptions;
+	draft?: ActivityDraft;
+	options: WorkOptions;
 	canEdit: boolean;
 	canDelete: boolean;
 	onSave: (value: ActivityInput) => Promise<void>;
@@ -116,41 +117,54 @@ function ActivityForm({
 	const [type, setType] = useState<ActivityType>(
 		(activity?.type as ActivityType) ?? "call",
 	);
-	const [subject, setSubject] = useState(activity?.subject ?? "");
+	const [subjectText, setSubjectText] = useState(activity?.subject ?? "");
 	const [notes, setNotes] = useState(activity?.notes ?? "");
-	const [date, setDate] = useState(start.date || prefillDate || "");
+	const [date, setDate] = useState(start.date || draft?.date || "");
 	const [startTime, setStartTime] = useState(start.time || "09:00");
 	const [endTime, setEndTime] = useState(end.time || "");
 	const [allDay, setAllDay] = useState(activity?.allDay ?? false);
 	const [completed, setCompleted] = useState(activity?.completed ?? false);
-	const [ownerId, setOwnerId] = useState<string | null>(
-		activity ? activity.ownerId : refs.currentUserId,
+	const [ownerId, setOwnerId] = useState(
+		activity ? (activity.ownerId ?? "") : options.currentUserId,
 	);
-	const [customerId, setCustomerId] = useState<string | null>(
-		activity?.customerId ?? null,
+	const [subject, setSubject] = useState<PickedSubject>(
+		activity ? pickedSubjectOf(activity) : (draft?.subject ?? NO_SUBJECT),
 	);
-	const [orderId, setOrderId] = useState<string | null>(
-		activity?.orderId ?? null,
+	const [projectId, setProjectId] = useState(
+		activity ? (activity.projectId ?? "") : (draft?.projectId ?? ""),
 	);
 	const [errors, setErrors] = useState<string[]>([]);
 	const [busy, setBusy] = useState(false);
 
+	const projects =
+		activity?.projectId &&
+		!options.projects.some((p) => p.id === activity.projectId)
+			? [
+					...options.projects,
+					{
+						id: activity.projectId,
+						name: activity.projectName ?? activity.projectId,
+					},
+				]
+			: options.projects;
+
 	const submit = async () => {
 		if (!date) {
-			setErrors(["Choose a date"]);
+			setErrors([m.activity_date_required()]);
 			return;
 		}
 		const parsed = activityInputSchema.safeParse({
 			type,
-			subject,
+			subject: subjectText,
 			notes,
 			startsAt: toStoredISO(date, startTime, allDay),
 			endsAt: !allDay && endTime ? toStoredISO(date, endTime, false) : null,
 			allDay,
 			completed,
 			ownerId,
-			customerId,
-			orderId,
+			subjectType: subject.type,
+			subjectId: subject.id,
+			projectId,
 		});
 		if (!parsed.success) {
 			setErrors([...new Set(parsed.error.issues.map((i) => i.message))]);
@@ -168,11 +182,7 @@ function ActivityForm({
 	};
 
 	const remove = async () => {
-		if (
-			!onDelete ||
-			!window.confirm("Delete this activity? This can't be undone.")
-		)
-			return;
+		if (!onDelete || !window.confirm(m.activity_delete_confirm())) return;
 		setBusy(true);
 		try {
 			await onDelete();
@@ -196,38 +206,39 @@ function ActivityForm({
 				<div className="grid gap-4 sm:grid-cols-[10rem_1fr]">
 					<OptionSelect
 						id="activity-type"
-						label="Type"
+						label={m.activity_type()}
 						value={type}
-						onChange={(v) => setType((v ?? "call") as ActivityType)}
+						onChange={(v) => setType((v || "call") as ActivityType)}
 						options={ACTIVITY_TYPES.map((t) => ({
 							value: t,
-							label: ACTIVITY_LABELS[t],
+							label: ACTIVITY_TYPE_LABELS[t](),
 						}))}
-						disabled={!canEdit}
 					/>
 					<div className="space-y-2">
-						<Label htmlFor="activity-subject">Subject *</Label>
+						<Label htmlFor="activity-subject">{m.activity_subject()}</Label>
 						<Input
 							id="activity-subject"
-							value={subject}
-							onChange={(e) => setSubject(e.target.value)}
+							value={subjectText}
+							onChange={(e) => setSubjectText(e.target.value)}
 							maxLength={200}
 							autoComplete="off"
+							required
 						/>
 					</div>
 				</div>
 				<div className="grid gap-4 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
 					<div className="space-y-2">
-						<Label htmlFor="activity-date">Date *</Label>
+						<Label htmlFor="activity-date">{m.activity_date()}</Label>
 						<Input
 							id="activity-date"
 							type="date"
 							value={date}
 							onChange={(e) => setDate(e.target.value)}
+							required
 						/>
 					</div>
 					<div className="space-y-2">
-						<Label htmlFor="activity-start">Start</Label>
+						<Label htmlFor="activity-start">{m.activity_start()}</Label>
 						<Input
 							id="activity-start"
 							type="time"
@@ -237,7 +248,7 @@ function ActivityForm({
 						/>
 					</div>
 					<div className="space-y-2">
-						<Label htmlFor="activity-end">End</Label>
+						<Label htmlFor="activity-end">{m.activity_end()}</Label>
 						<Input
 							id="activity-end"
 							type="time"
@@ -253,50 +264,36 @@ function ActivityForm({
 							onCheckedChange={(c) => setAllDay(c === true)}
 						/>
 						<Label htmlFor="activity-allday" className="font-normal">
-							All day
+							{m.work_all_day()}
 						</Label>
 					</div>
 				</div>
-				<div className="grid gap-4 sm:grid-cols-3">
+				<SubjectPicker
+					idPrefix="activity"
+					value={subject}
+					onChange={setSubject}
+					invalid={errors.length > 0 && subject.type !== "" && !subject.id}
+				/>
+				<div className="grid gap-4 sm:grid-cols-2">
+					<OptionSelect
+						id="activity-project"
+						label={m.work_project()}
+						value={projectId}
+						onChange={setProjectId}
+						emptyLabel={m.work_no_project()}
+						options={projects.map((p) => ({ value: p.id, label: p.name }))}
+					/>
 					<OptionSelect
 						id="activity-owner"
-						label="Owner"
+						label={m.activity_owner()}
 						value={ownerId}
 						onChange={setOwnerId}
-						noneLabel="Nobody"
-						options={refs.members.map((m) => ({
-							value: m.id,
-							label: m.id === refs.currentUserId ? `${m.name} (me)` : m.name,
-						}))}
-						disabled={!canEdit}
-					/>
-					<OptionSelect
-						id="activity-customer"
-						label="Customer"
-						value={customerId}
-						onChange={setCustomerId}
-						noneLabel="No customer"
-						options={refs.customers.map((c) => ({
-							value: c.id,
-							label: c.name,
-						}))}
-						disabled={!canEdit}
-					/>
-					<OptionSelect
-						id="activity-order"
-						label="Order"
-						value={orderId}
-						onChange={setOrderId}
-						noneLabel="No order"
-						options={refs.orders.map((o) => ({
-							value: o.id,
-							label: `${orderNumberLabel(o.number)} · ${o.customerName}`,
-						}))}
-						disabled={!canEdit}
+						emptyLabel={m.activity_nobody()}
+						options={memberOptions(options)}
 					/>
 				</div>
 				<div className="space-y-2">
-					<Label htmlFor="activity-notes">Notes</Label>
+					<Label htmlFor="activity-notes">{m.activity_notes()}</Label>
 					<Textarea
 						id="activity-notes"
 						value={notes}
@@ -312,7 +309,7 @@ function ActivityForm({
 						onCheckedChange={(c) => setCompleted(c === true)}
 					/>
 					<Label htmlFor="activity-done" className="font-normal">
-						Done
+						{m.activity_done()}
 					</Label>
 				</div>
 			</fieldset>
@@ -324,18 +321,22 @@ function ActivityForm({
 						onClick={remove}
 						disabled={busy}
 					>
-						Delete
+						{m.work_delete()}
 					</Button>
 				) : (
 					<span />
 				)}
 				<div className="flex gap-2">
 					<Button type="button" variant="ghost" onClick={onCancel}>
-						{canEdit ? "Cancel" : "Close"}
+						{canEdit ? m.common_cancel() : m.work_close()}
 					</Button>
 					{canEdit ? (
 						<Button type="submit" disabled={busy}>
-							{busy ? "Saving..." : activity ? "Save activity" : "Log activity"}
+							{busy
+								? m.common_saving()
+								: activity
+									? m.activity_save()
+									: m.activity_create()}
 						</Button>
 					) : null}
 				</div>

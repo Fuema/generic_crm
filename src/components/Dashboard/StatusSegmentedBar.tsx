@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { m } from "#/paraglide/messages.js";
 
 export type Segment = { name: string; value: number; color: string };
 
@@ -78,7 +79,7 @@ export function StatusSegmentedBar({
 			</ul>
 			<ul
 				className="flex flex-wrap gap-x-4 gap-y-1 text-sm"
-				aria-label="Legend"
+				aria-label={m.calendar_legend()}
 			>
 				{visible.map((s) => (
 					<li key={s.name} className="flex items-center gap-1.5">

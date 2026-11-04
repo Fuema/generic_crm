@@ -13,6 +13,10 @@ import {
 	PROJECT_STATUS_LABELS,
 	type ProjectStatus,
 } from "#/modules/projects/schema";
+import {
+	ACTIVITY_TYPE_LABELS,
+	type ActivityType,
+} from "#/modules/tasks/schema";
 import { m } from "#/paraglide/messages.js";
 import { getLocale } from "#/paraglide/runtime.js";
 import {
@@ -61,6 +65,17 @@ function describe(e: TimelineEvent, fieldLabels: Record<string, string>) {
 		fields?: string[];
 		email?: boolean;
 	};
+	// Tasks and activities about the record: shown under their own name
+	if (e.type === "task.created") return m.event_task_added();
+	if (e.type === "task.completed") return m.event_task_completed();
+	if (e.type === "activity.created")
+		return m.event_activity_logged({
+			type:
+				ACTIVITY_TYPE_LABELS[
+					(payload as { activityType?: string }).activityType as ActivityType
+				]?.() ?? "",
+		});
+	if (e.type === "activity.completed") return m.event_activity_completed();
 	switch (kind) {
 		case "created":
 			return m.event_created();
@@ -212,6 +227,15 @@ function RelatedLink({ event: e }: { event: TimelineEvent }) {
 					:
 				</Link>
 			);
+		case "task":
+		case "activity": {
+			const p = e.payload as { title?: string; subject?: string };
+			return (
+				<span className="mr-1 font-medium">
+					{e.relatedName ?? p.title ?? p.subject ?? ""}:
+				</span>
+			);
+		}
 		default:
 			return null;
 	}

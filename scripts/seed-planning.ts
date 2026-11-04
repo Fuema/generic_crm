@@ -5,10 +5,10 @@
 //   bun run db:seed:planning --email you@example.com --workspace "Name"
 //   bun run db:seed:planning --email you@example.com --workspace "Name" --clear
 import { faker } from "@faker-js/faker";
-import { and, eq, like, ne } from "drizzle-orm";
+import { and, eq, isNull, like, sql } from "drizzle-orm";
 import { db } from "../src/db/index";
-import { activity, customer, member, organization, salesOrder, task, user } from "../src/db/schema";
-import { ACTIVITY_TYPES, TASK_PRIORITIES, TASK_STATUSES } from "../src/lib/schema";
+import { activity, contact, member, organization, task, user } from "../src/db/schema";
+import { ACTIVITY_TYPES, TASK_PRIORITIES, TASK_STATUSES } from "../src/modules/tasks/schema";
 
 const TAG = "[demo]";
 const DAY = 24 * 60 * 60 * 1000;
@@ -66,14 +66,14 @@ if (existing) {
 }
 
 faker.seed([...workspaceId].reduce((sum, c) => sum + c.charCodeAt(0), 11));
-const [members, customers, orders] = await Promise.all([
+const [members, customers] = await Promise.all([
 	db.select({ id: member.userId }).from(member).where(eq(member.organizationId, workspaceId)),
+	// Tasks and activities link to active contacts (phase 3)
 	db
-		.select({ id: customer.id, name: customer.name })
-		.from(customer)
-		.where(and(eq(customer.workspaceId, workspaceId), ne(customer.status, "inactive")))
+		.select({ id: contact.id, name: sql<string>`concat_ws(' ', ${contact.firstName}, ${contact.lastName})` })
+		.from(contact)
+		.where(and(eq(contact.workspaceId, workspaceId), isNull(contact.archivedAt)))
 		.limit(100),
-	db.select({ id: salesOrder.id }).from(salesOrder).where(eq(salesOrder.workspaceId, workspaceId)).limit(50),
 ]);
 const pick = <T>(list: T[], probability: number) =>
 	list.length ? (faker.helpers.maybe(() => faker.helpers.arrayElement(list), { probability }) ?? null) : null;
@@ -84,7 +84,7 @@ const at = (days: number, hourUTC: number) => {
 	d.setUTCHours(hourUTC, 0, 0, 0);
 	return d;
 };
-// All-day dates are stored at 12:00 UTC (see src/lib/calendar.ts)
+// All-day dates are stored at 12:00 UTC (see src/modules/tasks/calendar.ts)
 const allDayAt = (days: number) => at(days, 12);
 
 const TITLES = [
@@ -130,8 +130,8 @@ const taskRows = plan.map((status) => {
 		assigneeId: pick(members, 0.85)?.id ?? null,
 		dueAt,
 		allDay,
-		customerId: c?.id ?? null,
-		orderId: c ? (pick(orders, 0.3)?.id ?? null) : null,
+		subjectType: c ? "contact" : null,
+		subjectId: c?.id ?? null,
 		completedAt: status === "done" ? new Date(Date.now() - faker.number.int({ min: 1, max: 9 }) * DAY) : null,
 		createdById: owner.id,
 	};
@@ -156,8 +156,8 @@ const activityRows = Array.from({ length: 25 }, () => {
 		// Past activities are mostly done
 		completed: days < 0 ? faker.datatype.boolean({ probability: 0.85 }) : false,
 		ownerId: pick(members, 0.9)?.id ?? null,
-		customerId: c?.id ?? null,
-		orderId: c ? (pick(orders, 0.2)?.id ?? null) : null,
+		subjectType: c ? "contact" : null,
+		subjectId: c?.id ?? null,
 		createdById: owner.id,
 	};
 });
