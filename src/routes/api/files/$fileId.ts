@@ -1,15 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { z } from "zod";
 import { auth } from "#/lib/auth";
-import { findFile, openFile } from "#/modules/files/files.server";
-import { fileRights } from "#/modules/files/schema";
+import { authorizeDownload, openFile } from "#/modules/files/files.server";
 
-// Downloads (spec §9): the only way to a file's bytes. Needs a session, the
-// file must be in the session's active workspace, and the role must allow
-// reading its record (or, for workspace folders, reading files). Never a
-// public URL; always sent as an attachment so the browser never runs it.
-
-const idSchema = z.uuid();
+// Downloads (spec §9): the only way to a file's bytes. authorizeDownload
+// checks the session, the workspace and the right on the file's record. Never
+// a public URL; always sent as an attachment so the browser never runs it.
 
 function plain(status: number, text: string) {
 	return new Response(text, {
@@ -20,6 +15,12 @@ function plain(status: number, text: string) {
 		},
 	});
 }
+
+const STATUS_TEXT = {
+	401: "Unauthorized",
+	403: "No active workspace",
+	404: "Not found",
+} as const;
 
 // RFC 6266: an ASCII fallback plus the UTF-8 name
 function disposition(name: string) {
@@ -32,30 +33,34 @@ export const Route = createFileRoute("/api/files/$fileId")({
 		handlers: {
 			GET: async ({ request, params }) => {
 				const session = await auth.api.getSession({ headers: request.headers });
-				if (!session) return plain(401, "Unauthorized");
-				const workspaceId = session.session.activeOrganizationId;
-				if (!workspaceId) return plain(403, "No active workspace");
-				if (!idSchema.safeParse(params.fileId).success)
-					return plain(404, "Not found");
-
-				let row: Awaited<ReturnType<typeof findFile>>;
+				const workspaceId = session?.session.activeOrganizationId ?? null;
+				const access = session
+					? {
+							workspaceId,
+							can: async (permissions: Record<string, string[]>) =>
+								workspaceId
+									? (
+											await auth.api.hasPermission({
+												headers: request.headers,
+												body: { organizationId: workspaceId, permissions },
+											})
+										).success
+									: false,
+						}
+					: null;
+				// A database or storage failure answers a plain 500, never its details
+				let result: Awaited<ReturnType<typeof authorizeDownload>>;
+				let object: Awaited<ReturnType<typeof openFile>> = null;
 				try {
-					row = await findFile(workspaceId, params.fileId);
+					result = await authorizeDownload(access, params.fileId);
+					if (result.ok) object = await openFile(result.row);
 				} catch {
-					return plain(404, "Not found");
+					return plain(500, "Something went wrong");
 				}
-				const allowed = await auth.api.hasPermission({
-					headers: request.headers,
-					body: {
-						organizationId: workspaceId,
-						permissions: fileRights(row, "read"),
-					},
-				});
-				// Same answer as a missing file: no hint that it exists
-				if (!allowed.success) return plain(404, "Not found");
+				if (!result.ok) return plain(result.status, STATUS_TEXT[result.status]);
 
-				const object = await openFile(row);
-				if (!object) return plain(404, "Not found");
+				const { row } = result;
+				if (!object) return plain(404, STATUS_TEXT[404]);
 				return new Response(object.body, {
 					headers: {
 						"Content-Type": row.contentType,

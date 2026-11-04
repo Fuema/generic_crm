@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "#/db/index";
 import { file, folder, organization, payment, user } from "#/db/schema";
+import type { Permissions } from "#/lib/permissions";
 import { assertSubject } from "#/modules/records/records.server";
 import type { SubjectType } from "#/modules/records/schema";
 import { m } from "#/paraglide/messages.js";
@@ -11,6 +12,7 @@ import {
 	contentTypeFor,
 	FILE_LIMITS,
 	fileNameSchema,
+	fileRights,
 	type UploadTarget,
 } from "./schema";
 
@@ -578,4 +580,40 @@ export async function allFolders(workspaceId: string) {
 		.where(eq(folder.workspaceId, workspaceId))
 		.orderBy(asc(sql`lower(${folder.name})`))
 		.limit(1000);
+}
+
+// --- Downloads --------------------------------------------------------------
+
+const DOWNLOAD_ID =
+	/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Who may download a file (spec §9), for the download route: a session with an
+// active workspace, the file in that workspace, and the right to read its
+// record (or, for workspace folders, files). A missing right answers like a
+// missing file, so nothing hints that it exists. `can` checks the caller's
+// role in that workspace (Better Auth in the route; the same role table in
+// tests).
+export async function authorizeDownload(
+	// `can` must check the caller's role in exactly this workspaceId
+	access: {
+		workspaceId: string | null;
+		can: (permissions: Permissions) => Promise<boolean>;
+	} | null,
+	fileId: string,
+): Promise<
+	| { ok: true; row: Awaited<ReturnType<typeof findFile>> }
+	| { ok: false; status: 401 | 403 | 404 }
+> {
+	if (!access) return { ok: false, status: 401 };
+	if (!access.workspaceId) return { ok: false, status: 403 };
+	if (!DOWNLOAD_ID.test(fileId)) return { ok: false, status: 404 };
+	const [row] = await db
+		.select()
+		.from(file)
+		.where(and(eq(file.id, fileId), eq(file.workspaceId, access.workspaceId)))
+		.limit(1);
+	if (!row) return { ok: false, status: 404 };
+	if (!(await access.can(fileRights(row, "read"))))
+		return { ok: false, status: 404 };
+	return { ok: true, row };
 }
