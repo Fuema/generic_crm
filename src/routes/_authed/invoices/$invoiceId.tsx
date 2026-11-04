@@ -40,6 +40,8 @@ import {
 	voidInvoice,
 } from "#/modules/invoices/invoices";
 import { invoiceLabel } from "#/modules/invoices/schema";
+import { PaymentsCard } from "#/modules/payments/components/PaymentsCard";
+import { listPayments } from "#/modules/payments/payments";
 import { pickProducts } from "#/modules/products/products";
 import { RecordTimeline } from "#/modules/records/components/RecordTimeline";
 import { TagEditor } from "#/modules/records/components/TagEditor";
@@ -53,18 +55,20 @@ export const Route = createFileRoute("/_authed/invoices/$invoiceId")({
 				subjectType: "invoice" as const,
 				subjectId: params.invoiceId,
 			};
-			const [detail, options, timeline, allTags, fields] = await Promise.all([
-				getInvoice({ data: { id: params.invoiceId } }),
-				getContactFormOptions(),
-				getTimeline({ data: subject }),
-				listWorkspaceTags(),
-				getRecordFields({ data: { objectKey: "invoice" } }),
-			]);
+			const [detail, options, timeline, allTags, fields, payments] =
+				await Promise.all([
+					getInvoice({ data: { id: params.invoiceId } }),
+					getContactFormOptions(),
+					getTimeline({ data: subject }),
+					listWorkspaceTags(),
+					getRecordFields({ data: { objectKey: "invoice" } }),
+					listPayments({ data: { invoiceId: params.invoiceId } }),
+				]);
 			const products =
 				detail.invoice.status === "draft" && !detail.invoice.archivedAt
 					? await pickProducts({ data: { q: "" } })
 					: [];
-			return { detail, options, timeline, allTags, fields, products };
+			return { detail, options, timeline, allTags, fields, products, payments };
 		} catch (e) {
 			if (e instanceof Response && (e.status === 404 || e.status === 400))
 				throw notFound();
@@ -81,13 +85,14 @@ export const Route = createFileRoute("/_authed/invoices/$invoiceId")({
 
 function InvoicePage() {
 	const router = useRouter();
-	const { detail, options, timeline, allTags, fields, products } =
+	const { detail, options, timeline, allTags, fields, products, payments } =
 		Route.useLoaderData();
 	const { access, session } = Route.useRouteContext();
 	const can = {
 		update: roleCan(access?.role, { invoice: ["update"] }),
 		issue: roleCan(access?.role, { invoice: ["issue"] }),
 		void: roleCan(access?.role, { invoice: ["void"] }),
+		pay: roleCan(access?.role, { invoice: ["pay"] }),
 		archive: roleCan(access?.role, { invoice: ["delete"] }),
 	};
 	const inv = detail.invoice;
@@ -177,7 +182,9 @@ function InvoicePage() {
 								<Stamp /> {m.invoice_issue()}
 							</Button>
 						) : null}
-						{can.issue && !archived && inv.status === "issued" ? (
+						{can.issue &&
+						!archived &&
+						(inv.status === "issued" || inv.status === "partially_paid") ? (
 							<Button
 								type="button"
 								variant="outline"
@@ -197,7 +204,9 @@ function InvoicePage() {
 								<Mail /> {m.quote_send_email()}
 							</Button>
 						) : null}
-						{can.void && !archived && inv.status !== "void" ? (
+						{can.void &&
+						!archived &&
+						(inv.status === "draft" || inv.status === "issued") ? (
 							<Button
 								type="button"
 								variant="outline"
@@ -213,7 +222,10 @@ function InvoicePage() {
 								<Ban /> {m.invoice_void()}
 							</Button>
 						) : null}
-						{can.archive && (archived || inv.status !== "issued") ? (
+						{can.archive &&
+						(archived ||
+							inv.status === "void" ||
+							(inv.status === "draft" && !inv.orderId)) ? (
 							<Button
 								type="button"
 								variant="outline"
@@ -262,6 +274,7 @@ function InvoicePage() {
 						custom: inv.custom,
 					}}
 					lines={detail.lines}
+					locked={Boolean(inv.orderId)}
 					products={products}
 					options={options}
 					fields={fields}
@@ -313,6 +326,22 @@ function InvoicePage() {
 				totalCents={inv.totalCents}
 				notes={inv.notes}
 			/>
+
+			{inv.status !== "draft" && inv.status !== "void" ? (
+				<PaymentsCard
+					invoiceId={inv.id}
+					currency={inv.currency}
+					totalCents={inv.totalCents}
+					paidCents={inv.paidCents}
+					payments={payments}
+					canRecord={can.update && !archived}
+					canDecide={can.pay && !archived}
+					onChanged={async (message) => {
+						setNotice({ ok: true, message });
+						await router.invalidate();
+					}}
+				/>
+			) : null}
 
 			<div className="grid gap-6 lg:grid-cols-3 print:hidden">
 				<Card className="lg:col-span-1">

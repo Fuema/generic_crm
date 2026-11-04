@@ -7,9 +7,15 @@ import { m } from "#/paraglide/messages.js";
 // Invoices (spec §6.2, §10), rebuilt on contacts in phase 2 step 5: from an
 // order (one invoice per order that isn't void) or direct for a contact.
 // Numbered INV-2026-0001 when issued; an issued invoice never changes, it can
-// only be voided. Payments (partially paid, paid) arrive in step 6.
+// only be voided. Confirmed payments make it partially paid, then paid.
 
-export const INVOICE_STATUSES = ["draft", "issued", "void"] as const;
+export const INVOICE_STATUSES = [
+	"draft",
+	"issued",
+	"partially_paid",
+	"paid",
+	"void",
+] as const;
 export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
 // "overdue": issued and past its due day, worked out when read
 export type InvoiceDisplayStatus = InvoiceStatus | "overdue";
@@ -24,6 +30,8 @@ export const INVOICE_STATUS_LABELS: Record<
 > = {
 	draft: m.invoice_status_draft,
 	issued: m.invoice_status_issued,
+	partially_paid: m.invoice_status_partially_paid,
+	paid: m.invoice_status_paid,
 	void: m.invoice_status_void,
 	overdue: m.invoice_status_overdue,
 };
@@ -40,7 +48,7 @@ export function invoiceDisplayStatus(
 	now: Date = new Date(),
 ): InvoiceDisplayStatus {
 	if (
-		status === "issued" &&
+		(status === "issued" || status === "partially_paid") &&
 		dueDate &&
 		new Date(dueDate).toISOString().slice(0, 10) <
 			now.toISOString().slice(0, 10)

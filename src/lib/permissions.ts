@@ -23,7 +23,9 @@ export const statements = {
 	customer: ["create", "read", "update", "delete"],
 	product: ["create", "read", "update", "delete"],
 	order: ["create", "read", "update", "delete"],
-	// issue = finalize a draft, pay = record payment, void = cancel an issued invoice
+	// issue = number a draft and email it; pay = confirm or reject payments (a
+	// payment recorded by someone with pay counts at once; recording itself
+	// needs update); void = cancel a draft or an issued invoice without payments
 	invoice: ["create", "read", "update", "delete", "issue", "pay", "void"],
 	task: ["create", "read", "update", "delete"],
 	activity: ["create", "read", "update", "delete"],

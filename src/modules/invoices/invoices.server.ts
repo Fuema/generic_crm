@@ -21,6 +21,7 @@ import {
 	invoiceLine,
 	orderLine,
 	organization,
+	payment,
 	salesOrder,
 	workspaceCounter,
 } from "#/db/schema";
@@ -192,7 +193,7 @@ async function invoiceQuery(workspaceId: string, search: InvoiceSearch) {
 	}
 	if (search.status === "overdue")
 		filters.push(
-			eq(invoice.status, "issued"),
+			sql`${invoice.status} in ('issued', 'partially_paid')`,
 			sql`${invoice.dueDate} < ${todayStart()}`,
 		);
 	else if (search.status) filters.push(eq(invoice.status, search.status));
@@ -456,6 +457,10 @@ export async function updateInvoice(
 	if (before.archivedAt) throw clientError(409, m.error_record_archived());
 	if (before.status !== "draft")
 		throw clientError(409, m.error_invoice_not_draft());
+	// A draft of an order keeps the order's contact, lines and tax (owner
+	// decision): only notes, language, owner and custom fields change
+	if (before.orderId)
+		return updateOrderDraft(workspaceId, actor, input, before);
 	const totals = documentTotals(input.lines, input.taxRateBp);
 	if (totals.problem) throw clientError(400, totals.problem);
 	const companyId = input.companyId || null;
@@ -585,6 +590,51 @@ export async function updateInvoice(
 	return { id: input.id };
 }
 
+// Saves a draft that belongs to an order: its contact, lines and tax stay the
+// order's; language, owner, notes and custom fields can change
+async function updateOrderDraft(
+	workspaceId: string,
+	actor: Actor,
+	input: UpdateInvoiceInput,
+	before: typeof invoice.$inferSelect,
+) {
+	const ownerId = input.ownerId || null;
+	if (ownerId && ownerId !== before.ownerId)
+		await assertWorkspaceRefs(workspaceId, { userId: ownerId });
+	const custom =
+		input.custom === undefined
+			? before.custom
+			: await prepareCustom(
+					workspaceId,
+					"invoice",
+					input.custom,
+					before.custom,
+					input.id,
+				);
+	await runBatch([
+		...lockAndCheck(workspaceId, input.id, ["draft"]),
+		db
+			.update(invoice)
+			.set({
+				ownerId,
+				locale: input.locale,
+				notes: input.notes || null,
+				custom: custom as Record<string, Json>,
+				updatedAt: new Date(),
+			})
+			.where(
+				and(eq(invoice.id, input.id), eq(invoice.workspaceId, workspaceId)),
+			),
+		eventInsert(workspaceId, actor, {
+			type: "invoice.updated",
+			subjectType: "invoice",
+			subjectId: input.id,
+			payload: { fromOrder: true },
+		}),
+	]);
+	return { id: input.id };
+}
+
 // draft -> issued: numbered in this year's series, issued today, due after the
 // workspace's payment terms. From here the invoice never changes.
 export async function issueInvoice(
@@ -606,6 +656,9 @@ export async function issueInvoice(
 			),
 		);
 	if (!n) throw clientError(400, m.error_invoice_no_lines());
+	// A zero total could never be paid and would show as overdue forever
+	if (before.totalCents <= 0)
+		throw clientError(400, m.error_invoice_zero_total());
 	const settings = await getWorkspaceSettings(workspaceId);
 	const now = new Date();
 	const year = now.getUTCFullYear();
@@ -663,9 +716,29 @@ export async function voidInvoice(
 	if (before.archivedAt) throw clientError(409, m.error_record_archived());
 	if (before.status === "void")
 		throw clientError(409, m.error_invoice_wrong_status());
+	if (before.status !== "draft" && before.status !== "issued")
+		throw clientError(409, m.error_invoice_has_payments());
+	const [pending] = await db
+		.select({ id: payment.id })
+		.from(payment)
+		.where(
+			and(
+				eq(payment.workspaceId, workspaceId),
+				eq(payment.invoiceId, id),
+				sql`${payment.status} in ('reported', 'confirmed')`,
+			),
+		)
+		.limit(1);
+	if (pending) throw clientError(409, m.error_invoice_has_payments());
 	const now = new Date();
 	await runBatch([
 		...lockAndCheck(workspaceId, id, ["draft", "issued"]),
+		db
+			.select({
+				ok: sql<number>`1 / (case when not exists (select 1 from "payment" p where p."invoice_id" = ${id} and p."workspace_id" = ${workspaceId} and p."status" in ('reported', 'confirmed')) then 1 else 0 end)`,
+			})
+			.from(invoice)
+			.where(and(eq(invoice.id, id), eq(invoice.workspaceId, workspaceId))),
 		db
 			.update(invoice)
 			.set({ status: "void", voidedAt: now, updatedAt: now })
@@ -690,7 +763,7 @@ export async function sendInvoice(
 	const detail = await getInvoiceDetail(workspaceId, id);
 	const inv = detail.invoice;
 	if (inv.archivedAt) throw clientError(409, m.error_record_archived());
-	if (inv.status !== "issued")
+	if (inv.status !== "issued" && inv.status !== "partially_paid")
 		throw clientError(409, m.error_invoice_not_issued());
 	if (!detail.contactEmail) throw clientError(400, m.error_quote_no_email());
 	const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -715,7 +788,12 @@ export async function sendInvoice(
 		);
 	const now = new Date();
 	await runBatch([
-		...lockAndCheck(workspaceId, id, ["issued"], inv.updatedAt),
+		...lockAndCheck(
+			workspaceId,
+			id,
+			["issued", "partially_paid"],
+			inv.updatedAt,
+		),
 		db
 			.update(invoice)
 			.set({ sentAt: now, updatedAt: now })
@@ -776,7 +854,7 @@ export async function setInvoiceArchived(
 	const before = await findInvoice(workspaceId, id);
 	if (Boolean(before.archivedAt) === archived) return { id };
 	// Only drafts and void invoices can be archived: an issued one is a record
-	if (archived && before.status === "issued")
+	if (archived && before.status !== "draft" && before.status !== "void")
 		throw clientError(409, m.error_invoice_issued_archive());
 	// A draft of an order would keep blocking the order while archived
 	if (archived && before.status === "draft" && before.orderId)
@@ -789,7 +867,7 @@ export async function setInvoiceArchived(
 			.for("update"),
 		db
 			.select({
-				ok: sql<number>`1 / (case when exists (select 1 from "invoice" i where i."id" = ${id} and i."workspace_id" = ${workspaceId} and i."archived_at" is ${sql.raw(archived ? "null" : "not null")}${sql.raw(archived ? ` and i."status" <> 'issued'` : "")}) then 1 else 0 end)`,
+				ok: sql<number>`1 / (case when exists (select 1 from "invoice" i where i."id" = ${id} and i."workspace_id" = ${workspaceId} and i."archived_at" is ${sql.raw(archived ? "null" : "not null")}${sql.raw(archived ? ` and i."status" in ('draft', 'void')` : "")}) then 1 else 0 end)`,
 			})
 			.from(invoice)
 			.where(and(eq(invoice.id, id), eq(invoice.workspaceId, workspaceId))),

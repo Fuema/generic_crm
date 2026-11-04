@@ -12,9 +12,11 @@ export function invoiceStatus(status: InvoiceDisplayStatus) {
 		tone:
 			status === "overdue" || status === "void"
 				? ("bad" as const)
-				: status === "issued"
-					? ("active" as const)
-					: ("neutral" as const),
+				: status === "paid"
+					? ("good" as const)
+					: status === "issued" || status === "partially_paid"
+						? ("active" as const)
+						: ("neutral" as const),
 	};
 }
 

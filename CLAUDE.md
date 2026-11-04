@@ -6,11 +6,14 @@ first**: vision, decisions, data model, customization engine, portal, phases,
 conventions and pitfalls live there.
 
 ## Where things stand
-- **Phase 2 (Sales) in progress** (spec §16; phases 0–1 done). Steps 1–4, pipelines (#22),
-  deals (#23), products (#24) and quotes (#25), are merged; step 5, orders and invoices, is
-  built, but migrations `0010` (destructive: deletes the dev demo orders/invoices) and `0011`
-  **wait for the owner's approval**; **next is step 6, payments**. Spec §16.1 is the
-  handoff: the 7-step phase 2 plan, what waits on the owner, how to resume.
+- **Phase 2 (Sales) in progress** (spec §16; phases 0–1 done). Steps 1–5, pipelines (#22),
+  deals (#23), products (#24), quotes (#25) and orders and invoices (#26), are merged; step 6,
+  payments, is built, but migration `0012` is applied to dev; **next is
+  step 7, the end-to-end acceptance test (deal → quote → order → invoice → partial payments
+  → paid), then the phase 2 acceptance check**. Spec §16.1 is the handoff: the 7-step
+  phase 2 plan, what waits on the owner, how to resume.
+- Payments change an invoice only inside one `db.batch` that locks the invoice row, guards
+  the totals and recomputes `paid_cents` and the status (spec §10, Payments).
 - Quotes, orders and invoices share lines, totals, email and components in
   `src/modules/documents`; they are printable pages, not generated PDFs (Workers CPU, spec §3).
 - Modules that point to contacts must also move their rows in `mergeContacts` (deals,

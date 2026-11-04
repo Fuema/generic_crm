@@ -104,6 +104,14 @@ function describe(e: TimelineEvent, fieldLabels: Record<string, string>) {
 			return m.event_invoice_issued();
 		case "voided":
 			return m.event_invoice_voided();
+		case "payment_recorded":
+			return m.event_payment_recorded();
+		case "payment_confirmed":
+			return m.event_payment_confirmed();
+		case "payment_rejected":
+			return payload.reason
+				? m.event_payment_rejected_reason({ reason: payload.reason })
+				: m.event_payment_rejected();
 		case "accepted":
 			return m.event_quote_accepted();
 		case "declined":
