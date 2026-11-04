@@ -49,6 +49,7 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiFilesIndexRouteImport } from './routes/api/files/index'
 import { Route as ApiFilesFileIdRouteImport } from './routes/api/files/$fileId'
 import { Route as PSlugIndexRouteImport } from './routes/p/$slug/index'
+import { Route as PSlugProfileRouteImport } from './routes/p/$slug/profile'
 import { Route as PSlugSignInRouteImport } from './routes/p/$slug/sign-in'
 import { Route as PSlugVerifyRouteImport } from './routes/p/$slug/verify'
 
@@ -252,6 +253,11 @@ const PSlugIndexRoute = PSlugIndexRouteImport.update({
   path: '/p/$slug/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PSlugProfileRoute = PSlugProfileRouteImport.update({
+  id: '/p/$slug/profile',
+  path: '/p/$slug/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PSlugSignInRoute = PSlugSignInRouteImport.update({
   id: '/p/$slug/sign-in',
   path: '/p/$slug/sign-in',
@@ -292,6 +298,7 @@ export interface FileRoutesByFullPath {
   '/workspace/settings': typeof AuthedWorkspaceSettingsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/$fileId': typeof ApiFilesFileIdRoute
+  '/p/$slug/profile': typeof PSlugProfileRoute
   '/p/$slug/sign-in': typeof PSlugSignInRoute
   '/p/$slug/verify': typeof PSlugVerifyRoute
   '/companies/': typeof AuthedCompaniesIndexRoute
@@ -334,6 +341,7 @@ export interface FileRoutesByTo {
   '/workspace/settings': typeof AuthedWorkspaceSettingsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/$fileId': typeof ApiFilesFileIdRoute
+  '/p/$slug/profile': typeof PSlugProfileRoute
   '/p/$slug/sign-in': typeof PSlugSignInRoute
   '/p/$slug/verify': typeof PSlugVerifyRoute
   '/companies': typeof AuthedCompaniesIndexRoute
@@ -379,6 +387,7 @@ export interface FileRoutesById {
   '/_authed/workspace/settings': typeof AuthedWorkspaceSettingsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/$fileId': typeof ApiFilesFileIdRoute
+  '/p/$slug/profile': typeof PSlugProfileRoute
   '/p/$slug/sign-in': typeof PSlugSignInRoute
   '/p/$slug/verify': typeof PSlugVerifyRoute
   '/_authed/companies/': typeof AuthedCompaniesIndexRoute
@@ -423,6 +432,7 @@ export interface FileRouteTypes {
     | '/workspace/settings'
     | '/api/auth/$'
     | '/api/files/$fileId'
+    | '/p/$slug/profile'
     | '/p/$slug/sign-in'
     | '/p/$slug/verify'
     | '/companies/'
@@ -465,6 +475,7 @@ export interface FileRouteTypes {
     | '/workspace/settings'
     | '/api/auth/$'
     | '/api/files/$fileId'
+    | '/p/$slug/profile'
     | '/p/$slug/sign-in'
     | '/p/$slug/verify'
     | '/companies'
@@ -509,6 +520,7 @@ export interface FileRouteTypes {
     | '/_authed/workspace/settings'
     | '/api/auth/$'
     | '/api/files/$fileId'
+    | '/p/$slug/profile'
     | '/p/$slug/sign-in'
     | '/p/$slug/verify'
     | '/_authed/companies/'
@@ -530,6 +542,7 @@ export interface RootRouteChildren {
   VerifyEmailRoute: typeof VerifyEmailRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiFilesFileIdRoute: typeof ApiFilesFileIdRoute
+  PSlugProfileRoute: typeof PSlugProfileRoute
   PSlugSignInRoute: typeof PSlugSignInRoute
   PSlugVerifyRoute: typeof PSlugVerifyRoute
   ApiFilesIndexRoute: typeof ApiFilesIndexRoute
@@ -818,6 +831,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PSlugIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/p/$slug/profile': {
+      id: '/p/$slug/profile'
+      path: '/p/$slug/profile'
+      fullPath: '/p/$slug/profile'
+      preLoaderRoute: typeof PSlugProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/p/$slug/sign-in': {
       id: '/p/$slug/sign-in'
       path: '/p/$slug/sign-in'
@@ -924,6 +944,7 @@ const rootRouteChildren: RootRouteChildren = {
   VerifyEmailRoute: VerifyEmailRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiFilesFileIdRoute: ApiFilesFileIdRoute,
+  PSlugProfileRoute: PSlugProfileRoute,
   PSlugSignInRoute: PSlugSignInRoute,
   PSlugVerifyRoute: PSlugVerifyRoute,
   ApiFilesIndexRoute: ApiFilesIndexRoute,

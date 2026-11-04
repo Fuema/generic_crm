@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
 	PORTAL_LIMITS,
 	portalCookieName,
+	portalProfileSchema,
 	requestLinkSchema,
 	signInSchema,
 	slugSchema,
@@ -38,4 +39,34 @@ test("link requests need a valid email; limits match the owner decisions", () =>
 test("each workspace's portal has its own session cookie", () => {
 	expect(portalCookieName("acme")).not.toBe(portalCookieName("globex"));
 	expect(portalCookieName("acme")).not.toContain("better-auth");
+});
+
+test("the portal profile never carries the email or staff-only fields", () => {
+	const parsed = portalProfileSchema.parse({
+		firstName: "Ana",
+		lastName: "",
+		phone: "",
+		jobTitle: "",
+		locale: "es",
+		marketing: true,
+		custom: {},
+		email: "attacker@example.com",
+		lifecycleStage: "customer",
+		ownerId: "someone",
+	});
+	expect(Object.keys(parsed).sort()).toEqual([
+		"custom",
+		"firstName",
+		"jobTitle",
+		"lastName",
+		"locale",
+		"marketing",
+		"phone",
+	]);
+	expect(
+		portalProfileSchema.safeParse({ ...parsed, firstName: " " }).success,
+	).toBe(false);
+	expect(
+		portalProfileSchema.safeParse({ ...parsed, phone: "12" }).success,
+	).toBe(false);
 });

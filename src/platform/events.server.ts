@@ -7,6 +7,8 @@ import type { Json } from "#/platform/json";
 
 export type Actor =
 	| { type: "member"; id: string }
+	// A customer acting in the portal (phase 4): the contact's id
+	| { type: "contact"; id: string }
 	| { type: "system"; id?: null };
 
 export type FieldChanges = Record<string, { from: Json; to: Json }>;

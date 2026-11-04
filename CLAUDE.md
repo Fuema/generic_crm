@@ -7,9 +7,13 @@ conventions and pitfalls live there.
 
 ## Where things stand
 - **Phase 4 (Customer portal) in progress** (spec §16; phases 0–3 done, #1–#32; browser
-  checks of phases 1–3 pending). Step 1, the portal foundation (email-link sign-in, sessions,
-  contact scope, staff invite card), is on `feat/phase4-portal`; migrations `0018`/`0019` are
-  applied to dev. **Next: step 2, profile, once step 1 is merged.** Spec §16.1 is the handoff.
+  checks of phases 1–3 pending). Step 1, the portal foundation, merged in #33 (migrations
+  `0018`/`0019` applied to dev). Step 2, the portal profile, is on `feat/phase4-profile` (no
+  migration). **Next: step 3, quotes in the portal, once step 2 is merged.** Spec §16.1 is
+  the handoff.
+- Portal writes change only what the contact may change: custom fields through
+  `prepareEditableCustom` (editable fields only; hidden values never leave the server), and
+  events with actor type `contact` (spec §7.1, §8).
 - Portal: staff and portal sessions are separate tables and cookies, never accepted by the
   other. Portal reads go through `inScope(scope, table)` (workspace AND contact, or company
   when company access applies); ending access (revoke, archive, new email, merge) deletes

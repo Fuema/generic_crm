@@ -73,6 +73,7 @@ const definitionColumns = {
 	unique: fieldDefinition.unique,
 	groupId: fieldDefinition.groupId,
 	position: fieldDefinition.position,
+	portalVisibility: fieldDefinition.portalVisibility,
 	archivedAt: fieldDefinition.archivedAt,
 };
 
@@ -153,6 +154,20 @@ async function assertGroup(
 
 const nullIfEmpty = (l: Localized) => (l.en || l.es ? l : null);
 
+// "Editable in the portal" is for contact fields only (the profile), and never
+// for unique fields: a "value already used" answer would let a customer test
+// other customers' values
+function assertPortalVisibility(
+	objectKey: ObjectKey,
+	unique: boolean,
+	portalVisibility: string | undefined,
+) {
+	if (portalVisibility !== "editable") return;
+	if (objectKey !== "contact")
+		throw clientError(400, m.validation_portal_editable_contact());
+	if (unique) throw clientError(400, m.validation_portal_editable_unique());
+}
+
 // ------------------------------------------------------------- fields
 
 // `fixedKey` is for templates (server-side only): their views refer to fields by key
@@ -163,6 +178,7 @@ export async function createField(
 	fixedKey?: string,
 ) {
 	const { objectKey } = input;
+	assertPortalVisibility(objectKey, input.unique, input.portalVisibility);
 	await assertGroup(workspaceId, objectKey, input.groupId);
 	const existing = await db
 		.select({
@@ -216,6 +232,7 @@ export async function createField(
 				required: input.required,
 				unique: input.unique,
 				groupId: input.groupId || null,
+				portalVisibility: input.portalVisibility ?? "hidden",
 				position: (last ?? -1) + 1,
 			}),
 			eventInsert(workspaceId, actor, {
@@ -268,6 +285,11 @@ export async function updateField(
 	const before = await findField(workspaceId, input.id);
 	if (before.archivedAt) throw clientError(409, m.error_record_archived());
 	const type = before.type as FieldType;
+	assertPortalVisibility(
+		before.objectKey,
+		input.unique,
+		input.portalVisibility ?? before.portalVisibility,
+	);
 	await assertGroup(workspaceId, before.objectKey, input.groupId);
 
 	// Rules that depend on the (fixed) type
@@ -322,6 +344,7 @@ export async function updateField(
 		required: input.required,
 		unique: input.unique,
 		groupId: input.groupId || null,
+		portalVisibility: input.portalVisibility ?? before.portalVisibility,
 	};
 	const changes = changedFields(before, values);
 	if (!Object.keys(changes).length) return { id: input.id };
@@ -576,6 +599,40 @@ export async function prepareCustom(
 				409,
 				m.error_custom_unique({ field: localized(def.label) }),
 			);
+	}
+	return result;
+}
+
+// The customer portal's edit (spec §8): only the fields marked editable are
+// validated and changed; every other value stays as stored, so a required
+// field the contact can't see never blocks their save
+export async function prepareEditableCustom(
+	workspaceId: string,
+	objectKey: ObjectKey,
+	edits: Record<string, unknown>,
+	existing: Record<string, Json>,
+) {
+	const { fields } = await listFields(workspaceId, objectKey, {
+		includeArchived: false,
+	});
+	const editable = fields.filter(
+		(f) => f.portalVisibility === "editable" && !f.unique,
+	);
+	const allowed = new Set(editable.map((f) => f.key));
+	for (const key of Object.keys(edits))
+		if (!allowed.has(key))
+			throw clientError(400, m.validation_custom_invalid({ field: key }));
+	// Only the fields sent change; one left out keeps its stored value, and
+	// an empty value clears it
+	const sent = editable.filter((f) => Object.hasOwn(edits, f.key));
+	const { values, errors } = validateCustomValues(sent, edits);
+	const firstError = Object.values(errors)[0];
+	if (firstError) throw clientError(400, firstError);
+	const result: Record<string, Json> = { ...existing };
+	for (const def of sent) {
+		if (Object.hasOwn(values, def.key))
+			result[def.key] = values[def.key] as Json;
+		else delete result[def.key];
 	}
 	return result;
 }

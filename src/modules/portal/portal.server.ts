@@ -25,11 +25,22 @@ import {
 	project,
 	quote,
 } from "#/db/schema";
+import { getWorkspaceSettings } from "#/lib/billing.server";
 import { sendPortalLinkEmail } from "#/lib/email";
+import {
+	customChanges,
+	listFields,
+	prepareEditableCustom,
+} from "#/modules/fields/fields.server";
 import { m } from "#/paraglide/messages.js";
-import { type Actor, eventInsert } from "#/platform/events.server";
+import {
+	type Actor,
+	changedFields,
+	eventInsert,
+} from "#/platform/events.server";
 import { uuidv7 } from "#/platform/ids";
-import { PORTAL_LIMITS } from "./schema";
+import type { Json } from "#/platform/json";
+import { PORTAL_LIMITS, type PortalProfileInput } from "./schema";
 
 // Server-only data layer for the customer portal (spec §8). Two levels of
 // isolation, always together: the workspace, found from the portal's slug,
@@ -774,4 +785,142 @@ export async function activeSessions(workspaceId: string, contactId: string) {
 			),
 		);
 	return n;
+}
+
+// --- Portal: the contact's profile ------------------------------------------
+
+// What the contact may see of a custom field, and its value (only fields
+// staff marked read-only or editable; never the others' values)
+export async function portalProfile(scope: PortalScope) {
+	const [[c], { groups, fields }, settings] = await Promise.all([
+		db
+			.select({
+				firstName: contact.firstName,
+				lastName: contact.lastName,
+				email: contact.email,
+				phone: contact.phone,
+				jobTitle: contact.jobTitle,
+				locale: contact.locale,
+				emailConsent: contact.emailConsent,
+				custom: contact.custom,
+			})
+			.from(contact)
+			.where(
+				and(
+					eq(contact.id, scope.contactId),
+					eq(contact.workspaceId, scope.workspaceId),
+				),
+			)
+			.limit(1),
+		listFields(scope.workspaceId, "contact", { includeArchived: false }),
+		getWorkspaceSettings(scope.workspaceId),
+	]);
+	if (!c) throw clientError(401, m.error_portal_signed_out());
+	const visible = fields.filter((f) => f.portalVisibility !== "hidden");
+	const custom: Record<string, Json> = {};
+	for (const f of visible)
+		if (Object.hasOwn(c.custom, f.key)) custom[f.key] = c.custom[f.key];
+	const { custom: _all, ...builtIn } = c;
+	const used = new Set(visible.map((f) => f.groupId));
+	return {
+		...builtIn,
+		custom,
+		fieldSet: {
+			groups: groups.filter((g) => used.has(g.id)),
+			fields: visible,
+			currency: settings.currency,
+		},
+	};
+}
+
+// Saved at once, as the contact's own change (owner decision): an
+// contact.updated event with source "portal" shows the old and new values
+export async function updatePortalProfile(
+	scope: PortalScope,
+	input: PortalProfileInput,
+) {
+	const [before] = await db
+		.select()
+		.from(contact)
+		.where(
+			and(
+				eq(contact.id, scope.contactId),
+				eq(contact.workspaceId, scope.workspaceId),
+				isNull(contact.archivedAt),
+			),
+		)
+		.limit(1);
+	if (!before) throw clientError(401, m.error_portal_signed_out());
+	const custom = await prepareEditableCustom(
+		scope.workspaceId,
+		"contact",
+		input.custom,
+		before.custom,
+	);
+	const consent = input.marketing ? "granted" : "revoked";
+	// Unknown stays unknown until the contact actually chooses
+	const consentChanged =
+		consent !== before.emailConsent &&
+		!(before.emailConsent === "unknown" && !input.marketing);
+	const values = {
+		firstName: input.firstName,
+		lastName: input.lastName || null,
+		phone: input.phone || null,
+		jobTitle: input.jobTitle || null,
+		...(input.locale ? { locale: input.locale } : {}),
+		...(consentChanged ? { emailConsent: consent } : {}),
+	};
+	const changes = {
+		...changedFields(before, values),
+		...customChanges(before.custom, custom),
+	};
+	if (!Object.keys(changes).length) return { changed: false };
+	const now = new Date();
+	const row = and(
+		eq(contact.id, scope.contactId),
+		eq(contact.workspaceId, scope.workspaceId),
+	);
+	try {
+		await db.batch([
+			// Still as read: a staff edit in between wins, and the contact is told
+			db.select({ id: contact.id }).from(contact).where(row).for("update"),
+			db
+				.select({
+					ok: sql<number>`1 / (case when floor(extract(epoch from ${contact.updatedAt}) * 1000) = ${before.updatedAt.getTime()} and ${contact.archivedAt} is null then 1 else 0 end)`,
+				})
+				.from(contact)
+				.where(row),
+			db
+				.update(contact)
+				.set({
+					...values,
+					...(consentChanged
+						? { emailConsentSource: "portal", emailConsentAt: now }
+						: {}),
+					custom,
+					updatedAt: now,
+				})
+				.where(
+					and(
+						eq(contact.id, scope.contactId),
+						eq(contact.workspaceId, scope.workspaceId),
+					),
+				),
+			eventInsert(
+				scope.workspaceId,
+				{ type: "contact", id: scope.contactId },
+				{
+					type: "contact.updated",
+					subjectType: "contact",
+					subjectId: scope.contactId,
+					payload: { changes, source: "portal" },
+				},
+			),
+		]);
+	} catch (error) {
+		if (errorCode(error) === "22012")
+			throw clientError(409, m.error_portal_profile_changed());
+		throw error;
+	}
+	return { changed: true };
 }

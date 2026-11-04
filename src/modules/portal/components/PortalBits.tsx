@@ -1,4 +1,4 @@
-import { useRouter } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import { LogOut } from "lucide-react";
 import type { ReactNode } from "react";
 import { ThemeToggle } from "#/components/Layout/ThemeToggle";
@@ -90,7 +90,26 @@ export function PortalShell({
 		<div className="min-h-svh bg-muted/40">
 			<header className="border-b bg-background">
 				<div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-					<p className="font-semibold">{workspaceName}</p>
+					<div className="flex flex-wrap items-center gap-4">
+						<p className="font-semibold">{workspaceName}</p>
+						<nav aria-label={m.portal_nav()} className="flex gap-3 text-sm">
+							<Link
+								to="/p/$slug"
+								params={{ slug }}
+								activeOptions={{ exact: true }}
+								className="text-muted-foreground hover:text-foreground data-[status=active]:font-medium data-[status=active]:text-foreground"
+							>
+								{m.portal_nav_home()}
+							</Link>
+							<Link
+								to="/p/$slug/profile"
+								params={{ slug }}
+								className="text-muted-foreground hover:text-foreground data-[status=active]:font-medium data-[status=active]:text-foreground"
+							>
+								{m.portal_nav_profile()}
+							</Link>
+						</nav>
+					</div>
 					<div className="flex flex-wrap items-center gap-2 text-sm">
 						<span className="text-muted-foreground">
 							{m.portal_signed_in_as({ name: contactName })}
