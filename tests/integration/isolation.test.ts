@@ -13,6 +13,7 @@ import {
 	note,
 	orderLine,
 	organization,
+	payment,
 	pipeline,
 	pipelineStage,
 	product,
@@ -30,6 +31,7 @@ import * as contacts from "#/modules/contacts/contacts.server";
 import * as deals from "#/modules/deals/deals.server";
 import * as invoices from "#/modules/invoices/invoices.server";
 import * as orders from "#/modules/orders/orders.server";
+import * as payments from "#/modules/payments/payments.server";
 import * as pipelines from "#/modules/pipelines/pipelines.server";
 import * as quotes from "#/modules/quotes/quotes.server";
 import * as records from "#/modules/records/records.server";
@@ -217,7 +219,41 @@ describe("database rules", () => {
 				},
 			],
 		});
-		await invoices.createInvoice(c.workspaceId, actor, { contactId: ana.id });
+		const inv = await invoices.createInvoice(c.workspaceId, actor, {
+			contactId: ana.id,
+		});
+		await invoices.updateInvoice(c.workspaceId, actor, {
+			id: inv.id,
+			contactId: ana.id,
+			companyId: "",
+			ownerId: "",
+			locale: "en",
+			taxRateBp: 0,
+			notes: "",
+			lines: [
+				{
+					productId: "",
+					description: "Line",
+					sku: "",
+					quantity: 1,
+					unitPriceCents: 100,
+				},
+			],
+		});
+		await invoices.issueInvoice(c.workspaceId, actor, inv.id);
+		await payments.recordPayment(
+			c.workspaceId,
+			actor,
+			{
+				invoiceId: inv.id,
+				amountCents: 50,
+				paidOn: new Date().toISOString().slice(0, 10),
+				method: "cash",
+				reference: "",
+				note: "",
+			},
+			true,
+		);
 
 		const phase1 = [
 			company,
@@ -235,6 +271,7 @@ describe("database rules", () => {
 			quote,
 			invoice,
 			orderLine,
+			payment,
 		];
 		for (const table of phase1) {
 			const [{ n }] = await db

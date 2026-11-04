@@ -68,6 +68,7 @@ export function DraftEditor({
 	options,
 	fields,
 	onSave,
+	locked = false,
 }: {
 	title: string;
 	draft: {
@@ -91,6 +92,9 @@ export function DraftEditor({
 	};
 	fields: RecordFields;
 	onSave: (values: DraftValues) => Promise<void>;
+	// A draft that comes from an order: its contact, company, tax and lines are
+	// the order's and show read-only
+	locked?: boolean;
 }) {
 	const [contact, setContact] = useState<{
 		id: string;
@@ -212,29 +216,37 @@ export function DraftEditor({
 					<FormAlert variant="success" message={m.quote_saved()} />
 				) : null}
 				<div className="grid gap-4 md:grid-cols-2">
-					<div className="space-y-2">
-						<Label htmlFor="draft-contact">{m.deal_contact()}</Label>
-						<ContactPicker
-							id="draft-contact"
-							value={contact}
-							invalid={!contact}
-							onChange={(c) => {
-								setContact(c);
-								if (c?.companyId && !companyId) setCompanyId(c.companyId);
-							}}
-						/>
-					</div>
-					<OptionSelect
-						id="draft-company"
-						label={m.contact_company()}
-						value={companyId}
-						emptyLabel={m.common_none()}
-						onChange={setCompanyId}
-						options={options.companies.map((c) => ({
-							value: c.id,
-							label: c.name,
-						}))}
-					/>
+					{locked ? (
+						<p className="text-sm text-muted-foreground md:col-span-2">
+							{m.document_locked_to_order({ name: draft.contactName })}
+						</p>
+					) : (
+						<>
+							<div className="space-y-2">
+								<Label htmlFor="draft-contact">{m.deal_contact()}</Label>
+								<ContactPicker
+									id="draft-contact"
+									value={contact}
+									invalid={!contact}
+									onChange={(c) => {
+										setContact(c);
+										if (c?.companyId && !companyId) setCompanyId(c.companyId);
+									}}
+								/>
+							</div>
+							<OptionSelect
+								id="draft-company"
+								label={m.contact_company()}
+								value={companyId}
+								emptyLabel={m.common_none()}
+								onChange={setCompanyId}
+								options={options.companies.map((c) => ({
+									value: c.id,
+									label: c.name,
+								}))}
+							/>
+						</>
+					)}
 					<OptionSelect
 						id="draft-owner"
 						label={m.common_owner()}
@@ -261,6 +273,7 @@ export function DraftEditor({
 						<Input
 							id="draft-tax"
 							inputMode="decimal"
+							disabled={locked}
 							value={tax}
 							aria-invalid={taxBp === null || undefined}
 							onChange={(e) => setTax(e.target.value)}
@@ -279,7 +292,7 @@ export function DraftEditor({
 					) : null}
 				</div>
 
-				<fieldset className="space-y-3">
+				<fieldset className="space-y-3" disabled={locked} hidden={locked}>
 					<legend className="text-sm font-semibold">{m.quote_lines()}</legend>
 					<ol className="space-y-3">
 						{lines.map((l, i) => (

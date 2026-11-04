@@ -390,9 +390,8 @@ export const invoice = pgTable(
 		workspaceId: text("workspace_id")
 			.notNull()
 			.references(() => organization.id, { onDelete: "cascade" }),
-		orderId: text("order_id").references(() => salesOrder.id, {
-			onDelete: "restrict",
-		}),
+		// No action (see payment.invoice_id): an order with invoices can't be deleted
+		orderId: text("order_id").references(() => salesOrder.id),
 		contactId: text("contact_id")
 			.notNull()
 			.references(() => contact.id),
@@ -405,7 +404,7 @@ export const invoice = pgTable(
 		}),
 		year: integer("year"),
 		number: integer("number"),
-		// draft | issued | void (paid and partially_paid arrive with payments)
+		// draft | issued | partially_paid | paid | void
 		status: text("status").notNull().default("draft"),
 		locale: text("locale").notNull().default("en"),
 		issueDate: timestamp("issue_date"),
@@ -418,6 +417,8 @@ export const invoice = pgTable(
 		subtotalCents: integer("subtotal_cents").notNull(),
 		taxCents: integer("tax_cents").notNull(),
 		totalCents: integer("total_cents").notNull(),
+		// Sum of confirmed payments, kept in the same batch as each payment change
+		paidCents: integer("paid_cents").notNull().default(0),
 		notes: text("notes"),
 		custom: jsonb("custom").$type<Record<string, Json>>().notNull().default({}),
 		archivedAt: timestamp("archived_at"),
@@ -469,6 +470,50 @@ export const invoiceLine = pgTable(
 			t.invoiceId,
 			t.position,
 		),
+	],
+);
+
+// A payment against an issued invoice (spec §6.2). Recorded by staff (an
+// owner's or admin's is confirmed at once, an editor's waits as reported) or,
+// from phase 4, reported by the customer in the portal. Only confirmed
+// payments count towards the invoice's balance. Receipts: phase 3 (files).
+export const payment = pgTable(
+	"payment",
+	{
+		id: text("id").primaryKey(),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
+		// No action, not restrict: still blocks deleting an invoice with payments,
+		// but is checked after a workspace's cascade has removed both
+		invoiceId: text("invoice_id")
+			.notNull()
+			.references(() => invoice.id),
+		amountCents: integer("amount_cents").notNull(),
+		// All-day date the money was paid, stored at 12:00 UTC
+		paidOn: timestamp("paid_on").notNull(),
+		// bank_transfer | cash | card | other
+		method: text("method").notNull(),
+		reference: text("reference"),
+		note: text("note"),
+		// reported | confirmed | rejected
+		status: text("status").notNull().default("reported"),
+		// staff | portal
+		source: text("source").notNull().default("staff"),
+		recordedById: text("recorded_by_id").references(() => user.id, {
+			onDelete: "set null",
+		}),
+		decidedById: text("decided_by_id").references(() => user.id, {
+			onDelete: "set null",
+		}),
+		decidedAt: timestamp("decided_at"),
+		rejectReason: text("reject_reason"),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+		updatedAt: timestamp("updated_at").notNull().defaultNow(),
+	},
+	(t) => [
+		index("payment_invoice_idx").on(t.workspaceId, t.invoiceId, t.paidOn),
+		index("payment_workspace_status_idx").on(t.workspaceId, t.status),
 	],
 );
 
